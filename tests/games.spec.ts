@@ -131,6 +131,28 @@ test('Lane Rush: lane clamps at both edges and traffic stays within world bounds
   }
 });
 
+test('Lane Rush: a parked player near-misses, then crashes, then restarts cleanly', async ({
+  page
+}) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await openGame(page, 'Lane Rush', 'lane-rush');
+  await page.waitForFunction(() => (window.__ARCADE__!.getState().score as number) > 0, undefined, {
+    timeout: 10_000
+  });
+  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === true, undefined, {
+    timeout: 10_000
+  });
+  await page.keyboard.press(' ');
+  await page.waitForFunction(() => {
+    const state = window.__ARCADE__!.getState();
+    return state.isGameOver === false && state.score === 0;
+  });
+  expect(errors).toEqual([]);
+});
+
 test('Circuit Stack: DOWN soft-drops, UP rotates the piece, and locking fills the grid', async ({
   page
 }) => {
