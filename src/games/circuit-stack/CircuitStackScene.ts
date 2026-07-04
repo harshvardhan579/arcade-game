@@ -34,6 +34,9 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
         );
       }
     }
-    this.hud.setText(`Score ${state.score}  Cells ${state.occupied}  Next ${state.nextPiece}`);
+  }
+
+  protected override hudExtra(state: CircuitStackState): string {
+    return `Next ${state.nextPiece}`;
   }
 }

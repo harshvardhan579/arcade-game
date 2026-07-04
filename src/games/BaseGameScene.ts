@@ -71,6 +71,10 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
 
   protected abstract draw(state: TState, width: number, height: number): void;
 
+  protected hudExtra(_state: TState): string {
+    return '';
+  }
+
   private renderState(state: TState): void {
     const width = this.scale.width;
     const height = this.scale.height;
@@ -78,13 +82,14 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     this.graphics.fillStyle(0x071114, 1);
     this.graphics.fillRect(0, 0, width, height);
     this.draw(state, width, height);
+    const extra = this.hudExtra(state);
     const phase = state.isGameOver
-      ? ' GAME OVER - press Space'
+      ? '  GAME OVER - press Space'
       : state.phase === 'won'
-        ? ' CLEARED'
+        ? '  CLEARED - press Space'
         : '';
     this.hud.setText(
-      `Score ${state.score}  High ${this.scores.highScore}  Tick ${state.tick}${phase}`
+      `Score ${state.score}  High ${this.scores.highScore}${extra ? `  ${extra}` : ''}${phase}`
     );
   }
 }

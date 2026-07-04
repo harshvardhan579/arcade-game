@@ -25,6 +25,9 @@ export class LaneRushScene extends BaseGameScene<LaneRushState> {
     for (const car of state.traffic) {
       this.graphics.fillRoundedRect(laneX(car.lane) - 24, toY(car.y) - 35, 48, 70, 8);
     }
-    this.hud.setText(`Score ${state.score}  Speed ${state.speed}`);
+  }
+
+  protected override hudExtra(state: LaneRushState): string {
+    return `Speed ${state.speed}`;
   }
 }

@@ -138,6 +138,64 @@ test('Circuit Stack: DOWN soft-drops, UP rotates the piece, and locking fills th
   expect((await snapshot(page)).occupied as number).toBeGreaterThanOrEqual(4);
 });
 
+test('Neon Serpent: obstacle collision ends the run without errors and Space restarts', async ({
+  page
+}) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await openGame(page, 'Neon Serpent', 'neon-serpent');
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(() => {
+    const state = window.__ARCADE__!.getState();
+    return state.score === 0 && state.headY === 12 && state.isGameOver === false;
+  });
+  await page.keyboard.press('ArrowUp');
+
+  let over = false;
+  for (let attempt = 0; attempt < 4 && !over; attempt += 1) {
+    await page.waitForFunction(
+      () => {
+        const state = window.__ARCADE__!.getState();
+        return state.headY === 6 || state.isGameOver === true;
+      },
+      undefined,
+      { timeout: 10_000 }
+    );
+    await page.keyboard.press('ArrowLeft');
+    over = await page
+      .waitForFunction(() => window.__ARCADE__!.getState().isGameOver === true, undefined, {
+        timeout: 4_000
+      })
+      .then(() => true)
+      .catch(() => false);
+    if (!over) await page.keyboard.press('ArrowUp');
+  }
+  expect(over, 'steering left along row 6 must hit the obstacle at (4,6)').toBe(true);
+
+  await page.keyboard.press(' ');
+  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === false);
+  expect(errors).toEqual([]);
+});
+
+test('Neon Serpent honors reduced motion without breaking play', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  const before = await snapshot(page);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction(
+    (tick) => (window.__ARCADE__!.getState().tick as number) > tick,
+    before.tick as number
+  );
+  expect(errors).toEqual([]);
+});
+
 test('Neon Serpent: heading up wraps the head through the top portal', async ({ page }) => {
   await openGame(page, 'Neon Serpent', 'neon-serpent');
   await page.getByRole('button', { name: 'Restart' }).click();

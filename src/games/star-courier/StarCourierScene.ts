@@ -28,6 +28,9 @@ export class StarCourierScene extends BaseGameScene<StarCourierState> {
       this.graphics.fillRect(toX(projectile.x) - 2.5, toY(projectile.y) - 9, 5, 18);
     this.graphics.fillStyle(0xff7557, 1);
     for (const enemy of state.enemies) this.graphics.fillCircle(toX(enemy.x), toY(enemy.y), 13);
-    this.hud.setText(`Score ${state.score}  Wave ${state.wave}  Pool ${state.poolSize}`);
+  }
+
+  protected override hudExtra(state: StarCourierState): string {
+    return `Wave ${state.wave}`;
   }
 }
