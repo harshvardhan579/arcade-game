@@ -24,7 +24,16 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
       }
     }
     this.graphics.fillStyle(0xff4fd8, 1);
-    this.graphics.fillCircle(ox + state.pieceX * cell, oy + state.pieceY * cell, cell * 0.35);
+    for (const block of state.pieceCells) {
+      if (block.y >= 0) {
+        this.graphics.fillRect(
+          ox + block.x * cell + 2,
+          oy + block.y * cell + 2,
+          cell - 4,
+          cell - 4
+        );
+      }
+    }
     this.hud.setText(`Score ${state.score}  Cells ${state.occupied}  Next ${state.nextPiece}`);
   }
 }

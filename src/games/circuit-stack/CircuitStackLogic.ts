@@ -33,6 +33,7 @@ export interface CircuitStackState extends GameSnapshot {
   occupied: number;
   pieceX: number;
   pieceY: number;
+  pieceCells: ReadonlyArray<{ readonly x: number; readonly y: number }>;
   nextPiece: number;
 }
 
@@ -99,6 +100,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
       occupied: this.grid.flat().filter(Boolean).length,
       pieceX: this.x,
       pieceY: this.y,
+      pieceCells: this.piece.map((cell) => ({ x: this.x + cell.x, y: this.y + cell.y })),
       nextPiece: this.next
     };
   }
