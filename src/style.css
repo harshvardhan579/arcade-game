@@ -95,6 +95,13 @@ h2 {
   text-transform: uppercase;
 }
 
+.controls-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
 .game-card {
   width: 100%;
   display: grid;

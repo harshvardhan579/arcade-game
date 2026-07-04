@@ -13,6 +13,7 @@ import { markSelectedGame } from './ui/GameSelector';
 const games: GameDefinition[] = [
   {
     id: 'neon-serpent',
+    controls: 'Arrows steer · Space restarts',
     title: 'Neon Serpent',
     subtitle: 'Portal snake with combo decay',
     sceneKey: 'neon-serpent',
@@ -21,6 +22,7 @@ const games: GameDefinition[] = [
   },
   {
     id: 'bounce-circuit',
+    controls: '← → move · ↑ jump · Space restarts',
     title: 'Bounce Circuit',
     subtitle: 'Precision key-and-door platforming',
     sceneKey: 'bounce-circuit',
@@ -29,6 +31,7 @@ const games: GameDefinition[] = [
   },
   {
     id: 'star-courier',
+    controls: '← → move · Space fires',
     title: 'Star Courier',
     subtitle: 'Vertical shooter with object pools',
     sceneKey: 'star-courier',
@@ -37,6 +40,7 @@ const games: GameDefinition[] = [
   },
   {
     id: 'lane-rush',
+    controls: '← → change lanes',
     title: 'Lane Rush',
     subtitle: 'Three-lane near-miss racer',
     sceneKey: 'lane-rush',
@@ -45,6 +49,7 @@ const games: GameDefinition[] = [
   },
   {
     id: 'circuit-stack',
+    controls: '← → move · ↑ rotate · ↓ drop',
     title: 'Circuit Stack',
     subtitle: 'Falling-block scoring puzzle',
     sceneKey: 'circuit-stack',

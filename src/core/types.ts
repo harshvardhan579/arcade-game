@@ -35,6 +35,7 @@ export interface GameDefinition {
   id: string;
   title: string;
   subtitle: string;
+  controls: string;
   sceneKey: string;
   aspectRatio: number;
   orientation: 'portrait' | 'landscape' | 'square';
