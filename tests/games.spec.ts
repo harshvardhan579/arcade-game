@@ -54,6 +54,46 @@ test('Bounce Circuit: jump rises and lands, spike ends the run, ACTION restarts'
   expect(restarted.score).toBe(0);
 });
 
+test('Bounce Circuit: jumping the spike, grabbing the key, and reaching the door wins', async ({
+  page
+}) => {
+  test.setTimeout(40_000);
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await openGame(page, 'Bounce Circuit', 'bounce-circuit');
+  let finished = false;
+  for (let i = 0; i < 80 && !finished; i += 1) {
+    const state = await snapshot(page);
+    const phase = state.phase as string;
+    if (phase === 'won' || state.isGameOver === true) {
+      finished = true;
+      break;
+    }
+    const x = state.playerX as number;
+    const y = state.playerY as number;
+    if (y === 0 && x >= 2.8 && x < 4) await page.keyboard.press('ArrowUp');
+    if (!(y > 0 && x >= 5)) await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(
+      (tick) => (window.__ARCADE__!.getState().tick as number) > tick,
+      state.tick as number
+    );
+  }
+  await page.waitForFunction(() => window.__ARCADE__!.getState().phase === 'won', undefined, {
+    timeout: 5_000
+  });
+  const won = await snapshot(page);
+  expect(won.score).toBe(100);
+  expect(won.hasKey).toBe(true);
+  await page.keyboard.press(' ');
+  await page.waitForFunction(() => {
+    const state = window.__ARCADE__!.getState();
+    return state.phase === 'playing' && state.score === 0;
+  });
+  expect(errors).toEqual([]);
+});
+
 test('Star Courier: ACTION fires a projectile and playerX clamps at the left edge', async ({
   page
 }) => {
