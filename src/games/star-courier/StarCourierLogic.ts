@@ -69,6 +69,7 @@ export class StarCourierLogic implements GameLogic<StarCourierState> {
       if (enemy.active) {
         enemy.y += 0.08 + this.wave * 0.015;
         if (enemy.y > 11.5) this.gameOver = true;
+        if (Math.abs(enemy.x - this.playerX) < 0.8 && enemy.y > 10.3) this.gameOver = true;
       }
     }
     this.resolveCollisions();

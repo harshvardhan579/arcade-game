@@ -60,6 +60,40 @@ describe('StarCourierLogic', () => {
     expect(logic.getState().projectiles).not.toContainEqual({ x: 99, y: 99 });
   });
 
+  it('ends the run when an enemy reaches the ship in the same column', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(9);
+    // Seed 9's first enemy spawns in column 2; park the ship there.
+    logic.handleInput('LEFT');
+    logic.handleInput('LEFT');
+    logic.handleInput('LEFT');
+    expect(logic.getState().playerX).toBe(2);
+    for (let i = 0; i < 400 && !logic.getState().isGameOver; i += 1) logic.step();
+    const state = logic.getState();
+    expect(state.isGameOver).toBe(true);
+    const collided = state.enemies.some(
+      (enemy) => Math.abs(enemy.x - 2) < 0.8 && enemy.y > 10.3 && enemy.y < 11.5
+    );
+    expect(collided, 'game must end by ship collision, not bottom-crossing').toBe(true);
+  });
+
+  it('does not collide with an enemy one full column away', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(9);
+    // First enemy is in column 2; park the ship in column 3 (distance 1.0 >= 0.8).
+    logic.handleInput('LEFT');
+    logic.handleInput('LEFT');
+    expect(logic.getState().playerX).toBe(3);
+    for (let i = 0; i < 400; i += 1) {
+      const state = logic.getState();
+      const first = state.enemies[0];
+      if (first && first.y > 11.2) break;
+      if (state.isGameOver) break;
+      logic.step();
+    }
+    expect(logic.getState().isGameOver).toBe(false);
+  });
+
   it('scales waves deterministically', () => {
     const run = () => {
       const logic = new StarCourierLogic();
