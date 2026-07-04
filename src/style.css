@@ -115,6 +115,19 @@ h2 {
   box-shadow: inset 3px 0 0 var(--cyan);
 }
 
+.game-card .card-high {
+  color: var(--yellow);
+  letter-spacing: 0.04em;
+}
+
+.game-card:focus-visible,
+.touch-button:focus-visible,
+.restart-button:focus-visible,
+.mobile-game-select:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
 .stage {
   min-width: 0;
   display: grid;

@@ -33,6 +33,19 @@ test('high score starts at zero, persists across reload, and survives restart', 
   expect(restarted.highScore).toBe(777);
 });
 
+test('selector cards show persisted high scores after reload', async ({ page, viewport }) => {
+  test.skip(
+    Boolean(viewport && viewport.width < 900),
+    'selector is intentionally hidden on mobile'
+  );
+  const card = page.locator('.game-card[data-game-id="neon-serpent"] .card-high');
+  await expect(card).toHaveText('High —');
+  await page.evaluate(() => window.localStorage.setItem('pocket-arcade:neon-serpent:high', '777'));
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  await expect(card).toHaveText('High 777');
+});
+
 test('real Lane Rush gameplay persists a high score to storage', async ({ page, viewport }) => {
   test.skip(
     Boolean(viewport && viewport.width < 900),
@@ -51,4 +64,7 @@ test('real Lane Rush gameplay persists a high score to storage', async ({ page, 
   expect(observed.bridgeHigh).toBeGreaterThan(0);
   expect(observed.stored).toBeGreaterThan(0);
   expect(observed.stored).toBeGreaterThanOrEqual(Number(observed.score));
+  await expect(page.locator('.game-card[data-game-id="lane-rush"] .card-high')).toHaveText(
+    /High \d+/
+  );
 });
