@@ -156,6 +156,10 @@ test('Lane Rush: a parked player near-misses, then crashes, then restarts cleanl
 test('Circuit Stack: DOWN soft-drops, UP rotates the piece, and locking fills the grid', async ({
   page
 }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
   await openGame(page, 'Circuit Stack', 'circuit-stack');
   const before = await snapshot(page);
   await page.keyboard.press('ArrowDown');
@@ -196,6 +200,7 @@ test('Circuit Stack: DOWN soft-drops, UP rotates the piece, and locking fills th
     { timeout: 5_000 }
   );
   expect((await snapshot(page)).occupied as number).toBeGreaterThanOrEqual(4);
+  expect(errors).toEqual([]);
 });
 
 test('Neon Serpent: obstacle collision ends the run without errors and Space restarts', async ({

@@ -8,7 +8,7 @@ import {
 
 type Piece = Point[];
 
-const pieces: Piece[] = [
+export const circuitPieces: ReadonlyArray<ReadonlyArray<Point>> = [
   [
     { x: 0, y: 0 },
     { x: 1, y: 0 },
@@ -43,7 +43,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
   readonly height = 14;
   grid: number[][] = [];
   private rng = new SeededRandom(14);
-  private piece: Piece = pieces[0] as Piece;
+  private piece: Piece = circuitPieces[0] as Piece;
   private next = 1;
   private x = 4;
   private y = 0;
@@ -60,7 +60,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
     this.grid = Array.from({ length: this.height }, () =>
       Array.from({ length: this.width }, () => 0)
     );
-    this.next = this.rng.integer(pieces.length);
+    this.next = this.rng.integer(circuitPieces.length);
     this.score = 0;
     this.tick = 0;
     this.gameOver = false;
@@ -106,8 +106,8 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
   }
 
   private spawnPiece(): void {
-    this.piece = (pieces[this.next] as Piece).map((p) => ({ ...p }));
-    this.next = this.rng.integer(pieces.length);
+    this.piece = (circuitPieces[this.next] as Piece).map((p) => ({ ...p }));
+    this.next = this.rng.integer(circuitPieces.length);
     this.x = 4;
     this.y = 0;
     if (this.collides(this.piece, this.x, this.y)) this.gameOver = true;

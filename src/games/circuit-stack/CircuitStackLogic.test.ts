@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { CircuitStackLogic } from './CircuitStackLogic';
+import { CircuitStackLogic, circuitPieces } from './CircuitStackLogic';
 
 describe('CircuitStackLogic', () => {
+  it('exposes four-cell piece shapes and a valid nextPiece index for previews', () => {
+    expect(circuitPieces.length).toBeGreaterThan(0);
+    for (const shape of circuitPieces) expect(shape).toHaveLength(4);
+    const logic = new CircuitStackLogic(9);
+    const state = logic.getState();
+    expect(state.nextPiece).toBeGreaterThanOrEqual(0);
+    expect(state.nextPiece).toBeLessThan(circuitPieces.length);
+  });
+
   it('scores simultaneous multi-row clears', () => {
     const logic = new CircuitStackLogic(1);
     logic.grid[12] = Array.from({ length: logic.width }, () => 1);
