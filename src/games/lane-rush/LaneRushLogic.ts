@@ -13,6 +13,7 @@ interface Traffic {
 
 export interface LaneRushState extends GameSnapshot {
   lane: number;
+  traffic: ReadonlyArray<{ readonly lane: number; readonly y: number; readonly scored: boolean }>;
   trafficCount: number;
   speed: number;
 }
@@ -65,13 +66,15 @@ export class LaneRushLogic implements GameLogic<LaneRushState> {
   }
 
   getState(): LaneRushState {
+    const traffic = this.traffic.map((car) => ({ lane: car.lane, y: car.y, scored: car.scored }));
     return {
       score: this.score,
       isGameOver: this.gameOver,
       tick: this.tick,
       phase: this.gameOver ? 'game-over' : 'playing',
       lane: this.lane,
-      trafficCount: this.traffic.length,
+      traffic,
+      trafficCount: traffic.length,
       speed: Number(this.speed.toFixed(3))
     };
   }

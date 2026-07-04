@@ -1,23 +1,22 @@
 # Next Run
 
-## Last iteration (2026-07-04)
+## Last iteration (2026-07-04, iteration 2)
 
-**Slice: Phase 1 — Star Courier truth/render fix.**
+**Slice: Phase 1 — Lane Rush truth/render fix.**
 
-- `src/core/types.ts`: widened `GameSnapshot` index signature to a recursive JSON-serializable `SnapshotValue` (numbers/strings/booleans plus readonly arrays/objects) so snapshots can carry entity positions.
-- `src/games/star-courier/StarCourierLogic.ts`: `getState()` now exposes `projectiles` and `enemies` as fresh position arrays (`{x, y}` of active pool entries); counts are derived from them.
-- `src/games/star-courier/StarCourierScene.ts`: draws player, projectiles, and enemies from real logic positions via a shared world→pixel mapping (x lanes 0–10 centered, y 0–11.5 with 11.5 = player line) instead of count-based synthetic layouts.
-- `src/games/star-courier/StarCourierLogic.test.ts`: 3 new contract tests — projectile spawns at player column/y=9 and travels up; enemies spawn in bounds and descend deterministically; snapshot is JSON-serializable and detached from internal pools.
+- `src/games/lane-rush/LaneRushLogic.ts`: `getState()` now exposes `traffic` as a fresh array of `{lane, y, scored}` per car; `trafficCount` derived from it.
+- `src/games/lane-rush/LaneRushScene.ts`: draws each car at its real lane/y via a world→pixel mapping calibrated so a same-lane car visually overlaps the player rect exactly when the logic collision window (y ∈ 8.8–10.2, player center ≈ 9.6 → pixel `height - 66`) fires. Spawn y=-1 is offscreen top; removal y=12 exits through the bottom.
+- `src/games/lane-rush/LaneRushLogic.test.ts`: 3 new contract tests — spawn appears in a valid lane just above the screen and advances by `speed` per step; identical seeds produce identical traffic snapshots; snapshot is JSON-serializable and detached.
 
-**Validation:** `npx vitest run src/games/star-courier` 6/6 ✓; full `npm run validate` ✓ (build + tsc, 25 vitest tests, eslint + import boundary + prettier, Playwright 4 passed / 2 intentionally skipped). Nothing failing.
+**Validation:** `npx vitest run src/games/lane-rush` 6/6 ✓; full `npm run validate` ✓ (build + tsc, 28 vitest tests, eslint + import boundary + prettier, Playwright 4 passed / 2 intentionally skipped). Nothing failing.
 
-**Bundle baseline:** dist/assets/index-*.js 1,220.31 kB raw / 326.46 kB gzip (single chunk; known Phase 7 debt).
+**Bundle baseline:** dist/assets/index-\*.js ~1,220 kB raw / ~326 kB gzip (single chunk; known Phase 7 debt, unchanged).
 
 ## Phase status
 
-- Phase 1: Star Courier ✅ · **Lane Rush ⬜ (next)** · Circuit Stack ⬜
+- Phase 1: Star Courier ✅ (`73ca32c`) · Lane Rush ✅ · **Circuit Stack ⬜ (next)**
 - Phases 2–7: not started.
 
 ## Next highest-leverage task
 
-**Phase 1 — Lane Rush truth/render fix.** `LaneRushScene.draw` renders `state.trafficCount` cars at synthetic positions `((i%3)+0.5)*laneWidth, 120+i*86`. Check `LaneRushLogic.ts` for the real traffic pool (lane + y per car), expose it in the snapshot as a position array (pattern now established in `StarCourierState` / `SnapshotValue`), render from it, and add contract tests mirroring the Star Courier ones (spawn in a valid lane, descend/advance deterministically, snapshot serializable + detached). After Lane Rush: Circuit Stack (piece is drawn as a single circle at `pieceX/pieceY`; must render the actual piece cells/rotation from logic truth).
+**Phase 1 — Circuit Stack truth/render fix.** `CircuitStackScene.draw` renders the falling piece as a single circle at `state.pieceX/pieceY` and reads `this.logic.grid` directly. Check `CircuitStackLogic.ts` for the actual piece shape/rotation cells; expose the piece's occupied cells (and ideally the grid) in the snapshot as serializable arrays (pattern established in `StarCourierState`/`LaneRushState` via `SnapshotValue`), render the real piece cells instead of a circle, and add contract tests (piece cells within grid bounds, rotation changes exposed cells deterministically, snapshot serializable + detached). That completes Phase 1; then Phase 2 (wire `ScoreManager` high scores into gameplay + bridge + HUD with a Playwright persistence test).
