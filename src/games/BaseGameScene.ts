@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { AudioEngine } from '../core/AudioEngine';
+import { ScoreManager } from '../core/ScoreManager';
 import { publishBridge, updateBridgeSnapshot } from '../core/TestBridge';
 import { prefersReducedMotion } from '../core/Viewport';
 import type { GameLogic, GameSnapshot, SemanticInput } from '../core/types';
@@ -12,6 +13,7 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
   protected accumulator = 0;
   protected stepMs = 120;
   protected reducedMotion = false;
+  protected scores!: ScoreManager;
   private readonly audio = new AudioEngine();
   private readonly onInput = (event: Event) => {
     const input = (event as CustomEvent<SemanticInput>).detail;
@@ -29,6 +31,7 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
 
   create(): void {
     this.reducedMotion = prefersReducedMotion();
+    this.scores = new ScoreManager(this.scene.key);
     this.audio.attachUnlockListeners();
     this.graphics = this.add.graphics();
     this.hud = this.add.text(18, 16, '', {
@@ -38,7 +41,10 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     });
     window.addEventListener('arcade-semantic-input', this.onInput);
     window.addEventListener('arcade-restart', this.onRestart);
-    publishBridge(this.scene.key, () => this.logic.getState());
+    publishBridge(this.scene.key, () => ({
+      ...this.logic.getState(),
+      highScore: this.scores.highScore
+    }));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('arcade-semantic-input', this.onInput);
       window.removeEventListener('arcade-restart', this.onRestart);
@@ -58,7 +64,8 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
       if (next.isGameOver && !before.isGameOver) this.audio.play('hit');
     }
     const latest = this.logic.getState();
-    updateBridgeSnapshot(latest);
+    this.scores.record(latest.score);
+    updateBridgeSnapshot({ ...latest, highScore: this.scores.highScore });
     this.renderState(latest);
   }
 
@@ -76,6 +83,8 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
       : state.phase === 'won'
         ? ' CLEARED'
         : '';
-    this.hud.setText(`Score ${state.score}  Tick ${state.tick}${phase}`);
+    this.hud.setText(
+      `Score ${state.score}  High ${this.scores.highScore}  Tick ${state.tick}${phase}`
+    );
   }
 }
