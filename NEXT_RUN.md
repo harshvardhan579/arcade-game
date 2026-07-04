@@ -1,26 +1,35 @@
 # Next Run
 
-## Last iteration (2026-07-04, iteration 4)
+## Last iteration (2026-07-04, iteration 5)
 
-**Slice: Phase 2 — high-score persistence wired into real gameplay. Phase 2 complete.**
+**Slice: Phase 3 — AudioEngine safe singleton. Phase 3 complete.**
 
-- `src/core/ScoreManager.ts`: refitted as a persistence observer — `record(score)` persists the max to `pocket-arcade:<gameId>:high` with an in-memory cache (no per-frame localStorage reads). Removed the unused streak/multiplier `add()` path, which would have double-scored logic points; combo/multiplier display belongs in logic truth when Phase 5 needs it.
-- `src/games/BaseGameScene.ts`: creates a `ScoreManager` per scene key in `create()`, calls `record(latest.score)` every update, and publishes `highScore` in both the live bridge `getState()` and `updateBridgeSnapshot`. HUD now shows `Score X  High Y  Tick Z`.
-- `tests/highscore.spec.ts`: new e2e spec — (1) fresh storage → `highScore` 0; seeded 777 → survives reload and Restart; (2) desktop-only: real Lane Rush play scores a deterministic near-miss (seed 12's first car spawns lane 0 vs player lane 1) and the value lands in the bridge and localStorage. Setup clears `pocket-arcade:*` keys for isolation.
+- `src/core/AudioEngine.ts`: exported a module-level `audioEngine` singleton; `attachUnlockListeners()` is now idempotent (guards on already-attached or already-unlocked), so repeated scene `create()` calls cannot stack window listeners or spawn extra AudioContexts.
+- `src/games/BaseGameScene.ts`: all scenes share the `audioEngine` singleton instead of constructing private engines.
+- `src/main.ts`: `audio: { noAudio: true }` in the Phaser config — the app synthesizes all audio through its own engine, and Phaser's unused SoundManager was creating a second AudioContext.
+- `tests/audio.spec.ts`: new e2e test instruments `window.addEventListener`/`removeEventListener` and wraps the `AudioContext` constructor, cycles all five games, then asserts unlock listener counts do not grow, at most one AudioContext exists, and no console errors fire. **Verified discriminating:** fails against the old per-scene-engine code (2+ contexts), passes with the fix.
 
-**Validation:** build + tsc ✓, 31 vitest ✓, lint ✓, Playwright 7 passed / 3 intentionally skipped ✓. Nothing failing.
+**Validation:** build + tsc ✓, 31 vitest ✓, lint ✓, Playwright 8 passed / 4 intentionally skipped ✓. Nothing failing.
 
 **Bundle baseline:** ~1,220 kB raw / ~326 kB gzip single chunk (Phase 7 debt, unchanged).
 
 ## Phase status
 
-- Phase 1 ✅ (`73ca32c`, `e6f659b`, `b8d1056`) · Phase 2 ✅ (this commit)
-- **Phase 3 ⬜ (next):** AudioEngine lifecycle. Phases 4–7 not started.
+- Phase 1 ✅ (`73ca32c`, `e6f659b`, `b8d1056`) · Phase 2 ✅ (`6639c6d`) · Phase 3 ✅ (this commit)
+- **Phase 4 ⬜ (next):** deep per-game Playwright interaction tests. Phases 5–7 not started.
 
 ## Notable observation for Phase 5
 
-`BaseGameScene.renderState` sets the HUD **after** calling `draw()`, so the per-game HUD strings set inside `StarCourierScene`/`LaneRushScene`/`CircuitStackScene.draw()` (Wave/Pool, Speed, Cells/Next) are overwritten every frame and never visible — dead code today. Fold per-game HUD info into a proper HUD design during Phase 5 (scoring clarity).
+`BaseGameScene.renderState` sets the HUD **after** `draw()`, so per-game HUD strings set inside `StarCourierScene`/`LaneRushScene`/`CircuitStackScene.draw()` (Wave/Pool, Speed, Cells/Next) are overwritten every frame — dead code. Fold per-game HUD info into the HUD design during Phase 5.
 
 ## Next highest-leverage task
 
-**Phase 3 — AudioEngine lifecycle fix.** `src/core/AudioEngine.ts` + `src/games/BaseGameScene.ts:15` (`private readonly audio = new AudioEngine()`): every scene instance owns an AudioEngine, and `attachUnlockListeners()` (called in every `create()`) adds three window listeners that are only removed if unlock fires — scene switches accumulate listeners and can create multiple AudioContexts. Preferred fix: convert AudioEngine to a module-level singleton (`export const audioEngine`) with idempotent `attachUnlockListeners()` (attach once), or remove listeners on scene SHUTDOWN. Keep import boundary intact (`AudioEngine` name is a restricted token for `*Logic.ts`/`*.test.ts` — scenes are fine). Verify: no `console.error` in e2e; add a Playwright assertion that switching through all five games doesn't throw and (via a counter or singleton check) doesn't stack unlock listeners; do not assert audio output.
+**Phase 4 — deep per-game interaction tests.** Every game needs at least one Playwright test beyond smoke: semantic input → observable bridge-state change, game-over reachable, restart resets. Suggested spec `tests/games.spec.ts`, driving input via keyboard (desktop project) after selecting each game:
+
+- **Neon Serpent:** already partly covered in smoke (direction change, restart, snakeLength) — extend with game-over via wall/self collision if reachable deterministically, else skip.
+- **Bounce Circuit:** UP jump changes playerY in bridge state; check win/game-over fields exposed (read BounceCircuitLogic first — not yet inspected by the loop).
+- **Star Courier:** ACTION fires → `projectiles.length` grows in snapshot; LEFT/RIGHT clamp `playerX` to 0..10.
+- **Lane Rush:** LEFT/RIGHT clamp `lane` to 0..2; traffic array populates within ~2s.
+- **Circuit Stack:** UP rotates (pieceCells transform), DOWN soft-drops (`pieceY` increases), `occupied` grows after a lock.
+
+Use `waitForFunction` on bridge state only, no fixed sleeps; keep each game's test under ~15s. Positions/cells are already exposed in snapshots from Phase 1 — assert render-contract truth (entities within world bounds) while at it.

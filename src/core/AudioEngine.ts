@@ -10,13 +10,17 @@ const cueMap: Record<Cue, { frequency: number; duration: number; type: Oscillato
 export class AudioEngine {
   private context: AudioContext | null = null;
   private unlocked = false;
+  private listenersAttached = false;
 
   attachUnlockListeners(): void {
+    if (this.listenersAttached || this.unlocked) return;
+    this.listenersAttached = true;
     const unlock = () => {
       void this.ensureContext();
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
       window.removeEventListener('touchstart', unlock);
+      this.listenersAttached = false;
     };
     window.addEventListener('pointerdown', unlock, { passive: true });
     window.addEventListener('keydown', unlock);
@@ -64,3 +68,5 @@ declare global {
     webkitAudioContext?: typeof AudioContext;
   }
 }
+
+export const audioEngine = new AudioEngine();

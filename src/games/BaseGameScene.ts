@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { AudioEngine } from '../core/AudioEngine';
+import { audioEngine } from '../core/AudioEngine';
 import { ScoreManager } from '../core/ScoreManager';
 import { publishBridge, updateBridgeSnapshot } from '../core/TestBridge';
 import { prefersReducedMotion } from '../core/Viewport';
@@ -14,7 +14,7 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
   protected stepMs = 120;
   protected reducedMotion = false;
   protected scores!: ScoreManager;
-  private readonly audio = new AudioEngine();
+  private readonly audio = audioEngine;
   private readonly onInput = (event: Event) => {
     const input = (event as CustomEvent<SemanticInput>).detail;
     const before = this.logic.getState();

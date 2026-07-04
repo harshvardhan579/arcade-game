@@ -67,6 +67,7 @@ const game = new Phaser.Game({
   height: gameRoot.clientHeight || 640,
   backgroundColor: '#071114',
   banner: false,
+  audio: { noAudio: true },
   render: {
     pixelArt: true,
     antialias: false
