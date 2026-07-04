@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Pocket Arcade Code Review And Capability Inventory</title>
+<style>
+  @page { size: Letter; margin: 0.58in 0.56in 0.72in; }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #1f2c30; font: 10.2px/1.42 Arial, Helvetica, sans-serif; }
+  .cover { text-align: center; padding: 0.28in 0 0.12in; border-bottom: 3px solid #4dffe1; margin-bottom: 16px; }
+  h1 { margin: 0 0 7px; font-size: 26px; line-height: 1.1; color: #071114; }
+  .subtitle { color: #51666b; font-size: 10.5px; margin: 0 0 10px; }
+  h2 { color: #0e2026; font-size: 16px; margin: 18px 0 8px; break-after: avoid; }
+  h3 { color: #0b1b20; font-size: 11px; margin: 0 0 3px; }
+  p { margin: 0 0 7px; }
+  .lede { font-size: 11px; }
+  table { width: 100%; border-collapse: collapse; margin: 7px 0 12px; break-inside: avoid; }
+  th, td { border: 1px solid #c9d8db; padding: 6px 7px; vertical-align: top; }
+  th { background: #e9f7f5; color: #071114; text-align: left; font-weight: 700; }
+  tr:nth-child(even) td { background: #f8fbfb; }
+  .finding { display: grid; grid-template-columns: 0.8in 1fr; gap: 8px; border: 1px solid #c9d8db; padding: 8px; margin: 0 0 8px; break-inside: avoid; }
+  .badge { color: white; text-align: center; font-weight: 700; border-radius: 4px; padding: 4px 2px; align-self: start; font-size: 9px; }
+  .high .badge { background: #c23b22; }
+  .medium .badge { background: #b7791f; }
+  .low .badge { background: #2f6f73; }
+  .refs { color: #51666b; font-size: 8.7px; margin-bottom: 5px; }
+  ul { margin: 4px 0 12px 18px; padding: 0; }
+  li { margin: 0 0 4px; }
+  .small { color: #51666b; font-size: 8.8px; }
+  footer { position: fixed; left: 0; right: 0; bottom: -0.47in; border-top: 1px solid #d7e5e7; padding-top: 6px; color: #51666b; font-size: 8px; display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+<footer><span>Pocket Arcade code review and capability inventory</span><span>Generated July 4, 2026</span></footer>
+<section class="cover">
+  <h1>Pocket Arcade</h1>
+  <p class="subtitle">Code Review And Capability Inventory - generated July 4, 2026</p>
+</section>
+<p class="lede">Scope reviewed: Vite/TypeScript/Phaser app, five game logic engines, Phaser scene renderers, shared input/audio/storage/test bridge systems, unit tests, smoke tests, and validation scripts.</p>
+<p class="lede">Overall status: the project builds, unit tests pass, lint/import-boundary/format checks pass, and Playwright smoke tests pass after allowing the local Vite server to bind 127.0.0.1:4173. The architecture is clean for an MVP arcade, but several scenes currently under-render the richer logic state, which makes those games less playable than their logic modules suggest.</p>
+
+<h2>Validation Results</h2>
+<table><thead><tr><th style="width:20%">Check</th><th style="width:12%">Result</th><th>Notes</th></tr></thead><tbody><tr><td>npm run build</td><td>Pass</td><td>TypeScript no-emit succeeded and Vite produced a production build. Vite warned that the JS chunk is 1,220.31 kB minified / 326.46 kB gzip, above the 500 kB warning threshold.</td></tr><tr><td>npm run test</td><td>Pass</td><td>5 Vitest files passed; 22 tests passed.</td></tr><tr><td>npm run lint</td><td>Pass</td><td>ESLint, custom import-boundary script, and Prettier check passed. Import boundary covered 10 logic/test files.</td></tr><tr><td>npm run test:e2e</td><td>Pass</td><td>4 Playwright smoke tests passed and 2 viewport-specific tests were skipped as intended. Initial sandbox run failed with EPERM while binding 127.0.0.1:4173; rerun with local-server permission passed.</td></tr></tbody></table>
+
+<h2>Findings</h2>
+
+  <section class="finding high">
+    <div class="badge">High</div>
+    <div>
+      <h3>Several games simulate real entity positions but render only counts or placeholders.</h3>
+      <p class="refs">src/games/star-courier/StarCourierLogic.ts:60-72, 90-116; src/games/star-courier/StarCourierScene.ts:28-33; src/games/lane-rush/LaneRushLogic.ts:55-63, 79-85; src/games/lane-rush/LaneRushScene.ts:27-30; src/games/circuit-stack/CircuitStackScene.ts:26-27</p>
+      <p><strong>Impact:</strong> Star Courier tracks projectile/enemy x-y positions and collision state, Lane Rush tracks traffic lane/y/scored state, and Circuit Stack tracks piece cells. The scenes do not expose or draw those actual positions. Players see aggregate/projected graphics that can diverge from collision truth, so these modes are technically running but not fully readable or fair as games.</p>
+      <p><strong>Recommendation:</strong> Expose render-safe entity arrays or richer snapshots from each logic module, then draw live projectiles, enemies, traffic cars, and the full active falling piece. Add a Playwright or logic-render contract test that checks rendered objects correspond to snapshot state.</p>
+    </div>
+  </section>
+
+  <section class="finding medium">
+    <div class="badge">Medium</div>
+    <div>
+      <h3>High-score persistence exists as a helper but is not wired into gameplay.</h3>
+      <p class="refs">src/core/ScoreManager.ts:3-42; repo search shows no imports of ScoreManager outside its own file</p>
+      <p><strong>Impact:</strong> The README architecture says ScoreManager and Storage handle high-score persistence, and the helper does implement localStorage-backed high scores. Current games maintain private score fields and never instantiate ScoreManager, so users will not actually keep high scores between sessions.</p>
+      <p><strong>Recommendation:</strong> Either integrate ScoreManager into BaseGameScene or each logic engine, or revise the docs until the feature is connected. Add tests for high-score save/read behavior with a localStorage mock.</p>
+    </div>
+  </section>
+
+  <section class="finding medium">
+    <div class="badge">Medium</div>
+    <div>
+      <h3>Audio unlock listeners can accumulate when switching scenes before the first user gesture.</h3>
+      <p class="refs">src/games/BaseGameScene.ts:15, 30-45; src/core/AudioEngine.ts:8-24</p>
+      <p><strong>Impact:</strong> Each scene owns an AudioEngine and calls attachUnlockListeners during create. BaseGameScene removes semantic input and restart listeners on shutdown, but AudioEngine has no teardown API for its pre-unlock pointer/key/touch listeners. Repeated game switching before an unlock can leave multiple pending global listeners.</p>
+      <p><strong>Recommendation:</strong> Return a cleanup function from attachUnlockListeners or add an AudioEngine.detachUnlockListeners method and call it in the scene shutdown handler. A singleton shared audio service would also fit the app shell.</p>
+    </div>
+  </section>
+
+  <section class="finding low">
+    <div class="badge">Low</div>
+    <div>
+      <h3>Browser smoke tests prove load and switching, but not visual correctness or per-game interaction depth.</h3>
+      <p class="refs">tests/smoke.spec.ts:26-76</p>
+      <p><strong>Impact:</strong> The E2E suite confirms the shell loads, Neon Serpent responds, selectors work, and mobile controls are visible. It would not catch the under-rendered Star Courier, Lane Rush, or Circuit Stack states because it only asserts canvas visibility when switching games.</p>
+      <p><strong>Recommendation:</strong> Add one interaction smoke test per game that asserts meaningful state changes through window.__ARCADE__, and consider canvas screenshot or pixel checks for hazards/projectiles/pieces once render snapshots are exposed.</p>
+    </div>
+  </section>
+
+  <section class="finding low">
+    <div class="badge">Low</div>
+    <div>
+      <h3>Production bundle is functional but large for a small arcade shell.</h3>
+      <p class="refs">npm run build output; README Current Limitations</p>
+      <p><strong>Impact:</strong> The single JS chunk is over Vite/Rolldown warning thresholds because Phaser and all scenes ship together. This is acceptable for an MVP but can slow first load on mobile networks.</p>
+      <p><strong>Recommendation:</strong> Split game scenes with dynamic imports or tune bundling once the MVP behavior stabilizes.</p>
+    </div>
+  </section>
+
+<h2>What The Current Code Can Do</h2>
+<p>The app currently delivers a responsive, zero-external-asset browser arcade shell with five selectable Phaser games. It uses procedural graphics, synthesized WebAudio cues after a user gesture, keyboard and virtual touch controls, deterministic TypeScript logic engines, and test bridge snapshots for browser tests.</p>
+<table><thead><tr><th style="width:23%">Area</th><th>Current capability</th></tr></thead><tbody><tr><td>Application shell</td><td>Creates a three-panel desktop layout and compact mobile layout; starts Neon Serpent by default; lets users switch among five games; exposes a restart button and mobile game picker.</td></tr><tr><td>Input</td><td>Maps arrow/WASD keys, Space/Enter action, Escape/P pause, and touch D-pad buttons into semantic arcade input events.</td></tr><tr><td>Rendering</td><td>Uses Phaser Canvas with pixel-art settings, responsive resize scaling, and procedural Graphics primitives. No image, font, audio, or sprite-sheet downloads are required.</td></tr><tr><td>Audio</td><td>Synthesizes select, score, hit, and game-over cues with WebAudio oscillators after unlock.</td></tr><tr><td>Testing architecture</td><td>Logic engines are deterministic and framework-free. TestBridge exposes window.__ARCADE__.getState() for Playwright assertions. A custom import-boundary script guards logic/test files from Phaser, DOM, localStorage, and audio dependencies.</td></tr><tr><td>Persistence</td><td>SafeStorage and ScoreManager can persist numeric high scores to localStorage, but the running games do not currently use them.</td></tr></tbody></table>
+
+<h2>Game Capability Inventory</h2>
+<table><thead><tr><th style="width:18%">Game</th><th style="width:46%">Implemented mechanics</th><th>Current presentation status</th></tr></thead><tbody><tr><td>Neon Serpent</td><td>Grid snake on an 18 x 24 board; portal wrapping; food spawning away from occupied cells; combo multiplier; combo decay; speed ramp; obstacle growth; self/obstacle collision; restart.</td><td>Most complete slice. Scene draws grid, food, obstacles, full snake body, score, length, and multiplier.</td></tr><tr><td>Bounce Circuit</td><td>Single-screen platformer physics; left/right movement; jump; spike hazard; key pickup; locked door; win and game-over phases; restart.</td><td>Playable MVP. Scene draws ground, spike, key, door, and player.</td></tr><tr><td>Star Courier</td><td>Vertical shooter logic with fixed projectile/enemy pools, player lane movement, firing, enemy spawn cadence, wave scaling, projectile/enemy collision, and game over when enemies pass the player.</td><td>Logic is richer than rendering. Scene draws player correctly but projectiles/enemies are placeholder rows based on active counts, not actual positions.</td></tr><tr><td>Lane Rush</td><td>Three-lane racer logic; lane clamping; deterministic traffic spawning; speed ramp; collision band; near-miss scoring.</td><td>Logic is richer than rendering. Scene draws the player lane but traffic cars are placeholders from trafficCount, not the actual lane/y hazards.</td></tr><tr><td>Circuit Stack</td><td>Falling-block puzzle logic; 8 x 14 grid; deterministic next pieces; horizontal movement; soft drop; rotation with simple wall kick; row clearing; score table; spawn-blocked game over.</td><td>Grid and locked cells render, but the active piece is shown as one circle at the origin instead of its full current shape.</td></tr></tbody></table>
+
+<h2>Strengths</h2>
+<ul><li>Clear separation between pure game logic and Phaser scene rendering. This makes unit tests fast and readable.</li><li>Good validation discipline for an MVP: build, unit tests, lint, custom architecture guard, formatting, and browser smoke tests all exist and pass.</li><li>The app is honest about zero assets and uses procedural drawing/audio throughout.</li><li>Responsive shell covers desktop and mobile interaction paths, with viewport-specific Playwright coverage.</li><li>Deterministic seeded randomness gives the games repeatable behavior for testing and debugging.</li></ul>
+
+<h2>Suggested Next Steps</h2>
+<ul><li>Make snapshots/render contracts richer for Star Courier, Lane Rush, and Circuit Stack, then draw the actual live entities.</li><li>Wire ScoreManager into the scoring path or remove the claim until persistence is user-visible.</li><li>Add AudioEngine teardown or move audio to an app-level singleton.</li><li>Expand E2E to exercise every game, not just switching and Neon Serpent movement.</li><li>Consider scene-level code splitting after gameplay fidelity is improved.</li></ul>
+
+<h2>Reviewed Files</h2>
+<p class="small">Primary files reviewed include package.json, README.md, src/main.ts, src/style.css, src/core/*, src/ui/*, all five game Logic/Scene/Test files, tests/smoke.spec.ts, vite.config.ts, playwright.config.ts, eslint.config.js, tsconfig.json, and scripts/import-boundary.mjs.</p>
+</body>
+</html>

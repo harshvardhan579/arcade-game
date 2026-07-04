@@ -1,0 +1,17 @@
+{
+  "root": true,
+  "extends": [],
+  "overrides": [
+    {
+      "files": ["src/**/*Logic.ts", "src/**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": ["phaser", "../../core/AudioEngine", "../core/AudioEngine"]
+          }
+        ]
+      }
+    }
+  ]
+}
