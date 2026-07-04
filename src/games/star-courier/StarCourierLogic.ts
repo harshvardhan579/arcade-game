@@ -13,6 +13,8 @@ interface Entity {
 
 export interface StarCourierState extends GameSnapshot {
   playerX: number;
+  projectiles: ReadonlyArray<{ readonly x: number; readonly y: number }>;
+  enemies: ReadonlyArray<{ readonly x: number; readonly y: number }>;
   activeProjectiles: number;
   activeEnemies: number;
   poolSize: number;
@@ -74,14 +76,18 @@ export class StarCourierLogic implements GameLogic<StarCourierState> {
   }
 
   getState(): StarCourierState {
+    const projectiles = this.projectiles.filter((p) => p.active).map((p) => ({ x: p.x, y: p.y }));
+    const enemies = this.enemies.filter((e) => e.active).map((e) => ({ x: e.x, y: e.y }));
     return {
       score: this.score,
       isGameOver: this.gameOver,
       tick: this.tick,
       phase: this.gameOver ? 'game-over' : 'playing',
       playerX: this.playerX,
-      activeProjectiles: this.projectiles.filter((p) => p.active).length,
-      activeEnemies: this.enemies.filter((e) => e.active).length,
+      projectiles,
+      enemies,
+      activeProjectiles: projectiles.length,
+      activeEnemies: enemies.length,
       poolSize: this.projectiles.length + this.enemies.length,
       wave: this.wave
     };

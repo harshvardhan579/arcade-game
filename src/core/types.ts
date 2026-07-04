@@ -2,12 +2,20 @@ export type SemanticInput = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' | 'ACTION' | 'PAUSE
 
 export type GamePhase = 'ready' | 'playing' | 'won' | 'game-over';
 
+export type SnapshotValue =
+  | number
+  | string
+  | boolean
+  | undefined
+  | readonly SnapshotValue[]
+  | { readonly [key: string]: SnapshotValue };
+
 export interface GameSnapshot {
   score: number;
   isGameOver: boolean;
   tick: number;
   phase?: GamePhase;
-  [key: string]: number | string | boolean | undefined;
+  [key: string]: SnapshotValue;
 }
 
 export interface GameLogic<TState extends GameSnapshot = GameSnapshot> {
