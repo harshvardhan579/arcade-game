@@ -1,30 +1,27 @@
 # Next Run
 
-## Last iteration (2026-07-04, iteration 14)
+## Last iteration (2026-07-04, iteration 15)
 
-**Slice: Phase 6.2 — per-game control instructions.**
+**Slice: Phase 6.3 — cabinet identity (CSS-only). Phase 6 complete.**
 
-- `src/core/types.ts`: `GameDefinition` gains a required `controls` string.
-- `src/main.ts`: controls line per game (e.g. Star Courier "← → move · Space fires", Circuit Stack "← → move · ↑ rotate · ↓ drop").
-- `src/ui/ArcadeShell.ts`: a compact `.controls-hint` line under the title shows the active game's controls, initialized to the boot game and updated on every `arcade-select-game` (fires from both desktop cards and the mobile picker).
-- `src/style.css`: muted, small hint styling.
-- `tests/shell.spec.ts` (new): desktop — hint follows card clicks across three games; mobile — hint follows the picker AND `.touch-controls` remains in the first viewport (guards the no-scroll constraint against the extra topbar line).
+- `src/style.css`: `.game-root` now reads as a cabinet screen — cyan outer glow + inner vignette (`box-shadow` pair) and a static CRT scanline overlay (`::after` with `repeating-linear-gradient`, `pointer-events: none`, `z-index` above the canvas). No animation added, so nothing new to gate for reduced motion (static decoration, no churn). Interaction polish: `:active` translateY on cards/touch buttons/Restart, touch-button pressed background, Restart hover brightness, eyebrow letter-spacing.
+- **Visually verified via screenshots** (desktop 1440×900 + mobile 390×844, captured with a temporary Playwright spec, since deleted): scanlines and glow render subtly; three-column desktop layout intact; mobile keeps canvas + full d-pad in the first viewport; cards show high scores; controls hint present. Screenshots were session-scratchpad artifacts (ephemeral) — rerun `npm run dev` to eyeball.
 
-**Validation:** build + tsc ✓, 34 vitest ✓, lint ✓, e2e 21 passed / 17 intentionally skipped ✓.
+**Validation:** build + tsc ✓, 34 vitest ✓, lint ✓, e2e 21 passed / 17 intentionally skipped ✓ (includes the mobile `toBeInViewport` guard and all no-console-error assertions with the overlay active).
 
-**Bundle baseline:** ~1,220 kB raw / ~326 kB gzip single chunk (Phase 7 debt, unchanged).
+**Bundle baseline:** ~1,220 kB raw / ~326 kB gzip single chunk — Phase 7 starts now.
 
 ## Phase status
 
-- Phases 1–5 ✅ · Phase 6: high scores in shell ✅ (`b90966e`), instructions ✅ (this commit)
-- **Phase 6 remaining:** cabinet identity polish (CSS-only). Phase 7 ⬜ after that.
+- Phases 1–6 ✅ complete. Phase 6 commits: `b90966e`, `1ea0c26`, this commit.
+- **Phase 7 ⬜ (next, final phase):** bundle/performance.
 
 ## Next highest-leverage task
 
-**Phase 6.3 — arcade cabinet identity (CSS-only, final Phase 6 slice).** Scoped, reversible, zero-asset:
+**Phase 7 — bundle split.** Current: one 1,220 kB raw / 326 kB gzip chunk (Phaser + app together). Plan:
 
-1. `.game-root` bezel treatment: layered `box-shadow` glow (cyan at low alpha) + a subtle CSS scanline overlay via `repeating-linear-gradient` on a `::after` pseudo-element (`pointer-events: none`); gate any animation (e.g. slow flicker) behind `@media (prefers-reduced-motion: no-preference)` — static overlay is fine for reduced motion.
-2. Card/topbar polish: consistent `:active` states (slight translateY), Restart button hover, `.eyebrow` letter-spacing bump.
-3. Keep radii small and cards compact per design constraints; do not add nested cards.
+1. In `vite.config.ts`, configure manual chunks to isolate Phaser into a vendor chunk. Vite 8 is rolldown-based — the build warning earlier mentioned `build.rolldownOptions.output.codeSplitting`; check whether `build.rollupOptions.output.manualChunks` still works (compat) or the rolldown equivalent is needed. Verify against the actual Vite 8 config surface before committing to an approach.
+2. Dynamic-import the five scene classes in `src/main.ts` (`await Promise.all([...import(...)])` before `new Phaser.Game`, or register scenes lazily via `game.scene.add`) so each game's scene+logic code splits per game. Phaser's `scene:` config array needs classes up front — the simplest correct split is: keep scenes eagerly imported but split _Phaser itself_ into a vendor chunk (browser caches it separately); per-scene lazy loading is a stretch goal only if the scene registry can be made async without breaking `startGame`/TestBridge timing (smoke test waits for the bridge — would still pass if boot completes async).
+3. Re-run `npm run validate` and record before/after raw+gzip in NEXT_RUN.md. Success = no behavior change, all 21 e2e still green, and the main app chunk drops to a few kB with Phaser cached separately. Do not chase further perf work beyond this without measurements; per-frame allocation audit was kept in check throughout Phase 5 (fresh arrays per getState are bounded by entity counts ≤ ~30).
 
-Validation: visual change only — rely on the full e2e suite (no console errors, mobile first-viewport test from `tests/shell.spec.ts`, `toBeInViewport` guard) and describe what to check by eye in NEXT_RUN. After that: **Phase 7 — bundle/perf**: dynamic-import game scenes from `main.ts` (scene registry becomes lazy), `build.rolldownOptions` `manualChunks` (note: Vite 8 uses rolldown — check the exact option name) to keep Phaser in a vendor chunk, re-run `npm run validate`, and record before/after gzip (baseline: 1,220.31 kB raw / 326.46 kB gzip single chunk).
+After Phase 7: all seven phases complete — do a final wrap-up iteration (full validate, update README "Current Limitations" which still claims games are untuned MVPs and the bundle is unsplit, close out NEXT_RUN.md with a session summary, and stop the loop).

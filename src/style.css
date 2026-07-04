@@ -92,6 +92,7 @@ h2 {
 .eyebrow {
   margin-bottom: 4px;
   font-size: 0.78rem;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -133,6 +134,23 @@ h2 {
 .mobile-game-select:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 2px;
+}
+
+.game-card:active,
+.touch-button:active {
+  transform: translateY(1px);
+}
+
+.touch-button:active {
+  background: #16414c;
+}
+
+.restart-button:hover {
+  filter: brightness(1.12);
+}
+
+.restart-button:active {
+  transform: translateY(1px);
 }
 
 .stage {
@@ -181,6 +199,7 @@ h2 {
 }
 
 .game-root {
+  position: relative;
   width: min(100%, calc((100vh - 150px) * var(--game-aspect)));
   min-height: 480px;
   max-height: calc(100vh - 150px);
@@ -190,7 +209,26 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #071114;
+  box-shadow:
+    0 0 26px rgba(77, 255, 225, 0.13),
+    inset 0 0 46px rgba(0, 0, 0, 0.45);
   touch-action: none;
+}
+
+.game-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(2, 8, 10, 0.14) 0,
+    rgba(2, 8, 10, 0.14) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 
 .game-root canvas {
