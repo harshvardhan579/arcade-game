@@ -72,6 +72,44 @@ test('Star Courier: ACTION fires a projectile and playerX clamps at the left edg
   }
 });
 
+test('Star Courier: killing the first enemy scores and an unchecked wave ends the run', async ({
+  page
+}) => {
+  test.setTimeout(45_000);
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await openGame(page, 'Star Courier', 'star-courier');
+  await page.waitForFunction(
+    () => (window.__ARCADE__!.getState().enemies as Cell[]).length > 0,
+    undefined,
+    { timeout: 10_000 }
+  );
+  for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowLeft');
+  expect((await snapshot(page)).playerX, 'seed 9 spawns the first enemy in column 2').toBe(2);
+
+  let scored = false;
+  for (let i = 0; i < 6 && !scored; i += 1) {
+    await page.keyboard.press(' ');
+    scored = await page
+      .waitForFunction(() => (window.__ARCADE__!.getState().score as number) >= 15, undefined, {
+        timeout: 2_000
+      })
+      .then(() => true)
+      .catch(() => false);
+  }
+  expect(scored, 'shooting down the lane must destroy the enemy for 15 points').toBe(true);
+
+  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === true, undefined, {
+    timeout: 25_000
+  });
+  await page.keyboard.press(' ');
+  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === false);
+  expect((await snapshot(page)).score).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 test('Lane Rush: lane clamps at both edges and traffic stays within world bounds', async ({
   page
 }) => {

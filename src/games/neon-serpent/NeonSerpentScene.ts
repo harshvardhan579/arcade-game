@@ -1,8 +1,7 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { BaseGameScene } from '../BaseGameScene';
+import { createSparkEmitter, deathFeedback, smallShake } from '../effects';
 import { NeonSerpentLogic, type NeonSerpentState } from './NeonSerpentLogic';
-
-const SPARK_TEXTURE = 'serpent-spark';
 
 export class NeonSerpentScene extends BaseGameScene<NeonSerpentState> {
   protected logic = new NeonSerpentLogic(7);
@@ -16,28 +15,10 @@ export class NeonSerpentScene extends BaseGameScene<NeonSerpentState> {
 
   create(): void {
     super.create();
-    if (!this.textures.exists(SPARK_TEXTURE)) {
-      const spark = this.add.graphics();
-      spark.fillStyle(0xffffff, 1);
-      spark.fillRect(0, 0, 5, 5);
-      spark.generateTexture(SPARK_TEXTURE, 5, 5);
-      spark.destroy();
-    }
-    this.sparks = this.add.particles(0, 0, SPARK_TEXTURE, {
-      speed: { min: 60, max: 170 },
-      lifespan: 320,
-      scale: { start: 1, end: 0 },
-      quantity: 12,
-      emitting: false,
-      tint: [0xff4fd8, 0x4dffe1]
-    });
+    this.sparks = createSparkEmitter(this, [0xff4fd8, 0x4dffe1]);
     const state = this.logic.getState();
     this.lastScore = state.score;
     this.lastGameOver = state.isGameOver;
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.sparks?.destroy();
-      this.sparks = undefined;
-    });
   }
 
   protected draw(state: NeonSerpentState, width: number, height: number): void {
@@ -106,11 +87,10 @@ export class NeonSerpentScene extends BaseGameScene<NeonSerpentState> {
     const died = state.isGameOver && !this.lastGameOver;
     if (ate && !this.reducedMotion) {
       this.sparks?.explode(12, ox + (state.headX + 0.5) * cell, oy + (state.headY + 0.5) * cell);
-      this.cameras.main.shake(80, 0.0035);
+      smallShake(this);
     }
     if (died && !this.reducedMotion) {
-      this.cameras.main.shake(180, 0.008);
-      this.cameras.main.flash(140, 255, 79, 100);
+      deathFeedback(this);
     }
     this.lastScore = state.score;
     this.lastGameOver = state.isGameOver;

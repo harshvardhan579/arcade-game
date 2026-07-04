@@ -1,25 +1,27 @@
 # Next Run
 
-## Last iteration (2026-07-04, iteration 7)
+## Last iteration (2026-07-04, iteration 8)
 
-**Slice: Phase 5.1 — HUD truth hook + Neon Serpent feel pass.**
+**Slice: Phase 5.2 — Star Courier feel pass + shared effects helper.**
 
-- `src/games/BaseGameScene.ts`: new `hudExtra(state)` hook composed into the HUD line (`Score X  High Y  <extra>  <phase>`); dropped developer-noise `Tick` and added "press Space" to the CLEARED state. This fixes the long-standing bug where per-game HUD strings set inside `draw()` were overwritten every frame.
-- `StarCourierScene`/`LaneRushScene`/`CircuitStackScene`: dead `hud.setText` calls converted to `hudExtra` overrides (Wave / Speed / Next) — per-game info is now actually visible.
-- `src/games/neon-serpent/NeonSerpentScene.ts`: feel pass, all procedural and `reducedMotion`-gated — particle burst (runtime-generated 5×5 spark texture, magenta/cyan tints) plus small camera shake on eating; strong shake + red camera flash on death; pulsing food; head glow outline. Transition detection compares score/game-over across frames inside `draw()` (world mapping in scope). Emitter destroyed on scene SHUTDOWN; texture generated once and reused.
-- `tests/games.spec.ts`: two new tests — deterministic obstacle death (restart → climb column → turn left along row 6 into the (4,6) obstacle, with retry loop; asserts death, Space restart, zero console errors, exercising the death-effect path) and a reduced-motion play check (`emulateMedia({ reducedMotion: 'reduce' })`, plays, zero console errors).
+- `src/games/effects.ts` (new, scene-side): shared spark texture (generated once, keyed `fx-spark`), `createSparkEmitter` (auto-destroys on scene SHUTDOWN), `smallShake`, `deathFeedback` (shake + red flash). Added to the ESLint Phaser allowlist explicitly (`eslint.config.js`) — a narrow presentation-layer extension; the logic import-boundary guard is untouched.
+- `src/games/neon-serpent/NeonSerpentScene.ts`: refactored onto the helper, behavior unchanged.
+- `src/games/star-courier/StarCourierScene.ts`: kill explosions at the destroyed enemy's true position (diffs the previous frame's enemy list against survivors), small shake on score, muzzle sparks when a projectile spawns, death shake + flash, and a drifting procedural starfield replacing the static hash lines (drift frozen under reduced motion). All effects `reducedMotion`-gated.
+- `tests/games.spec.ts`: new deterministic Star Courier run — first enemy (seed 9) spawns in column 2 at tick 31; player moves there, fires until the kill scores 15 (exercising the explosion path), then an unchecked enemy crosses the bottom for game over; Space restarts; zero console errors. Runs ~9s.
 
-**Validation:** build + tsc ✓, 31 vitest ✓, lint ✓, e2e 15 passed / 11 intentionally skipped ✓. Effects are presentation-only (no logic changes), verified via the no-console-error assertions along both eat/death and reduced-motion paths; visual quality itself is judged by eye — run `npm run dev` and eat/die in Neon Serpent to review.
-
-**Note:** `.claude/agents/game-feel-director.md` exists but custom agent types weren't registered in this session, so the feel audit was done inline. Future sessions may have them loaded.
+**Validation:** build + tsc ✓, 31 vitest ✓, lint ✓ (after adding effects.ts to the Phaser allowlist — first run correctly flagged it), e2e 16 passed / 12 intentionally skipped ✓.
 
 **Bundle baseline:** ~1,220 kB raw / ~326 kB gzip single chunk (Phase 7 debt, unchanged).
 
 ## Phase status
 
-- Phases 1–4 ✅ (`73ca32c`, `e6f659b`, `b8d1056`, `6639c6d`, `b68a57e`, `d18ce13`) · Phase 5 in progress: Neon Serpent ✅ (this commit)
-- **Phase 5 remaining:** Star Courier, Lane Rush, Circuit Stack, Bounce Circuit. Phases 6–7 not started.
+- Phases 1–4 ✅ · Phase 5 in progress: Neon Serpent ✅ (`aca742c`), Star Courier ✅ (this commit)
+- **Phase 5 remaining:** Lane Rush, Circuit Stack, Bounce Circuit. Phases 6–7 not started.
+
+## Design gap noticed (fairness, Phase 5 logic candidate)
+
+Star Courier has **no player–enemy collision** — enemies only end the run by crossing the bottom (`y > 11.5`). The ship is a ghost. Consider adding logic-side collision (enemy within ~0.8 of playerX at y ≥ 10.5 → game over) with a logic test, in a Star Courier follow-up or a dedicated fairness slice.
 
 ## Next highest-leverage task
 
-**Phase 5.2 — Star Courier feel pass.** Reuse the Neon Serpent pattern (transition detection in `draw()`, shared-texture particle emitter, SHUTDOWN cleanup, `reducedMotion` gates): explosion burst + small shake when score jumps (enemy kill — logic already scores +15 per kill), muzzle feedback on fire (projectile count grows), red flash + strong shake on death, subtle starfield drift instead of the static hash lines. Consider extracting a small `src/games/effects.ts` helper (spark texture + explode + shake/flash wrappers) now that a second game uses the pattern — keep it scene-side (Phaser allowed), never imported by logic. Validation: existing star-courier e2e + a death-path test if cheap (enemy reaching bottom at y>11.5 takes ~30s at wave 1 — probably too slow; if so, rely on eat-path-equivalent kill effects being exercised by firing at the deterministic first enemy spawn at tick 31, or explain the gap).
+**Phase 5.3 — Lane Rush feel pass.** Reuse `effects.ts`: near-miss spark + tiny shake when score jumps (the scored car is identifiable — `scored` flips true in the traffic array), crash feedback (`deathFeedback`) on game over, speed sensation via dashed lane lines scrolling with `state.speed` (drift frozen under reduced motion), subtle player-car bob. Transition detection pattern as in Star Courier (`lastScore`/`lastGameOver` + previous traffic array). Validation: existing lane-rush e2e already reaches scoring deterministically (near-miss at ~3.4s, seed 12) and the highscore spec covers it too; add crash-path coverage if cheap (a seed-12 car eventually spawns in the player's lane — check whether waiting for `isGameOver` with the player parked in lane 1 stays under ~15s before writing the test). Then Circuit Stack (lock thump + row-clear flash), then Bounce Circuit (jump/land squash + win celebration).
