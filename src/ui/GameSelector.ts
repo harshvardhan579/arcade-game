@@ -11,8 +11,9 @@ export function createGameSelector(games: readonly GameDefinition[]): HTMLElemen
   const wrap = document.createElement('section');
   wrap.className = 'panel selector';
   wrap.setAttribute('aria-label', 'Game selector');
-  const title = document.createElement('h2');
-  title.textContent = 'Pocket Arcade';
+  const title = document.createElement('p');
+  title.className = 'panel-label';
+  title.textContent = 'Games';
   wrap.append(title);
 
   for (const game of games) {

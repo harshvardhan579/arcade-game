@@ -18,6 +18,29 @@ test('desktop controls hint follows the selected game', async ({ page, viewport 
   await expect(hint).toHaveText('← → move · ↑ rotate · ↓ drop');
 });
 
+test('desktop fits without scrolling, hides touch controls, and brands once', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width < 900), 'desktop-only layout assertions');
+  for (const [width, height] of [
+    [1440, 900],
+    [1280, 800]
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+    await expect(page.locator('.touch-controls')).toBeHidden();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight
+    );
+    expect(overflow, `page must not scroll vertically at ${width}x${height}`).toBeLessThanOrEqual(
+      0
+    );
+    await expect(page.getByRole('heading', { name: 'Pocket Arcade' })).toHaveCount(1);
+  }
+});
+
 test('mobile controls hint follows the picker and keeps controls in view', async ({
   page,
   viewport

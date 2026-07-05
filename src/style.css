@@ -96,6 +96,15 @@ h2 {
   text-transform: uppercase;
 }
 
+.panel-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
 .controls-hint {
   margin: 4px 0 0;
   color: var(--muted);
@@ -290,6 +299,42 @@ h2 {
   *::after {
     animation-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (min-width: 900px) {
+  html,
+  body,
+  #app {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .arcade-shell {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  .stage {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .touch-controls {
+    display: none;
+  }
+
+  .game-root {
+    width: auto;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    max-width: 100%;
+    align-self: center;
+  }
+
+  .selector,
+  .case-study {
+    overflow-y: auto;
   }
 }
 
