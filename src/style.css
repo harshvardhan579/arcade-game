@@ -75,11 +75,15 @@ p {
 h1 {
   margin-bottom: 0;
   font-size: clamp(1.45rem, 2.2vw, 2.2rem);
-  letter-spacing: 0;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 20px rgba(77, 255, 225, 0.22);
+  text-wrap: balance;
 }
 
 h2 {
   font-size: 1rem;
+  text-wrap: balance;
 }
 
 .eyebrow,
@@ -222,6 +226,14 @@ h2 {
   border-radius: 8px;
   font-weight: 800;
   cursor: pointer;
+  transition:
+    filter 0.15s ease-out,
+    transform 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+}
+
+.restart-button:hover {
+  box-shadow: 0 0 18px rgba(77, 255, 225, 0.35);
 }
 
 .topbar-actions {
@@ -242,6 +254,8 @@ h2 {
   background: #102a31;
   border: 1px solid #2b636e;
   border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out;
 }
 
 .game-root {
@@ -382,6 +396,24 @@ h2 {
   .selector,
   .case-study {
     overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #1f4a53 transparent;
+  }
+
+  .selector::-webkit-scrollbar,
+  .case-study::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .selector::-webkit-scrollbar-thumb,
+  .case-study::-webkit-scrollbar-thumb {
+    background: #1f4a53;
+    border-radius: 4px;
+  }
+
+  .selector::-webkit-scrollbar-track,
+  .case-study::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
