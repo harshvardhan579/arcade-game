@@ -1,25 +1,34 @@
-# Next Run
+# Next Run — Session Complete
 
-## Last iteration (2026-07-04, iteration 16)
+## Final iteration (2026-07-04, iteration 17)
 
-**Slice: Phase 7 — bundle split. Phase 7 complete.**
+**Slice: docs refresh + smoke-flake root fix. The loop's goal is met; all seven phases are complete and validated.**
 
-- `vite.config.ts`: `build.rolldownOptions.output.codeSplitting.groups` isolates Phaser into its own chunk (verified against the installed rolldown types — `manualChunks`/`advancedChunks` are deprecated in this Vite 8/rolldown version; `codeSplitting` is the native option).
-- **Bundle before:** one chunk, 1,220.31 kB raw / 326.46 kB gzip. **After:** app `index-*.js` 28.65 kB raw / **9.18 kB gzip** + `phaser-*.js` 1,198.03 kB raw / 319.10 kB gzip, cacheable independently of app changes. The remaining >500 kB build warning is solely Phaser itself (pinned at 3.90.0 by design) — left visible on purpose rather than raising `chunkSizeWarningLimit`, so genuine app-chunk growth still warns.
-- **Production build verified end to end:** `vite preview` + headless Chromium — bridge publishes, input advances ticks, zero console/page errors (the e2e suite runs against the dev server, which doesn't exercise chunking, so this check was required).
+- `README.md`: Architecture, Validation, and Current Limitations sections updated to match reality (truth-based rendering, singleton audio, high-score events, deep e2e suites, split bundle).
+- `CLAUDE.md`: "Known Debts" replaced with post-overhaul invariants to preserve (scenes render truth, high-score event path, audio singleton, effects cleanup, bundle split).
+- `tests/smoke.spec.ts`: **root-caused the intermittent smoke failure** seen twice this session — the test waited exactly one tick after pressing ArrowDown before asserting `headY` changed, racing the keypress against the step that consumes it. Now waits for the observable effect (`headY` change) instead. Verified with `--repeat-each=5` across both projects (20/20) plus a green full validate.
 
-**Validation:** build + tsc ✓, 34 vitest ✓, lint ✓, e2e 21 passed / 17 intentionally skipped ✓, production preview boot check ✓.
+**Validation:** build + tsc ✓, 34 vitest ✓, lint ✓, e2e 21 passed / 17 intentionally skipped ✓.
 
-## Phase status — ALL SEVEN PHASES COMPLETE
+## Session summary (17 iterations, all committed green)
 
-1. ✅ Truth/render integrity (`73ca32c`, `e6f659b`, `b8d1056`)
-2. ✅ High-score persistence (`6639c6d`)
-3. ✅ AudioEngine singleton (`b68a57e`)
-4. ✅ Deep per-game e2e (`d18ce13`)
-5. ✅ Game feel × 5 + fairness (`aca742c`, `1d55ac6`, `dfa8099`, `21b3883`, `6177e6b`, `cace17c`)
-6. ✅ UI shell (`b90966e`, `1ea0c26`, `4357ccd`)
-7. ✅ Bundle split (this commit)
+| Phase             | Commits                                                     | Outcome                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Truth/render    | `73ca32c` `e6f659b` `b8d1056`                               | Star Courier, Lane Rush, Circuit Stack render real entity positions; snapshot contract tests                                            |
+| 2 High scores     | `6639c6d`                                                   | ScoreManager persists real gameplay maxima; bridge + HUD; e2e incl. deterministic live scoring                                          |
+| 3 Audio lifecycle | `b68a57e`                                                   | Singleton engine, idempotent unlock, Phaser SoundManager off; discriminating AudioContext-count e2e                                     |
+| 4 Deep e2e        | `d18ce13`                                                   | Interaction test per game via the bridge, waitForFunction-only                                                                          |
+| 5 Feel + fairness | `aca742c` `1d55ac6` `dfa8099` `21b3883` `6177e6b` `cace17c` | HUD truth hook, per-game juice (shared effects helper, reduced-motion gated), ship collision fairness; deterministic win/death e2e runs |
+| 6 UI shell        | `b90966e` `1ea0c26` `4357ccd`                               | High scores on cards (event-driven), controls hints, focus states, CRT cabinet treatment; screenshot-verified                           |
+| 7 Bundle          | `d5178c4`                                                   | Phaser vendor chunk: app 326 kB → **9.18 kB gzip**; production boot verified via vite preview                                           |
+| Wrap-up           | (this commit)                                               | Docs current; smoke race fixed at the root                                                                                              |
 
-## Next task (final)
+Vitest 22 → 34 tests; Playwright 6 → 38 tests (21 active per run). No guards weakened; the import boundary and console-error assertions held throughout.
 
-**Wrap-up iteration:** update `README.md` — the "Current Limitations" section is stale (claims the bundle is one chunk and the four non-Serpent games are untuned MVPs; both fixed) and the Architecture/Validation sections could mention the effects helper, high-score events, per-game e2e suites, and the vendor chunk. Update `CLAUDE.md`'s "Known Debts" section (all four entries are now resolved). Run full validate, commit, write a final session summary here, and stop the loop.
+## Possible future work (not started, in rough priority)
+
+1. Per-scene lazy loading (further bundle work) — scenes registered async; verify bridge timing in smoke.
+2. Mobile high-score surface (selector is hidden on mobile; only the in-canvas HUD shows it).
+3. Circuit Stack row-clear e2e (needs a faster path to a full row — e.g. a test-only seed/setup hook).
+4. Audio variety (per-game cue palettes) within the no-e2e-audio-assertion rule.
+5. Pause state (`PAUSE` semantic input is mapped but unused by any logic).

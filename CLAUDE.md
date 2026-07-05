@@ -79,9 +79,12 @@ Delegate via the agents in `.claude/agents/` when the task matches:
 
 The autonomous improvement loop lives in `.claude/loop.md`; it records progress in `NEXT_RUN.md`.
 
-## Known Debts (verified 2026-07-04)
+## Architecture Notes (updated 2026-07-04, post-overhaul)
 
-- **Truth/render mismatch:** `StarCourierScene`, `LaneRushScene`, and `CircuitStackScene` draw entities from counts at synthetic positions instead of real logic positions. Fixing this requires exposing entity positions in each game's state snapshot.
-- **High scores unwired:** `src/core/ScoreManager.ts` is implemented but imported by nothing; no scene or shell surface persists or displays high scores.
-- **AudioEngine lifecycle:** each scene constructs its own `AudioEngine` and `attachUnlockListeners()` adds window listeners on every `create()` that are only removed if unlock fires — leaked listeners and potential multiple AudioContexts across scene switches.
-- Phaser bundles into one production chunk; Vite warns about size. Optimize only after gameplay quality work is done.
+All debts from the initial audit are resolved; preserve these invariants:
+
+- **Scenes render truth:** every game's snapshot exposes real entity positions (`projectiles`/`enemies`, `traffic`, `pieceCells`, …) and scenes draw from them. Never regress to count-based synthetic layouts. Contract tests in each `*Logic.test.ts` pin positions, determinism, and snapshot detachment.
+- **High scores:** `ScoreManager.record()` persists per-game maxima, publishes `highScore` through the bridge/HUD, and dispatches `arcade-high-score` CustomEvents that `GameSelector` renders on cards. `tests/highscore.spec.ts` guards the full path including real gameplay.
+- **Audio:** `audioEngine` is a module singleton with idempotent unlock listeners; Phaser's SoundManager is disabled (`audio: { noAudio: true }`). `tests/audio.spec.ts` asserts at most one AudioContext and no listener growth across scene cycling.
+- **Effects:** shared scene-side helpers live in `src/games/effects.ts` (ESLint-allowlisted for Phaser); emitters self-destroy on scene SHUTDOWN; all decorative effects gate on `reducedMotion`.
+- **Bundle:** Phaser is split into a vendor chunk via `build.rolldownOptions.output.codeSplitting` in `vite.config.ts` (app ≈ 9 kB gzip, Phaser ≈ 319 kB gzip). The >500 kB warning refers to Phaser itself and is intentionally left visible.

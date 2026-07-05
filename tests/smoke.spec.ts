@@ -31,7 +31,10 @@ test('loads shell and Neon Serpent responds to keyboard', async ({ page }) => {
 
   const before = await bridgeState(page);
   await page.keyboard.press('ArrowDown');
-  await page.waitForFunction((tick) => window.__ARCADE__!.getState().tick > tick, before.tick);
+  await page.waitForFunction(
+    (headY) => window.__ARCADE__!.getState().headY !== headY,
+    before.headY
+  );
   const after = await bridgeState(page);
   expect(after.tick).toBeGreaterThan(before.tick);
   expect(after.headY).not.toBe(before.headY);

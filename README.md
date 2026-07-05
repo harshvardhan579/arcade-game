@@ -33,25 +33,27 @@ npm run test:e2e
 npm run validate
 ```
 
-`npm run validate` runs build, Vitest, ESLint/import-boundary/Prettier, and Playwright smoke tests in sequence. Playwright requires its Chromium browser cache; install it with `npx playwright install chromium` if prompted.
+`npm run validate` runs build, Vitest, ESLint/import-boundary/Prettier, and Playwright in sequence. Playwright requires its Chromium browser cache; install it with `npx playwright install chromium` if prompted.
+
+The Playwright suites go beyond smoke: every game has a deep interaction test (deterministic win/death runs, entity-bounds contracts), high-score persistence is verified against real gameplay and reloads, audio lifecycle is guarded by an AudioContext/listener-count instrumentation test, and the shell has controls-hint and mobile first-viewport assertions.
 
 ## Architecture
 
 Each game is split into:
 
-- A pure `*Logic.ts` engine with deterministic seeded randomness.
-- A Phaser `*Scene.ts` renderer that translates semantic input, draws procedural shapes, plays synthesized audio cues, and publishes canvas state through `window.__ARCADE__`.
-- A focused Vitest file for happy paths and edge cases.
+- A pure `*Logic.ts` engine with deterministic seeded randomness that exposes real entity positions in its state snapshot.
+- A Phaser `*Scene.ts` renderer that translates semantic input, draws every entity at its true logic position, layers procedural feedback (particles, shake, flashes via the shared `src/games/effects.ts` helper), and publishes canvas state through `window.__ARCADE__`.
+- A focused Vitest file for happy paths, edge cases, and snapshot contracts (positions in bounds, determinism, JSON-serializable and detached).
 
 Logic engines do not import Phaser, touch the DOM, access storage, or play audio. This is enforced by ESLint plus `scripts/import-boundary.mjs`.
 
 Shared systems live in `src/core/`:
 
 - `InputManager` maps keyboard and virtual D-pad controls to semantic inputs.
-- `AudioEngine` lazily unlocks WebAudio and synthesizes select, score, hit, and game-over cues.
-- `ScoreManager` and `Storage` handle safe local high-score persistence.
-- `TestBridge` exposes a small serializable state snapshot for Playwright assertions.
-- `Viewport` centralizes reduced-motion and mobile checks.
+- `AudioEngine` is a shared singleton that lazily unlocks one WebAudio context and synthesizes select, score, hit, and game-over cues; Phaser's own SoundManager is disabled.
+- `ScoreManager` and `Storage` persist per-game high scores from live gameplay and announce new records via an `arcade-high-score` event that the shell renders on the selector cards.
+- `TestBridge` exposes a JSON-serializable state snapshot (including entity positions and the high score) for Playwright assertions.
+- `Viewport` centralizes reduced-motion and mobile checks; all decorative effects are gated on `prefers-reduced-motion`.
 
 ## Games
 
@@ -77,6 +79,6 @@ The app itself contains no runtime AI or ML. The case-study framing is intention
 
 ## Current Limitations
 
-- Phaser is bundled into one production chunk, so Vite warns about bundle size. Code-splitting scenes would be a natural next optimization.
-- The four non-Serpent games are complete MVPs rather than deeply tuned arcade games.
-- Synthesized audio is intentionally minimal and is not asserted in headless E2E.
+- Phaser ships as its own ~319 kB gzip vendor chunk (the app chunk is ~9 kB gzip); the build still warns about Phaser's size, which is inherent to the pinned engine. Per-scene lazy loading is a possible further optimization.
+- Synthesized audio is intentionally minimal and is not asserted in headless E2E (only that audio paths do not throw and exactly one AudioContext exists).
+- Row-clear celebrations in Circuit Stack are covered by logic tests but not exercised end-to-end (setting up a full row honestly in e2e is too slow).
