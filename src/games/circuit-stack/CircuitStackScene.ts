@@ -63,8 +63,19 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
     const size = 11;
     const px = width - 64;
     const py = 18;
+    const xs = shape.map((offset) => offset.x);
+    const ys = shape.map((offset) => offset.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const cols = Math.max(...xs) - minX + 1;
+    const rows = Math.max(...ys) - minY + 1;
     this.graphics.lineStyle(1, 0x31545a, 0.9);
-    this.graphics.strokeRect(px - size * 1.5 - 4, py - 4, size * 3 + 8, size * 2 + 8);
+    this.graphics.strokeRect(
+      px + minX * size - 5,
+      py + minY * size - 5,
+      cols * size + 8,
+      rows * size + 8
+    );
     this.graphics.fillStyle(0xff4fd8, 0.9);
     for (const offset of shape) {
       this.graphics.fillRect(px + offset.x * size, py + offset.y * size, size - 2, size - 2);

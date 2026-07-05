@@ -1,28 +1,32 @@
 # Next Run — Playtest Fix Pass
 
-## Last iteration (2026-07-05, Phase A)
+## Last iteration (2026-07-05, Phase B)
 
-**Slice: P0 game-switching bug — diagnosed, fixed, regression-tested.**
+**Slice: Circuit Stack piece completeness — full tetromino set + 7-bag randomizer.**
 
-**Root cause:** `startGame` in `src/main.ts` used `game.scene.start(key)`. Phaser's `SceneManager.start` (unlike the in-scene `ScenePlugin.start`) does **not** stop the running scene, so every selection stacked another live scene: all previously selected games kept updating, listening to input, and rendering. Scenes render in scene-list order (`NeonSerpent → … → CircuitStack`), so switching "forward" looked correct, but Circuit Stack — last in the list — painted on top of everything once started, making every switch away from it invisible. The controls hint (DOM) and the TestBridge (re-published by each new scene's `create`) both tracked the _new_ game, which is why the UI changed, the canvas didn't, and every bridge/DOM-based test passed.
+**Confirmed audit:** `circuitPieces` had only 3 shapes (O, T, L). No I, S, Z, or J — the playtest note was right.
 
-**Fix (`src/main.ts`):** track `currentSceneKey`; `startGame` now stops the outgoing scene before starting the target and early-returns when the selected game is already active (keeps Phaser's op queue ordered under rapid clicks). Scene shutdown paths were already clean (window listeners and particle emitters detach on SHUTDOWN), so stop/start cycles leak nothing — confirmed by the existing audio/listener instrumentation test.
+- `src/games/circuit-stack/CircuitStackLogic.ts`:
+  - Full standard seven-piece set (I, O, T, S, Z, J, L) as center-anchored offset shapes; every shape overlaps the spawn columns, so the existing spawn-blocked game-over test remains valid for any opener.
+  - Deterministic 7-bag randomizer: pure exported `shuffledBag(rng, size)` (Fisher–Yates over `SeededRandom`) feeding a private bag that refills when empty — replaces independent uniform draws, guaranteeing every piece (including the I) appears once per bag.
+  - Wall-kick list extended from `[0, ±1]` to `[0, ±1, ±2]` so the four-wide I can rotate away from walls; existing pieces never reach the ±2 kicks (±1 tried first), so their behavior is unchanged.
+- `src/games/circuit-stack/CircuitStackScene.ts`: next-piece preview frame now sizes itself from the shape's bounds, so the 4-wide I renders fully inside its box (the old frame was hardcoded 3×2).
+- `src/games/circuit-stack/CircuitStackLogic.test.ts` (7 → 11 tests): seven shapes with a geometric I detector; `shuffledBag` is a deterministic permutation; the first two bags deal every piece exactly twice (spawn identities recovered from `pieceCells` offsets through drop→lock→clear cycles); the I spawns within one bag, rotates to a single column in bounds, and the new ±2 kick moves it off the left wall. Existing rotation/movement/row-clear/scoring tests all still pass unchanged.
 
-**Regression test (`tests/switching.spec.ts`):** bridge/DOM assertions cannot catch this bug class, so the test reads actual canvas pixels (`getImageData`; renderer is `Phaser.CANVAS`) using empirically probed per-game color signatures — Lane Rush road fill > 200k px, Bounce Circuit ground strip, Star Courier ship cyan in the bottom-center region, Neon Serpent food magenta, Circuit Stack grid-stroke count for presence/absence. It walks forward through all five games, then from Circuit Stack out to each other game and back, asserting activeScene, the instructions hint, AND the rendered canvas each time. **Verified discriminating:** fails on the pre-fix code with "circuit-stack grid must be gone while neon-serpent plays"; passes with the fix.
+**Interesting find:** `SeededRandom`'s first output is nearly constant for small seeds (LCG artifact, ≈0.236–0.259 for seeds 1–60), so the first bag swap is deterministic across seeds — the original "find a seed that opens with I" test could never pass. The final test instead relies on the bag guarantee (I within 7 spawns). The RNG itself was left untouched (shared core; the bag makes distribution fairness independent of LCG quality).
 
-**Validation:** build + tsc ✓, 34 vitest ✓, lint ✓, e2e 22 passed / 18 intentionally skipped ✓ (existing suites unaffected: clicking the already-active card is now a no-op instead of a redundant scene restart; no test relied on that restart).
+**Validation:** `npx vitest run src/games/circuit-stack` 11/11 ✓; games + switching e2e 11/11 ✓; full `npm run validate` ✓ (build + tsc, 38 vitest, lint, e2e 22 passed / 18 intentionally skipped). The pixel-signature switching regression still passes (piece color/grid signatures are shape-independent). No new e2e added — the existing bridge-driven Circuit Stack test (soft-drop/rotate/lock) and the pixel regression already cover render state for arbitrary pieces, and any first-piece-specific e2e would couple the suite to bag order.
 
 ## Playtest phase status
 
-- **Phase A ✅ (this commit):** switching fixed + pixel-level regression test.
-- Phase B ⬜ Circuit Stack piece completeness (audit found only 3 shapes: O, T, J-like — no I/line piece; `circuitPieces` in `CircuitStackLogic.ts`, plus rotation/kick and the preview box will need to handle 4-wide I).
-- Phase C ⬜ Neon Serpent speed ramp audit (`speedMs = max(68, 145 − foodsEaten*5)` — intentional; assess fairness, surface it in UI).
-- Phase D ⬜ Bounce Circuit redesign (biggest slice: horizontal progression, scrolling/parallax, camera/world movement, hazards, pickups, jump feel).
+- Phase A ✅ (`80e64b0`) switching fix + pixel regression test.
+- **Phase B ✅ (this commit)** full tetromino set + 7-bag.
+- Phase C ⬜ Neon Serpent speed ramp: `speedMs = max(68, 145 − foodsEaten*5)` in `NeonSerpentLogic` — intentional ramp, 145→68 ms over 15+ foods. Audit fairness (68 ms floor may be too fast late; multiplier HUD exists but speed is invisible). Options: gentler curve/higher floor, surface speed in `hudExtra` (e.g. `Spd` level), do NOT restructure the game — it plays well.
+- Phase D ⬜ Bounce Circuit redesign (largest slice).
 - Phase E ⬜ Star Courier hazards/readability.
 - Phase F ⬜ Lane Rush visual overhaul.
-- Phase G ⬜ Arcade-wide cohesive graphics polish.
-- Phase H ⬜ Full validation + docs.
+- Phase G ⬜ arcade-wide graphics polish. Phase H ⬜ final validation/docs.
 
 ## Next task
 
-**Phase B — Circuit Stack piece set.** Add the full standard 7-piece tetromino set (I, O, T, S, Z, J, L) to `circuitPieces` with sensible rotation offsets, switch spawning to a seeded 7-bag randomizer (deterministic via `SeededRandom` — shuffle per bag), verify wall kicks still work for the 4-wide I piece near edges, and confirm the scene's next-piece preview box fits the I shape. Logic tests: all 7 pieces appear within two bags for a fixed seed; each bag contains each piece exactly once; I-piece spawn/rotation stays in bounds. Keep existing tests green (they reference piece indices only through state, but the spawn-blocked test seeds `grid[0][3..4]` — verify it still blocks whichever piece a seed spawns, or pin the seed/piece accordingly).
+**Phase C — Neon Serpent speed tuning/explanation.** Keep the game intact: (1) decide the ramp curve — current −5 ms per food to a 68 ms floor ≈ 2.1× speed-up; consider easing the floor to ~80 ms and/or slowing the ramp (−4/food) after playfeel review; (2) make the ramp visible — add a speed level to the HUD via `hudExtra` (e.g. `Spd ${level}` derived from `speedMs`, already in the snapshot) so acceleration reads as progression, not glitch; (3) logic tests for the exact curve (monotonic, floor respected, deterministic) and updated HUD; (4) targeted vitest + full validate; commit green.

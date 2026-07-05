@@ -1,7 +1,96 @@
 import { describe, expect, it } from 'vitest';
-import { CircuitStackLogic, circuitPieces } from './CircuitStackLogic';
+import { SeededRandom } from '../../core/types';
+import {
+  CircuitStackLogic,
+  circuitPieces,
+  shuffledBag,
+  type CircuitStackState
+} from './CircuitStackLogic';
+
+const byPosition = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  a.x - b.x || a.y - b.y;
+
+function identifySpawnedPiece(state: CircuitStackState): number {
+  const offsets = state.pieceCells
+    .map((cell) => ({ x: cell.x - state.pieceX, y: cell.y - state.pieceY }))
+    .sort(byPosition);
+  return circuitPieces.findIndex((shape) => {
+    const sorted = [...shape].sort(byPosition);
+    return sorted.every((cell, i) => cell.x === offsets[i]!.x && cell.y === offsets[i]!.y);
+  });
+}
+
+function dropLockAndClear(logic: CircuitStackLogic): void {
+  let previousY = -1;
+  while (logic.getState().pieceY !== previousY) {
+    previousY = logic.getState().pieceY;
+    logic.handleInput('DOWN');
+  }
+  logic.lockForTest();
+  logic.grid.forEach((row) => row.fill(0));
+}
 
 describe('CircuitStackLogic', () => {
+  it('ships the full seven-piece set including the long I piece', () => {
+    expect(circuitPieces).toHaveLength(7);
+    for (const shape of circuitPieces) expect(shape).toHaveLength(4);
+    const hasLine = circuitPieces.some((shape) => {
+      const xs = shape.map((cell) => cell.x).sort((a, b) => a - b);
+      return new Set(shape.map((cell) => cell.y)).size === 1 && xs[3]! - xs[0]! === 3;
+    });
+    expect(hasLine, 'the four-wide I piece must exist').toBe(true);
+  });
+
+  it('shuffles a deterministic bag containing each piece exactly once', () => {
+    const first = shuffledBag(new SeededRandom(5), 7);
+    expect([...first].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(shuffledBag(new SeededRandom(5), 7)).toEqual(first);
+  });
+
+  it('deals every piece exactly twice across the first two bags', () => {
+    const logic = new CircuitStackLogic(21);
+    const spawned: number[] = [identifySpawnedPiece(logic.getState())];
+    while (spawned.length < 14) {
+      dropLockAndClear(logic);
+      expect(logic.getState().isGameOver).toBe(false);
+      spawned.push(identifySpawnedPiece(logic.getState()));
+    }
+    const counts = new Map<number, number>();
+    for (const id of spawned) {
+      expect(id).toBeGreaterThanOrEqual(0);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    expect([...counts.keys()].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    for (const count of counts.values()) expect(count).toBe(2);
+  });
+
+  it('spawns the I piece within one bag and rotates it in bounds, kicking off the wall', () => {
+    const logic = new CircuitStackLogic(21);
+    let spawns = 1;
+    while (identifySpawnedPiece(logic.getState()) !== 0 && spawns <= 7) {
+      dropLockAndClear(logic);
+      spawns += 1;
+    }
+    expect(
+      identifySpawnedPiece(logic.getState()),
+      'the bag must deal the I piece within its first seven spawns'
+    ).toBe(0);
+    const spawn = logic.getState();
+    expect(new Set(spawn.pieceCells.map((cell) => cell.y)).size).toBe(1);
+    logic.handleInput('DOWN');
+    logic.handleInput('UP');
+    const vertical = logic.getState();
+    expect(new Set(vertical.pieceCells.map((cell) => cell.x)).size).toBe(1);
+    for (let i = 0; i < 6; i += 1) logic.handleInput('LEFT');
+    logic.handleInput('UP');
+    for (const cell of logic.getState().pieceCells) {
+      expect(cell.x).toBeGreaterThanOrEqual(0);
+      expect(cell.x).toBeLessThan(logic.width);
+      expect(cell.y).toBeLessThan(logic.height);
+    }
+    expect(new Set(logic.getState().pieceCells.map((cell) => cell.y)).size).toBe(1);
+  });
+
   it('exposes four-cell piece shapes and a valid nextPiece index for previews', () => {
     expect(circuitPieces.length).toBeGreaterThan(0);
     for (const shape of circuitPieces) expect(shape).toHaveLength(4);
