@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import { BaseGameScene } from '../BaseGameScene';
-import { createSparkEmitter, deathFeedback, smallShake } from '../effects';
+import { createSparkEmitter, deathFeedback, popText, smallShake } from '../effects';
 import { CircuitStackLogic, circuitPieces, type CircuitStackState } from './CircuitStackLogic';
 
 export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
@@ -20,6 +20,13 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
   create(): void {
     super.create();
     this.sparks = createSparkEmitter(this, [0x4dffe1, 0xff4fd8]);
+    this.add
+      .text(this.scale.width - 64, 4, 'NEXT', {
+        color: '#8fb9bd',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontSize: '10px'
+      })
+      .setOrigin(0.5, 0);
     const state = this.logic.getState();
     this.lastScore = state.score;
     this.lastOccupied = state.occupied;
@@ -38,23 +45,61 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
       for (let x = 0; x < this.logic.width; x += 1) {
         this.graphics.strokeRect(ox + x * cell, oy + y * cell, cell, cell);
         if (this.logic.grid[y][x]) {
-          this.graphics.fillStyle(0x4dffe1, 1);
-          this.graphics.fillRect(ox + x * cell + 2, oy + y * cell + 2, cell - 4, cell - 4);
+          const cx = ox + x * cell;
+          const cy = oy + y * cell;
+          this.graphics.fillStyle(0x4dffe1, 0.92);
+          this.graphics.fillRect(cx + 2, cy + 2, cell - 4, cell - 4);
+          this.graphics.fillStyle(0xd8fff9, 0.5);
+          this.graphics.fillRect(cx + 2, cy + 2, cell - 4, 2);
+          this.graphics.fillStyle(0x071114, 0.35);
+          this.graphics.fillRect(cx + 2, cy + cell - 4, cell - 4, 2);
         }
       }
     }
-    this.graphics.fillStyle(0xff4fd8, 1);
+    const drop = this.dropDistance(state);
+    if (drop > 0) {
+      this.graphics.lineStyle(1.5, 0xff4fd8, 0.35);
+      for (const block of state.pieceCells) {
+        const ghostY = block.y + drop;
+        if (ghostY >= 0) {
+          this.graphics.strokeRect(
+            ox + block.x * cell + 3,
+            oy + ghostY * cell + 3,
+            cell - 6,
+            cell - 6
+          );
+        }
+      }
+    }
     for (const block of state.pieceCells) {
       if (block.y >= 0) {
-        this.graphics.fillRect(
-          ox + block.x * cell + 2,
-          oy + block.y * cell + 2,
-          cell - 4,
-          cell - 4
-        );
+        const cx = ox + block.x * cell;
+        const cy = oy + block.y * cell;
+        this.graphics.fillStyle(0xff4fd8, 0.2);
+        this.graphics.fillRect(cx, cy, cell, cell);
+        this.graphics.fillStyle(0xff4fd8, 1);
+        this.graphics.fillRect(cx + 2, cy + 2, cell - 4, cell - 4);
+        this.graphics.fillStyle(0xffd8f4, 0.55);
+        this.graphics.fillRect(cx + 2, cy + 2, cell - 4, 2);
       }
     }
     this.drawNextPreview(state, width);
+  }
+
+  private dropDistance(state: CircuitStackState): number {
+    let distance = 0;
+    let blocked = false;
+    while (!blocked) {
+      for (const block of state.pieceCells) {
+        const y = block.y + distance + 1;
+        if (y >= this.logic.height || (y >= 0 && this.logic.grid[y][block.x] === 1)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (!blocked) distance += 1;
+    }
+    return distance;
   }
 
   private drawNextPreview(state: CircuitStackState, width: number): void {
@@ -88,6 +133,14 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
       if (state.score > this.lastScore && !state.isGameOver) {
         const rowY = this.lastPieceCells[0]?.y ?? 0;
         this.sparks?.explode(26, ox + (this.logic.width / 2) * cell, oy + rowY * cell);
+        popText(
+          this,
+          ox + (this.logic.width / 2) * cell,
+          oy + rowY * cell - 16,
+          `+${state.score - this.lastScore}`,
+          '#ffd166',
+          16
+        );
         smallShake(this);
       } else if (state.occupied > this.lastOccupied) {
         for (const block of this.lastPieceCells) {

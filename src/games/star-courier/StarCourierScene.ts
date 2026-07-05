@@ -155,7 +155,7 @@ export class StarCourierScene extends BaseGameScene<StarCourierState> {
           );
           if (!survived) {
             this.sparks?.explode(14, toX(previous.x), toY(previous.y));
-            popText(this, toX(previous.x), toY(previous.y) - 14, '+15', '#d8fff9');
+            popText(this, toX(previous.x), toY(previous.y) - 14, '+15', '#ffd166');
           }
         }
         smallShake(this);

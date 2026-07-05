@@ -82,6 +82,10 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     this.graphics.fillStyle(0x071114, 1);
     this.graphics.fillRect(0, 0, width, height);
     this.draw(state, width, height);
+    if (state.isGameOver) {
+      this.graphics.fillStyle(0x02080a, 0.42);
+      this.graphics.fillRect(0, 0, width, height);
+    }
     const extra = this.hudExtra(state);
     const phase = state.isGameOver
       ? '  GAME OVER - press Space'

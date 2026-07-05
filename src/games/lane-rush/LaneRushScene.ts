@@ -50,10 +50,6 @@ export class LaneRushScene extends BaseGameScene<LaneRushState> {
     }
     this.drawPlayerCar(laneX(state.lane), height);
     this.drawDepthHaze(width, height);
-    if (state.isGameOver) {
-      this.graphics.fillStyle(0x02080a, 0.4);
-      this.graphics.fillRect(0, 0, width, height);
-    }
   }
 
   protected override hudExtra(state: LaneRushState): string {

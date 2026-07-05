@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import { BaseGameScene } from '../BaseGameScene';
-import { createSparkEmitter, deathFeedback, smallShake } from '../effects';
+import { createSparkEmitter, deathFeedback, popText, smallShake } from '../effects';
 import { BounceCircuitLogic, type BounceCircuitState } from './BounceCircuitLogic';
 
 const UNIT_Y = 46;
@@ -136,7 +136,10 @@ export class BounceCircuitScene extends BaseGameScene<BounceCircuitState> {
         this.sparks?.explode(6, toX(state.playerX), ground - 4);
       }
       if (state.orbsCollected > this.lastOrbs) {
-        this.sparks?.explode(12, toX(state.playerX), ground - state.playerY * UNIT_Y - 16);
+        const px = toX(state.playerX);
+        const py = ground - state.playerY * UNIT_Y - 16;
+        this.sparks?.explode(12, px, py);
+        popText(this, px, py - 18, `+${(state.orbsCollected - this.lastOrbs) * 25}`, '#ffd166');
         smallShake(this);
       }
       if (state.isGameOver && !this.lastGameOver) {

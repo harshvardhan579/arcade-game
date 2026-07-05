@@ -1,36 +1,31 @@
 # Next Run — Playtest Fix Pass
 
-## Last iteration (2026-07-05, Phase F)
+## Last iteration (2026-07-05, Phase G)
 
-**Slice: Lane Rush visual/game-feel overhaul.**
+**Slice: arcade-wide cohesion polish. All scene-side; zero logic changes; no tests weakened.**
 
-**Logic (`LaneRushLogic.ts`, minimal):** traffic cars gain a `variant` (0–2) derived from `spawnTick % 3` — zero extra rng draws, so the seed-12 deterministic sequence (near-miss at ~3.4 s, crash at tick 102) is untouched; verified by running the crash e2e and highscore specs unchanged. Variant exposed in the snapshot; stability asserted in the traffic contract test.
+**Inconsistencies found and fixed:**
 
-**Scene (`LaneRushScene.ts`, rewritten):**
+- **Game-over presentation** was Lane Rush-only → the dim overlay moved into `BaseGameScene.renderState`, so every game now dims identically under the shared "GAME OVER - press Space" HUD line (Lane Rush's local copy removed).
+- **Score popups** were amber in Lane Rush, white in Star Courier, missing elsewhere → unified on amber `#ffd166` via the shared `popText`: Serpent pops `+10×multiplier` at the eaten food, Circuit Stack pops the clear bonus at the cleared row, Bounce pops `+25` at the collected orb, Courier's `+15` recolored. Status text (WAVE banner) stays cyan — score = amber, player = cyan, hazard = red/warm, special = magenta across all five games.
 
-- **Road presentation:** dark shoulders (12% each side) with neon edge lines; roadside light posts with glow dots scrolling at road speed on both shoulders; glowing lane dashes (soft outer pass + bright core) still scrolling with `state.speed`; a four-band depth haze darkening the top of the road for fake perspective.
-- **Cars:** layered shapes replace plain rectangles — traffic cars have per-variant body colors (coral/amber/magenta from the existing palette), dark cabins, and amber taillights facing the player; the player car is cyan with a dark cabin, windshield band, and white headlights, keeping its bob.
-- **Speed sensation:** faint speed streaks appear across the road above speed 0.26 (on top of the scrolling posts/dashes).
-- **Feedback:** near-misses now pop `+12`/`+5` at the scored car's true position (amount derived from the same lane-distance rule the logic scores by) plus the existing sparks/shake; crashes add a burst at the player car on top of the shake/red flash; game over dims the whole road under the HUD message. `popText` was extracted into `src/games/effects.ts` (third consumer) and Star Courier refactored onto it.
-- All decorative motion (post/dash scroll, streaks, bob, popups) stays `reducedMotion`-gated as before.
+**Neon Serpent restyle (gameplay untouched):** soft cyan halo pass under every segment, body alpha fading toward the tail (head stays brightest), a magenta halo ring around the pulsing food, obstacles restyled as mines (outer glow stroke + dark core dot — hazard-red language consistent with Courier), and the playfield border glow now scales with `speedLevel` so the speed ramp is ambient as well as in the HUD.
 
-**Pixel-signature constraint held:** the road fill `#0d252b` remains dominant (shoulders take 24%, haze dims only the top bands) — the switching spec's >200k-pixel road assertion passes unmodified. Screenshot-verified: posts, edge lines, glowing dashes, layered cars with taillights/headlights, depth haze all render.
+**Circuit Stack restyle (readability-first):** locked cells got bevels (light top edge, shaded bottom); the active piece gained a glow halo and bright top highlight; a **ghost landing preview** (outline cells at the computed drop position — a bounded ≤14×4 scan of `pieceCells` against `this.logic.grid`, presentation-only, hidden when the piece is already grounded); the NEXT preview gained a small static label created once in `create()`.
 
-**Validation:** lane-rush logic 6/6 ✓; affected desktop e2e (games incl. seed-12 crash, highscore live-card, switching pixels) 14/14 ✓; full `npm run validate` ✓ (build + tsc, 54 vitest, lint, e2e 22 passed / 18 intentionally skipped).
+**Pixel-signature discipline:** switching spec re-run after the restyles and again after popup unification — all five signatures hold (serpent's food halo ring is alpha-blended, far from the magenta match window; circuit's grid strokes untouched so the gridline blend is identical; courier ship, lane road, bounce ground untouched). Screenshot-verified both restyled games, ghost preview visible.
+
+**Performance:** all new draw loops are bounded (snake ≤ grid cells, circuit grid 8×14, ghost scan ≤ 56 checks) with no per-frame allocations added.
+
+**Validation:** 54 vitest ✓ (no logic changes), switching + games desktop e2e 11/11 ✓, full `npm run validate` ✓ (build + tsc, 54 vitest, lint, e2e 22 passed / 18 intentionally skipped).
+
+**Deliberately skipped:** shell/CSS changes — the cabinet treatment, cards, focus states, and mobile layout from the earlier overhaul still hold up, and the task allowed shell work "only if needed."
 
 ## Playtest phase status
 
-- Phase A ✅ (`80e64b0`) · B ✅ (`fb10f68`) · C ✅ (`f9949d8`) · D ✅ (`1e3001c`) · E ✅ (`4114bdd`) · **F ✅ (this commit)**
-- Phase G ⬜ arcade-wide cohesive graphics polish. Phase H ⬜ final validation + docs.
+- Phase A ✅ (`80e64b0`) · B ✅ (`fb10f68`) · C ✅ (`f9949d8`) · D ✅ (`1e3001c`) · E ✅ (`4114bdd`) · F ✅ (`bc7e712`) · **G ✅ (this commit)**
+- **Phase H ⬜ (final):** full validation + docs.
 
 ## Next task
 
-**Phase G — cohesive retro-neon identity across all five games.** The per-game passes (D–F) upgraded Bounce, Courier, and Lane Rush; the gap is now consistency and the two games that predate this pass:
-
-1. **Neon Serpent:** still the plainest visually — grid + rounded rects. Candidates: glow pass on the snake (soft outer fill), food halo, obstacle warning styling consistent with Courier's hazard language (red family), subtle animated background pulse.
-2. **Circuit Stack:** flat grid + solid cells. Candidates: cell bevels/glow for locked cells, ghost-piece landing preview (logic-derivable in the scene from `pieceCells` + grid drop scan — presentation only), grid backdrop vignette.
-3. **Cross-game consistency:** shared color language is mostly in place (cyan = player, red/warm = hazards, yellow = pickups/score, magenta = special). Verify each game honors it; unify popText colors (+N amber in Lane Rush vs white in Courier — pick one, suggest amber for scores everywhere).
-4. Keep every existing pixel signature intact (grid-stroke for circuit-stack presence, serpent food magenta 50..3000, courier ship cyan, lane road, bounce ground) — run `tests/switching.spec.ts` after each game's restyle.
-5. Performance sanity: draw calls grew this pass (posts/streaks/haze are bounded loops); keep new Phase G loops bounded and allocation-free; spot-check frame feel in the browser if anything stutters.
-
-After G: **Phase H** — full validation, README/CLAUDE.md refresh (Bounce Circuit description is stale: README still calls it "portrait single-screen platformer with key pickup"; the games list needs the runner/hazard updates), and a closing session summary here.
+**Phase H — closing pass.** (1) `README.md` is stale: the Games section still describes Bounce Circuit as a "portrait single-screen platformer with jump physics, spike hazard, key pickup, locked door" and Star Courier/Lane Rush/Circuit Stack descriptions predate the hazard/tetromino/visual work; the Architecture section should mention the shared effects helpers (spark emitter, popText, shared game-over dim). (2) `CLAUDE.md` invariants section: add the pixel-signature contract (switching spec depends on road/ground/grid/food/ship color signatures — restyles must re-run it) and the no-new-rng-draws determinism caution for seeded games. (3) Re-run full validation including a `--repeat-each=2` pass on the deep e2e suites for flake confidence. (4) Close with a session summary here.
