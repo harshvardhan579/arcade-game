@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { NeonSerpentLogic } from './NeonSerpentLogic';
+import {
+  NeonSerpentLogic,
+  serpentBaseSpeedMs,
+  serpentFloorSpeedMs,
+  serpentMaxSpeedLevel,
+  serpentSpeedStepMs
+} from './NeonSerpentLogic';
 
 describe('NeonSerpentLogic', () => {
   it('moves on each step', () => {
@@ -77,6 +83,37 @@ describe('NeonSerpentLogic', () => {
     expect(logic.step().multiplier).toBe(2);
     for (let i = 0; i < 8; i += 1) logic.step();
     expect(logic.getState().multiplier).toBe(1);
+  });
+
+  it('accelerates one step per food and respects the speed floor', () => {
+    const logic = new NeonSerpentLogic(6);
+    const initial = logic.getState();
+    expect(initial.speedMs).toBe(serpentBaseSpeedMs);
+    expect(initial.speedLevel).toBe(1);
+    for (let foods = 1; foods <= serpentMaxSpeedLevel + 3; foods += 1) {
+      logic.obstacles.length = 0;
+      logic.snake.splice(3);
+      const head = logic.snake[0]!;
+      logic.food = { x: (head.x + 1) % logic.width, y: head.y };
+      const state = logic.step();
+      expect(state.isGameOver).toBe(false);
+      expect(state.speedMs).toBe(
+        Math.max(serpentFloorSpeedMs, serpentBaseSpeedMs - foods * serpentSpeedStepMs)
+      );
+      expect(state.speedLevel).toBe(Math.min(serpentMaxSpeedLevel, foods + 1));
+    }
+    expect(logic.getState().speedMs).toBe(serpentFloorSpeedMs);
+    expect(logic.getState().speedLevel).toBe(serpentMaxSpeedLevel);
+  });
+
+  it('restart returns the speed ramp to level one', () => {
+    const logic = new NeonSerpentLogic(7);
+    logic.food = { x: 8, y: 12 };
+    logic.step();
+    expect(logic.getState().speedLevel).toBe(2);
+    const restarted = logic.restart(7);
+    expect(restarted.speedMs).toBe(serpentBaseSpeedMs);
+    expect(restarted.speedLevel).toBe(1);
   });
 
   it('speed ramp is monotonic and deterministic', () => {

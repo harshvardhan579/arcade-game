@@ -79,7 +79,7 @@ export class NeonSerpentScene extends BaseGameScene<NeonSerpentState> {
   }
 
   protected override hudExtra(state: NeonSerpentState): string {
-    return `Len ${state.snakeLength}  x${state.multiplier}`;
+    return `Len ${state.snakeLength}  x${state.multiplier}  Spd ${state.speedLevel}`;
   }
 
   private reactToTransitions(state: NeonSerpentState, cell: number, ox: number, oy: number): void {

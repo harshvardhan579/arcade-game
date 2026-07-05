@@ -1,32 +1,25 @@
 # Next Run — Playtest Fix Pass
 
-## Last iteration (2026-07-05, Phase B)
+## Last iteration (2026-07-05, Phase C)
 
-**Slice: Circuit Stack piece completeness — full tetromino set + 7-bag randomizer.**
+**Slice: Neon Serpent speed ramp — kept, gently retuned, and made visible.**
 
-**Confirmed audit:** `circuitPieces` had only 3 shapes (O, T, L). No I, S, Z, or J — the playtest note was right.
+**Decision:** the ramp is intentional (it is the game's difficulty engine) and stays. Two changes, both conservative:
 
-- `src/games/circuit-stack/CircuitStackLogic.ts`:
-  - Full standard seven-piece set (I, O, T, S, Z, J, L) as center-anchored offset shapes; every shape overlaps the spawn columns, so the existing spawn-blocked game-over test remains valid for any opener.
-  - Deterministic 7-bag randomizer: pure exported `shuffledBag(rng, size)` (Fisher–Yates over `SeededRandom`) feeding a private bag that refills when empty — replaces independent uniform draws, guaranteeing every piece (including the I) appears once per bag.
-  - Wall-kick list extended from `[0, ±1]` to `[0, ±1, ±2]` so the four-wide I can rotate away from walls; existing pieces never reach the ±2 kicks (±1 tried first), so their behavior is unchanged.
-- `src/games/circuit-stack/CircuitStackScene.ts`: next-piece preview frame now sizes itself from the shape's bounds, so the 4-wide I renders fully inside its box (the old frame was hardcoded 3×2).
-- `src/games/circuit-stack/CircuitStackLogic.test.ts` (7 → 11 tests): seven shapes with a geometric I detector; `shuffledBag` is a deterministic permutation; the first two bags deal every piece exactly twice (spawn identities recovered from `pieceCells` offsets through drop→lock→clear cycles); the I spawns within one bag, rotates to a single column in bounds, and the new ±2 kick moves it off the left wall. Existing rotation/movement/row-clear/scoring tests all still pass unchanged.
+1. **Gentle retune** (`src/games/neon-serpent/NeonSerpentLogic.ts`): `speedMs = max(80, 144 − foods*4)` replacing `max(68, 145 − foods*5)`. Rationale: early game is effectively identical (144 vs 145 base, −4 vs −5 per food), but the old 68 ms floor ≈ 14.7 moves/s was twitch-limit fast and each late step was a growing relative spike (73→68 = 6.8% per food); the new floor is 80 ms ≈ 12.5 moves/s (1.8× total speed-up instead of 2.1×) with smaller relative steps (≤5%), reached at 16 foods instead of ~15. The curve now lives in exported constants (`serpentBaseSpeedMs`, `serpentFloorSpeedMs`, `serpentSpeedStepMs`, `serpentMaxSpeedLevel = 17`) — a one-line revert if playtesting disagrees.
+2. **Surfacing:** the snapshot now exposes `speedLevel` (1..17, one level per food, derived exactly from `speedMs`); the HUD reads `Score … High … Len … x… Spd N` so every eat visibly ticks the level; the instructions hint becomes "Arrows steer · eating speeds up · Space restarts" (assertions updated in `tests/shell.spec.ts` and `tests/switching.spec.ts`).
 
-**Interesting find:** `SeededRandom`'s first output is nearly constant for small seeds (LCG artifact, ≈0.236–0.259 for seeds 1–60), so the first bag swap is deterministic across seeds — the original "find a seed that opens with I" test could never pass. The final test instead relies on the bag guarantee (I within 7 spawns). The RNG itself was left untouched (shared core; the bag makes distribution fairness independent of LCG quality).
+**Tests** (`NeonSerpentLogic.test.ts`, 10 → 12): exact curve — one step per food, floor respected past 16 foods, level capped at 17, deterministic (feeds placed directly ahead; obstacles cleared and body trimmed per cycle so periodic obstacle spawns and self-collision at length ≥ 18 can't end the run early — the first version hit the tail-bite at ~15 foods); restart returns to level 1/base speed. Existing monotonic-and-deterministic ramp test was already curve-agnostic and passes unchanged, as do all movement/wrap/combo/food tests.
 
-**Validation:** `npx vitest run src/games/circuit-stack` 11/11 ✓; games + switching e2e 11/11 ✓; full `npm run validate` ✓ (build + tsc, 38 vitest, lint, e2e 22 passed / 18 intentionally skipped). The pixel-signature switching regression still passes (piece color/grid signatures are shape-independent). No new e2e added — the existing bridge-driven Circuit Stack test (soft-drop/rotate/lock) and the pixel regression already cover render state for arbitrary pieces, and any first-piece-specific e2e would couple the suite to bag order.
+**Validation:** `npx vitest run src/games/neon-serpent` 12/12 ✓; full `npm run validate` ✓ (build + tsc, 40 vitest, lint, e2e 22 passed / 18 intentionally skipped).
 
 ## Playtest phase status
 
-- Phase A ✅ (`80e64b0`) switching fix + pixel regression test.
-- **Phase B ✅ (this commit)** full tetromino set + 7-bag.
-- Phase C ⬜ Neon Serpent speed ramp: `speedMs = max(68, 145 − foodsEaten*5)` in `NeonSerpentLogic` — intentional ramp, 145→68 ms over 15+ foods. Audit fairness (68 ms floor may be too fast late; multiplier HUD exists but speed is invisible). Options: gentler curve/higher floor, surface speed in `hudExtra` (e.g. `Spd` level), do NOT restructure the game — it plays well.
-- Phase D ⬜ Bounce Circuit redesign (largest slice).
-- Phase E ⬜ Star Courier hazards/readability.
-- Phase F ⬜ Lane Rush visual overhaul.
-- Phase G ⬜ arcade-wide graphics polish. Phase H ⬜ final validation/docs.
+- Phase A ✅ (`80e64b0`) switching fix + pixel regression. Phase B ✅ (`fb10f68`) full tetromino set + 7-bag.
+- **Phase C ✅ (this commit)** speed ramp tuned + surfaced.
+- Phase D ⬜ Bounce Circuit redesign — the big slice: horizontal progression with camera/world scrolling, parallax background, hazards, pickups, clearer goal, better jump feel (coyote time/buffering are logic-side candidates), squash/stretch retained. Logic must stay pure/deterministic; scene draws from a camera offset. Tests for meaningful movement/progression required.
+- Phase E ⬜ Star Courier hazards/readability. Phase F ⬜ Lane Rush visual overhaul. Phase G ⬜ arcade-wide polish. Phase H ⬜ final validation/docs.
 
 ## Next task
 
-**Phase C — Neon Serpent speed tuning/explanation.** Keep the game intact: (1) decide the ramp curve — current −5 ms per food to a 68 ms floor ≈ 2.1× speed-up; consider easing the floor to ~80 ms and/or slowing the ramp (−4/food) after playfeel review; (2) make the ramp visible — add a speed level to the HUD via `hudExtra` (e.g. `Spd ${level}` derived from `speedMs`, already in the snapshot) so acceleration reads as progression, not glitch; (3) logic tests for the exact curve (monotonic, floor respected, deterministic) and updated HUD; (4) targeted vitest + full validate; commit green.
+**Phase D — Bounce Circuit redesign.** Current game is a single static screen (x 0..9, one spike, one key, one door). Sketch before coding: (1) extend `BounceCircuitLogic` to a deterministic horizontally-scrolling course (seeded layout of platforms/spikes/pickups over a longer world, `cameraX` or worldOffset in the snapshot, distance-based scoring, goal at course end); (2) keep pure-logic module + snapshot contract (entities as positions); (3) scene: world-to-screen mapping from the camera offset, parallax layers (procedural), scrolling ground, hazard/pickup rendering, jump feel (input buffering/coyote time in logic with tests); (4) update controls hint if mechanics change; (5) logic tests: progression advances camera/distance, hazards kill, pickups score, goal wins, determinism per seed; e2e: scripted run making forward progress (probe-first like the Phase 5 win test — that test will need rewriting for the new design); pixel signatures in `tests/switching.spec.ts` use the ground strip color — keep a full-width ground strip or update the signature there.

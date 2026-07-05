@@ -13,7 +13,7 @@ import { markSelectedGame } from './ui/GameSelector';
 const games: GameDefinition[] = [
   {
     id: 'neon-serpent',
-    controls: 'Arrows steer · Space restarts',
+    controls: 'Arrows steer · eating speeds up · Space restarts',
     title: 'Neon Serpent',
     subtitle: 'Portal snake with combo decay',
     sceneKey: 'neon-serpent',

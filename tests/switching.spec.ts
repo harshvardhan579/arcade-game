@@ -50,7 +50,11 @@ const MAGENTA: [number, number, number] = [255, 79, 216];
 const GRID_STROKE: [number, number, number] = [41, 70, 76];
 
 const games = [
-  { id: 'neon-serpent', name: 'Neon Serpent', hint: 'Arrows steer · Space restarts' },
+  {
+    id: 'neon-serpent',
+    name: 'Neon Serpent',
+    hint: 'Arrows steer · eating speeds up · Space restarts'
+  },
   { id: 'bounce-circuit', name: 'Bounce Circuit', hint: '← → move · ↑ jump · Space restarts' },
   { id: 'star-courier', name: 'Star Courier', hint: '← → move · Space fires' },
   { id: 'lane-rush', name: 'Lane Rush', hint: '← → change lanes' },
