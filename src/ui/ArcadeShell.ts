@@ -28,8 +28,10 @@ export function createArcadeShell(
   `;
   stage.querySelector('.topbar-actions')?.prepend(createMobileGameSelect(games));
   stage.append(createTouchControls());
-  stage.querySelector('.restart-button')?.addEventListener('click', () => {
+  const restart = stage.querySelector<HTMLButtonElement>('.restart-button');
+  restart?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('arcade-restart'));
+    restart.blur();
   });
 
   const hint = stage.querySelector<HTMLElement>('.controls-hint');

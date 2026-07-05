@@ -25,6 +25,8 @@ export function createGameSelector(games: readonly GameDefinition[]): HTMLElemen
     button.innerHTML = `<strong>${game.title}</strong><span>${game.subtitle}</span><small class="card-high">${formatHigh(high)}</small>`;
     button.addEventListener('click', () => {
       window.dispatchEvent(new CustomEvent('arcade-select-game', { detail: game.id }));
+      // Release focus so gameplay keys flow to the game right after selecting.
+      button.blur();
     });
     wrap.append(button);
   }

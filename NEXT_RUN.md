@@ -1,4 +1,16 @@
-# NEXT_RUN — Desktop UI Pass Complete
+# NEXT_RUN — Desktop UI Pass Complete (+ QA hardening)
+
+## QA hardening addendum (2026-07-05, final desktop slice)
+
+The "keyboard is met behaviorally" claim from the pass close-out was **wrong**, and the dedicated test written to close that gap proved it: `InputManager` called `preventDefault()` on every mapped key regardless of target, so Enter/Space on a focused game card or the Restart button was swallowed by the game-input layer — keyboard users could not activate any shell button. Existing suites missed it because they always clicked with the mouse and pressed keys with body focus.
+
+**Fix:** `InputManager.onKeyDown` now ignores key events targeting interactive elements (`button/select/input/textarea/contenteditable`), restoring native activation; card and Restart click handlers blur after dispatch so gameplay keys flow to the game immediately after any activation, mouse or keyboard.
+
+**New regression (`tests/shell.spec.ts` — "keyboard reaches, sees, and activates the shell controls"):** tab order walks the five cards then Restart; the focus-visible ring is computed-style-asserted (2px solid); Enter on a focused card switches the game and updates the hint; a gameplay key then moves the piece, proving focus release. Verified to fail (timeout at Enter activation) against the pre-fix code.
+
+**Validation:** full `npm run validate` ✓ (build + tsc, 54 Vitest, lint, e2e 24 passed / 20 intentionally skipped); games + shell desktop suites 26/26 under `--repeat-each=2`; layout regression re-ran green at all four laptop viewports; pixel signatures untouched.
+
+**Desktop is ready for the mobile pass.**
 
 ## Final state (2026-07-05, branch `desktop-ui-pass-1`)
 

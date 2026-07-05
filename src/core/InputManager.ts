@@ -25,6 +25,10 @@ const keyMap = new Map<string, SemanticInput>([
 export class InputManager {
   private handlers = new Set<InputHandler>();
   private readonly onKeyDown = (event: KeyboardEvent) => {
+    // Let focused shell controls keep their native keyboard behavior
+    // (Enter/Space activation, select navigation) instead of feeding the game.
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.('button, select, input, textarea, [contenteditable]')) return;
     const input = keyMap.get(event.key);
     if (!input) return;
     event.preventDefault();

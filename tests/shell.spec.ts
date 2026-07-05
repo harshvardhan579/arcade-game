@@ -49,6 +49,47 @@ test('desktop fits without scrolling, hides touch controls, and brands once', as
   }
 });
 
+test('keyboard reaches, sees, and activates the shell controls', async ({ page, viewport }) => {
+  test.skip(Boolean(viewport && viewport.width < 900), 'desktop-only keyboard assertions');
+  const order: string[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    await page.keyboard.press('Tab');
+    order.push(
+      await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return el?.dataset.gameId ?? el?.className ?? 'none';
+      })
+    );
+  }
+  expect(order.slice(0, 5), 'tab order must walk the game cards in list order').toEqual([
+    'neon-serpent',
+    'bounce-circuit',
+    'star-courier',
+    'lane-rush',
+    'circuit-stack'
+  ]);
+  expect(order[5], 'restart must follow the cards in tab order').toContain('restart-button');
+
+  await page.keyboard.press('Shift+Tab');
+  const outline = await page.evaluate(() => {
+    const style = getComputedStyle(document.activeElement as HTMLElement);
+    return { width: style.outlineWidth, lineStyle: style.outlineStyle };
+  });
+  expect(outline.lineStyle, 'keyboard focus must show the focus-visible ring').toBe('solid');
+  expect(outline.width).toBe('2px');
+
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'circuit-stack');
+  await expect(page.locator('.controls-hint')).toHaveText('← → move · ↑ rotate · ↓ drop');
+
+  const before = await page.evaluate(() => window.__ARCADE__!.getState().pieceY as number);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction(
+    (y) => (window.__ARCADE__!.getState().pieceY as number) > y,
+    before as number
+  );
+});
+
 test('mobile controls hint follows the picker and keeps controls in view', async ({
   page,
   viewport
