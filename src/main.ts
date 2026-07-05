@@ -84,10 +84,18 @@ const game = new Phaser.Game({
   scene: [NeonSerpentScene, BounceCircuitScene, StarCourierScene, LaneRushScene, CircuitStackScene]
 });
 
+let currentSceneKey: string | null = null;
+
 function startGame(id: string): void {
   const definition = games.find((item) => item.id === id) ?? games[0]!;
+  if (currentSceneKey === definition.sceneKey) return;
   document.documentElement.style.setProperty('--game-aspect', String(definition.aspectRatio));
+  // SceneManager.start does not stop the running scene (unlike the in-scene
+  // ScenePlugin.start), so without an explicit stop every selected game keeps
+  // running and later scenes in the list render on top of the new one.
+  if (currentSceneKey) game.scene.stop(currentSceneKey);
   game.scene.start(definition.sceneKey);
+  currentSceneKey = definition.sceneKey;
   markSelectedGame(definition.id);
 }
 
