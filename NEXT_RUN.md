@@ -1,20 +1,63 @@
-# NEXT_RUN — Mobile UI Pass (branch `mobile-ui-pass-1`)
+# NEXT_RUN — Mobile UI Pass Complete (branch `mobile-ui-pass-1`)
 
-Driven by `UI_MOBILE_AUDIT.md` (ranked findings, acceptance criteria, hard rules) and
-`.claude/mobile-ui-loop.md` (execution procedure). Desktop pass close-out notes live in
-git history (`4741c09`, `8def1ed`).
+The mobile browser UI pass driven by `UI_MOBILE_AUDIT.md` and `.claude/mobile-ui-loop.md`
+is **complete**: all seven phases executed in green slices; no gameplay or logic code was
+touched (scene changes were presentation-only); no test was weakened. Desktop pass
+close-out notes live in git history (`4741c09`, `8def1ed`).
 
 ## Phase status
 
-| Phase | Scope                                                | Status                |
-| ----- | ---------------------------------------------------- | --------------------- |
-| 1     | Viewport fit, no accidental scroll, safe canvas size | done (`3049502`)      |
-| 2     | Touch controls / d-pad ergonomics, thumb reach       | done (`c190dfd`)      |
-| 3     | Picker, restart, high scores, instructions           | done (`b379896`)      |
-| 4     | Mobile HUD/canvas framing, reduced clutter           | done (`81c2896`)      |
-| 5     | Touch a11y, focus/active states, orientation         | **done (this slice)** |
-| 6     | Mobile screenshot verification + full validation     | queued                |
-| 7     | Docs + final summary                                 | queued                |
+| Phase | Scope                                                | Status           |
+| ----- | ---------------------------------------------------- | ---------------- |
+| 1     | Viewport fit, no accidental scroll, safe canvas size | done (`3049502`) |
+| 2     | Touch controls / d-pad ergonomics, thumb reach       | done (`c190dfd`) |
+| 3     | Picker, restart, high scores, instructions           | done (`b379896`) |
+| 4     | Mobile HUD/canvas framing, reduced clutter           | done (`81c2896`) |
+| 5     | Touch a11y, focus/active states, orientation         | done (`f678ccd`) |
+| 6     | Mobile screenshot verification + full validation     | done (below)     |
+| 7     | Docs + final summary                                 | done (this)      |
+
+## Phase 6 (2026-07-05) — verification evidence
+
+- **Screenshot set regenerated** (four portrait + three landscape + game-over): playable
+  canvas at every size (249×333 SE … 410×598 Pro Max portrait; 215×287 … 256×342
+  landscape), touch controls visible in all seven viewports including 932×430, zero page
+  scroll everywhere, touch hint wording everywhere, `GAME OVER / Tap ● to restart`
+  overlay legible at 390×844 with the picker showing `Lane Rush · High 12`.
+- **Flake confidence:** `shell + smoke + switching` under `--repeat-each=2`, both
+  projects: 28 passed / 24 intentionally skipped.
+- **Final full `npm run validate`:** build + strict tsc, 54 Vitest, ESLint + import
+  boundary + Prettier, Playwright **29 passed / 25 intentionally skipped**.
+- **Audit acceptance criteria:** all eleven met; two caveats documented honestly —
+  landscape HUD can truncate its tail on a 215px-wide canvas (score/high always visible),
+  and iPad-landscape (coarse pointer, >500px height, ≥900px width) still receives the
+  desktop layout.
+
+## Manual QA on a real phone (~3 minutes, cannot be proven headless)
+
+1. iOS Safari portrait: play each game; confirm the ↓ button clears the toolbar with the
+   URL bar both expanded and collapsed (`100dvh` behavior), and the home indicator does
+   not overlap the d-pad (safe-area padding).
+2. Long-press any d-pad button: pressed state shows, no text magnifier/callout appears.
+3. Double-tap Restart rapidly after a crash: no page zoom.
+4. Rotate mid-game: landscape composition appears (canvas center, controls flanking),
+   play works, rotate back cleanly.
+5. First tap anywhere unlocks audio (select blip on picking a game).
+
+## Merge recommendation
+
+Ready for review. `mobile-ui-pass-1` = audit + loop docs (`dace459`) plus five green
+implementation commits and this close-out, stacked on the completed desktop pass.
+Suggested: PR `mobile-ui-pass-1` → `main`.
+
+## Remaining polish ideas (non-blocking)
+
+1. iPad-landscape touch layout (documented limitation; needs a taller-viewport variant of
+   the coarse-pointer block plus stage-grid rework at ≥900px).
+2. Optional swipe-on-canvas input for Neon Serpent (semantic-input layer only, if wanted).
+3. Landscape HUD tail truncation on ≤215px canvases (shorter labels per game would fix).
+4. Repo-root hygiene: remove the 13 empty word-named directories left by a botched
+   Docker-Desktop shell string (see audit hygiene note).
 
 ## Phase 5 (2026-07-05) — what changed
 

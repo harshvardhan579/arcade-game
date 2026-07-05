@@ -1,5 +1,15 @@
 # Pocket Arcade — Mobile Browser UI Audit
 
+> **Status (2026-07-05, end of mobile UI pass):** all P0/P1/P2 findings fixed on branch
+> `mobile-ui-pass-1` (commits `3049502`…`f678ccd`). All eleven §4 acceptance criteria met and
+> e2e-asserted where cheap: no-overlap/fit at four portrait sizes, pressed feedback +
+> hold-to-repeat + single-shot ACTION, game-over overlay pixels, touch hint copy, picker high
+> scores + blur, landscape playability at 667×375/844×390/932×430, d-pad accessible names, and
+> a reduced-motion touch run. Honest caveats: real-device dvh/safe-area/long-press behavior is
+> on the manual QA list in `NEXT_RUN.md`; landscape HUD can truncate its tail on ≤215px
+> canvases; iPad-landscape (coarse pointer, >500px height, ≥900px width) still gets the
+> desktop layout — both recorded as non-blocking follow-ups.
+
 Audited 2026-07-05 on branch `mobile-ui-pass-1` (desktop UI pass complete and green). Scope: **mobile browser UI only** — viewport fit, touch controls, mobile picker, canvas sizing, thumb reach, orientation, instructions, high scores, restart, touch affordances, readability, and mobile performance. No gameplay, logic, or desktop-layout changes.
 
 Viewports inspected via live headless captures + measured DOM rects (`metrics.json`): 375×667 (iPhone SE), 390×844 (iPhone 12–14), 412×915 (mid-size Android), 430×932 (iPhone Pro Max), and landscape 667×375, 844×390, 932×430. Frameworks applied: UI/UX Pro Max mobile checklist (touch targets, safe areas, feedback timing), Bencium critique (hierarchy, spacing, typographic restraint), Vercel Web Interface Guidelines (tap-highlight, `touch-action: manipulation`, safe-area insets, dvh, input feedback).

@@ -65,7 +65,9 @@ Shared systems live in `src/core/`:
 
 ## Responsive Shell
 
-Desktop uses a three-column arcade layout — selector, canvas stage, and case-study panel — sized to exactly the viewport with no page scrolling, the touch controls hidden, and the canvas centered as the cabinet screen (e2e-asserted at 1280×800 through 1512×982). Mobile portrait hides secondary panels, keeps the canvas and controls in the first viewport, disables gameplay page scrolling, and exposes large touch controls.
+Desktop uses a three-column arcade layout — selector, canvas stage, and case-study panel — sized to exactly the viewport with no page scrolling, the touch controls hidden, and the canvas centered as the cabinet screen (e2e-asserted at 1280×800 through 1512×982).
+
+Mobile portrait hides the side panels and sizes the canvas from its grid row (never from viewport constants), so play area and controls share the screen without overlap from iPhone SE up (e2e-asserted at 375×667 through 430×932). The layout uses `100dvh` with safe-area insets and `viewport-fit=cover`, the topbar leads with the game picker (options carry live per-game high scores), and the touch controls split into two thumb zones — direction cluster left, action button right — with class-driven pressed feedback, hold-to-repeat on directions, and aria-labels. Game over shows a centered "Tap ● to restart" overlay with touch-correct control hints throughout. Coarse-pointer phones in landscape get a dedicated composition — full-height centered canvas with controls flanking it — including widths that cross the 900px desktop breakpoint (e2e-asserted at 667×375 through 932×430).
 
 The shell supports per-game aspect metadata; all five games use portrait-friendly layouts. Selecting a game stops the outgoing Phaser scene before starting the next one, shows that game's control hints, and keeps per-game high scores visible on the selector cards.
 
