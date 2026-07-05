@@ -39,12 +39,19 @@ body {
     linear-gradient(180deg, #081418 0%, #05090b 100%);
 }
 
-button {
-  font: inherit;
-}
-
+button,
 select {
   font: inherit;
+  /* Replace the default mobile grey tap flash with explicit pressed states. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Kill the double-tap-zoom delay/trigger on tappable shell controls
+   (.game-root and .touch-controls already opt out with touch-action: none). */
+.restart-button,
+.mobile-game-select,
+.game-card {
+  touch-action: manipulation;
 }
 
 .arcade-shell {
@@ -296,12 +303,15 @@ h2 {
 }
 
 .touch-controls {
+  /* Two thumb zones: direction cluster on the left, action on the right,
+     so move + fire works with both thumbs without crossing mid-screen. */
   display: grid;
-  grid-template-columns: repeat(3, 76px);
-  grid-template-rows: repeat(3, 58px);
-  justify-content: center;
+  grid-template-columns: repeat(3, minmax(52px, 70px)) 1fr minmax(88px, 104px);
+  grid-template-rows: repeat(3, 54px);
   gap: 8px;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .touch-button {
@@ -311,10 +321,15 @@ h2 {
   border-radius: 8px;
   font-size: 1.35rem;
   font-weight: 800;
+  transition:
+    background-color 0.12s ease-out,
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out;
 }
 
 .touch-up {
   grid-column: 2;
+  grid-row: 1;
 }
 
 .touch-left {
@@ -323,10 +338,11 @@ h2 {
 }
 
 .touch-action {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 5;
+  grid-row: 1 / span 3;
   color: #081418;
   background: var(--pink);
+  font-size: 1.6rem;
 }
 
 .touch-right {
@@ -337,6 +353,19 @@ h2 {
 .touch-down {
   grid-column: 2;
   grid-row: 3;
+}
+
+/* preventDefault on pointerdown suppresses :active, so pressed feedback
+   is driven by this class from TouchControls. */
+.touch-button.is-pressed {
+  background: #16414c;
+  transform: translateY(1px);
+  box-shadow: 0 0 14px rgba(77, 255, 225, 0.2);
+}
+
+.touch-action.is-pressed {
+  background: #ff7ce2;
+  box-shadow: 0 0 18px rgba(255, 79, 216, 0.35);
 }
 
 .case-study {
@@ -479,8 +508,10 @@ h2 {
     align-self: center;
   }
 
-  .touch-controls {
-    grid-template-columns: repeat(3, minmax(74px, 88px));
-    grid-template-rows: repeat(3, 54px);
+  /* Apple HIG floor is 44pt; the base 42px is scoped up on touch layouts
+     only so desktop chrome keeps its exact metrics. */
+  .restart-button,
+  .mobile-game-select {
+    min-height: 44px;
   }
 }

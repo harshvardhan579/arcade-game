@@ -102,6 +102,53 @@ test('mobile controls hint follows the picker and keeps controls in view', async
   await expect(page.locator('.touch-controls')).toBeInViewport();
 });
 
+test('touch buttons show pressed feedback and directions repeat while held', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only touch assertions');
+  type CountingWindow = Window & { __INPUTS__: number };
+  const inputCount = () => page.evaluate(() => (window as unknown as CountingWindow).__INPUTS__);
+  await page.evaluate(() => {
+    const w = window as unknown as CountingWindow;
+    w.__INPUTS__ = 0;
+    window.addEventListener('arcade-semantic-input', () => {
+      w.__INPUTS__ += 1;
+    });
+  });
+
+  // Pressed feedback must appear on pointerdown and clear on pointerup —
+  // :active is suppressed by the preventDefault in the pointerdown handler.
+  const left = page.locator('[data-arcade-input="LEFT"]');
+  await left.dispatchEvent('pointerdown', { pointerId: 1 });
+  await expect(left, 'pressing LEFT must show pressed feedback').toHaveClass(/is-pressed/);
+  await page.waitForTimeout(700);
+  await left.dispatchEvent('pointerup', { pointerId: 1 });
+  await expect(left, 'releasing LEFT must clear pressed feedback').not.toHaveClass(/is-pressed/);
+
+  // Holding a direction must auto-repeat (parity with OS key repeat)…
+  const heldCount = await inputCount();
+  expect(heldCount, 'holding LEFT for 700ms must auto-repeat').toBeGreaterThanOrEqual(3);
+  // …and releasing must stop the repeat.
+  await page.waitForTimeout(300);
+  expect(await inputCount(), 'repeat must stop on release').toBe(heldCount);
+
+  // A discrete tap still emits exactly one input.
+  await page.evaluate(() => ((window as unknown as CountingWindow).__INPUTS__ = 0));
+  await left.dispatchEvent('pointerdown', { pointerId: 2 });
+  await left.dispatchEvent('pointerup', { pointerId: 2 });
+  await page.waitForTimeout(500);
+  expect(await inputCount(), 'a tap must emit exactly one input').toBe(1);
+
+  // ACTION is deliberately single-shot even when held (no restart spam).
+  await page.evaluate(() => ((window as unknown as CountingWindow).__INPUTS__ = 0));
+  const action = page.locator('[data-arcade-input="ACTION"]');
+  await action.dispatchEvent('pointerdown', { pointerId: 3 });
+  await page.waitForTimeout(700);
+  await action.dispatchEvent('pointerup', { pointerId: 3 });
+  expect(await inputCount(), 'holding ACTION must stay single-shot').toBe(1);
+});
+
 test('mobile canvas and touch controls share the viewport without overlap', async ({
   page,
   viewport

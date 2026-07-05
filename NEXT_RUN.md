@@ -8,13 +8,46 @@ git history (`4741c09`, `8def1ed`).
 
 | Phase | Scope                                                | Status                |
 | ----- | ---------------------------------------------------- | --------------------- |
-| 1     | Viewport fit, no accidental scroll, safe canvas size | **done (this slice)** |
-| 2     | Touch controls / d-pad ergonomics, thumb reach       | next                  |
+| 1     | Viewport fit, no accidental scroll, safe canvas size | done (`3049502`)      |
+| 2     | Touch controls / d-pad ergonomics, thumb reach       | **done (this slice)** |
 | 3     | Picker, restart, high scores, instructions           | queued                |
 | 4     | Mobile HUD/canvas framing, reduced clutter           | queued                |
 | 5     | Touch a11y, focus/active states, orientation         | queued                |
 | 6     | Mobile screenshot verification + full validation     | queued                |
 | 7     | Docs + final summary                                 | queued                |
+
+## Phase 2 (2026-07-05) — what changed
+
+**P1-5/P1-8 fixed (dead touch feedback, iOS tap artifacts):** `TouchControls` now toggles an
+`is-pressed` class on `pointerdown`/`pointerup`/`pointercancel`/`pointerleave` (the existing
+`:active` styles never fired on touch because `preventDefault` on pointerdown suppresses
+`:active` in Chromium). Buttons/selects get `-webkit-tap-highlight-color: transparent` with
+explicit pressed styles instead; the d-pad gets `user-select: none`; Restart/select/cards get
+`touch-action: manipulation` (no double-tap zoom on rapid Restart taps).
+
+**P1-6 fixed (no hold-to-repeat):** held direction buttons now dispatch repeats (300ms delay,
+then 90ms interval — parity with OS key repeat), timers cleared on every pointer-end path and
+re-armed safely on repeated pointerdown. **ACTION stays single-shot** so holding ● cannot spam
+restart/fire. A discrete tap still emits exactly one input (the pre-existing mobile smoke test
+is unchanged and green).
+
+**P1-9 fixed (thumb reach):** `.touch-controls` is now two thumb zones — direction cross on the
+left, a full-height (178px × ~104px) action button anchored right — so move + fire works with
+both thumbs without crossing mid-screen. Restart and the game select are ≥44px tall on mobile
+only (desktop metrics untouched).
+
+**New regression (`tests/shell.spec.ts`, mobile — "touch buttons show pressed feedback and
+directions repeat while held"):** pressed class appears/clears; holding LEFT 700ms emits ≥3
+semantic inputs and stops on release; a tap emits exactly one; held ACTION emits exactly one.
+**Fail-first verified** against the pre-fix TouchControls.
+
+### Phase 2 validation
+
+- Mobile shell specs: 3 passed (pressed/repeat, no-overlap, hint/picker).
+- `shell + smoke` both projects: 10 passed / 8 intentionally skipped.
+- Full `npm run validate`: build + tsc, 54 Vitest, lint, Playwright 26 passed / 22 skipped.
+- Screenshot re-run: split layout verified at 390×844; no-overlap regression still green with
+  the new grid.
 
 ## Phase 1 (2026-07-05) — what changed
 
