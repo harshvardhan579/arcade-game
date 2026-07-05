@@ -1,55 +1,68 @@
-# NEXT_RUN — Desktop UI Pass Complete (+ QA hardening)
+# NEXT_RUN — Mobile UI Pass (branch `mobile-ui-pass-1`)
 
-## QA hardening addendum (2026-07-05, final desktop slice)
+Driven by `UI_MOBILE_AUDIT.md` (ranked findings, acceptance criteria, hard rules) and
+`.claude/mobile-ui-loop.md` (execution procedure). Desktop pass close-out notes live in
+git history (`4741c09`, `8def1ed`).
 
-The "keyboard is met behaviorally" claim from the pass close-out was **wrong**, and the dedicated test written to close that gap proved it: `InputManager` called `preventDefault()` on every mapped key regardless of target, so Enter/Space on a focused game card or the Restart button was swallowed by the game-input layer — keyboard users could not activate any shell button. Existing suites missed it because they always clicked with the mouse and pressed keys with body focus.
+## Phase status
 
-**Fix:** `InputManager.onKeyDown` now ignores key events targeting interactive elements (`button/select/input/textarea/contenteditable`), restoring native activation; card and Restart click handlers blur after dispatch so gameplay keys flow to the game immediately after any activation, mouse or keyboard.
+| Phase | Scope                                                | Status                |
+| ----- | ---------------------------------------------------- | --------------------- |
+| 1     | Viewport fit, no accidental scroll, safe canvas size | **done (this slice)** |
+| 2     | Touch controls / d-pad ergonomics, thumb reach       | next                  |
+| 3     | Picker, restart, high scores, instructions           | queued                |
+| 4     | Mobile HUD/canvas framing, reduced clutter           | queued                |
+| 5     | Touch a11y, focus/active states, orientation         | queued                |
+| 6     | Mobile screenshot verification + full validation     | queued                |
+| 7     | Docs + final summary                                 | queued                |
 
-**New regression (`tests/shell.spec.ts` — "keyboard reaches, sees, and activates the shell controls"):** tab order walks the five cards then Restart; the focus-visible ring is computed-style-asserted (2px solid); Enter on a focused card switches the game and updates the hint; a gameplay key then moves the piece, proving focus release. Verified to fail (timeout at Enter activation) against the pre-fix code.
+## Phase 1 (2026-07-05) — what changed
 
-**Validation:** full `npm run validate` ✓ (build + tsc, 54 Vitest, lint, e2e 24 passed / 20 intentionally skipped); games + shell desktop suites 26/26 under `--repeat-each=2`; layout regression re-ran green at all four laptop viewports; pixel signatures untouched.
+**P0-1 fixed (canvas overlapping/hiding the d-pad on short phones):**
 
-**Desktop is ready for the mobile pass.**
+- `src/style.css` mobile block: `.arcade-shell` grid is now a single `minmax(0, 1fr)` row —
+  the selector/case-study panels are `display: none` on mobile, so the stage was landing in
+  the unconstrained `auto` row and its content could overflow the viewport.
+- `.game-root` mobile sizing is now row-derived (`width: auto; height: 100%; max-width/max-height: 100%`,
+  the same pattern the desktop block uses) instead of the stale `calc((100vh - 230px) * aspect)`
+  estimate. The canvas can no longer overflow into the touch controls.
 
-## Final state (2026-07-05, branch `desktop-ui-pass-1`)
+**P0-3 hardened (mobile browser chrome / safe areas):**
 
-The laptop/desktop UI pass driven by `UI_DESKTOP_AUDIT.md` and `.claude/desktop-ui-loop.md` is complete. All seven phases executed in green slices; no gameplay, logic, or scene-draw code was touched; no test was weakened.
+- `.arcade-shell` mobile height is `100dvh` with a `100vh` fallback line.
+- `padding-bottom: calc(10px + env(safe-area-inset-bottom))` clears the home indicator.
+- `index.html` viewport meta now includes `viewport-fit=cover`.
 
-## Commits in this pass
+**New regression (`tests/shell.spec.ts`, mobile project — "mobile canvas and touch controls
+share the viewport without overlap"):** at 375×667, 390×844, 412×915, 430×932 it asserts no
+vertical/horizontal page scroll, canvas bottom above the `.touch-controls` top, and every
+`.touch-button` fully inside the viewport. **Fail-first verified:** against the pre-fix CSS it
+failed at 375×667 with canvas bottom 568 vs controls top 463.5 — exactly the audited defect.
 
-| Commit    | Phase | Summary                                                                                              |
-| --------- | ----- | ---------------------------------------------------------------------------------------------------- |
-| `06f32b3` | Audit | Screenshot-driven desktop audit + execution loop                                                     |
-| `dc8182f` | 1     | P0s fixed: d-pad hidden on desktop, true-fit no-scroll layout, centered canvas, single brand heading |
-| `1929a24` | 2     | Card hierarchy, even heights, eased hover/active, Now Playing badge, tabular numerals                |
-| `f37e1a1` | 3     | Case-study panel rewritten: accurate content in four labeled sections                                |
-| `b54df15` | 4     | Neon brand glow, interaction transitions, dark scrollbars, meta description/theme-color              |
-| `26a40e6` | 5     | Layout regression extended to all four laptop viewports + horizontal-overflow assertion              |
-| this      | 6–7   | Final screenshots, flake runs, docs status                                                           |
+## Phase 1 validation
 
-## Validation
+- Targeted new spec: green post-fix (fail-first confirmed pre-fix).
+- `npx playwright test tests/shell.spec.ts tests/smoke.spec.ts` both projects: 9 passed / 7
+  intentionally skipped.
+- Full `npm run validate`: build + strict tsc, 54 Vitest, ESLint + import boundary + Prettier,
+  Playwright 25 passed / 21 intentionally skipped.
+- Screenshot/metrics re-run (scratchpad `ui-audit/`): all four portrait sizes show a 12px gap
+  between canvas and controls, `scrollHeight == innerHeight`; iPhone SE shows the full d-pad
+  with a 252×337 canvas.
+- Desktop: shell/smoke/switching desktop suites green unmodified; no `min-width: 900px` CSS
+  touched.
 
-- Full `npm run validate` ✓ — build + strict tsc, 54 Vitest, ESLint + import boundary + Prettier, Playwright 23 passed / 19 intentionally skipped (includes the new desktop layout regression).
-- Flake confidence: `tests/shell.spec.ts` + `tests/switching.spec.ts` 8/8 under `--repeat-each=2`.
-- The Phase 1 regression was verified to fail against the pre-fix CSS before committing.
-- Pixel-signature switching tests passed unmodified throughout (all changes were DOM/CSS; canvas untouched).
-- Mobile specs (smoke, shell picker + first-viewport, highscore) green after every shell change — mobile behavior unchanged.
-- Screenshot-verified at 1440×900, 1280×800, 1512×982, 1366×768: no clipped chrome, no scroll, composed three-column cabinet.
+## Notes / carry-forwards
 
-## Remaining polish ideas (non-blocking)
+- Landscape (<900px) canvases are now even smaller (33×45 at 667×375) because sizing is
+  honestly row-derived — landscape strategy is Phase 5 scope (audit P0-2) and was already
+  unplayable pre-fix.
+- HUD still clips at 375 wide ("Len 3" cut) — Phase 3 (audit P2-12/P0-4).
+- Real-device dvh/safe-area behavior cannot be proven headless — manual QA list lands in
+  Phase 6.
 
-1. Typographic apostrophes/quotes in shell copy (currently straight in places).
-2. A dedicated keyboard-navigation e2e (tab-order walk + Space-on-focused-card no-double-fire) — behavior is correct and indirectly covered, but not pinned by a targeted test.
-3. Mobile UI pass (explicitly out of scope here).
-4. Optional: subtle background animation behind the columns (reduced-motion-gated) if more identity is wanted later.
+## Next task (Phase 2)
 
-## Manual QA (~3 minutes)
-
-1. `npm run dev` at a laptop window: confirm no scrollbars, no d-pad, one glowing "Pocket Arcade", GAMES label, NOW PLAYING on the active card.
-2. Hover cards and Restart (eased glow), Tab through cards → Restart (yellow focus rings), pick each game — hint and canvas follow.
-3. Read the case-study column — content matches the actual games.
-
-## Merge recommendation
-
-Ready for review. `desktop-ui-pass-1` contains the audit plus six green implementation commits, stacked on the completed playtest pass (`fable-playtest-fixes-1`). Suggested: PR `desktop-ui-pass-1` → `main` (or into the playtest branch's PR if that one is still open).
+Pressed-state class on d-pad buttons (`:active` is suppressed by `preventDefault` on
+pointerdown), tap-highlight/user-select/touch-action hygiene, hold-to-repeat for direction
+buttons, thumb-reach layout, 44px Restart/select — per `.claude/mobile-ui-loop.md` Phase 2.

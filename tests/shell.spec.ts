@@ -101,3 +101,57 @@ test('mobile controls hint follows the picker and keeps controls in view', async
   await expect(hint).toHaveText('← → move · Space fires');
   await expect(page.locator('.touch-controls')).toBeInViewport();
 });
+
+test('mobile canvas and touch controls share the viewport without overlap', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only layout assertions');
+  for (const [width, height] of [
+    [375, 667],
+    [390, 844],
+    [412, 915],
+    [430, 932]
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+
+    const overflow = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth
+    }));
+    expect(
+      overflow.vertical,
+      `page must not scroll vertically at ${width}x${height}`
+    ).toBeLessThanOrEqual(0);
+    expect(
+      overflow.horizontal,
+      `page must not scroll horizontally at ${width}x${height}`
+    ).toBeLessThanOrEqual(0);
+
+    const canvas = await page.locator('#game-root canvas').boundingBox();
+    const controls = await page.locator('.touch-controls').boundingBox();
+    expect(canvas, `canvas must render at ${width}x${height}`).not.toBeNull();
+    expect(controls, `touch controls must render at ${width}x${height}`).not.toBeNull();
+    expect(
+      canvas!.y + canvas!.height,
+      `canvas must end above the touch controls at ${width}x${height}`
+    ).toBeLessThanOrEqual(controls!.y + 0.5);
+
+    for (const button of await page.locator('.touch-button').all()) {
+      const box = await button.boundingBox();
+      expect(box, `every touch button must render at ${width}x${height}`).not.toBeNull();
+      expect(box!.x, `button on screen (left) at ${width}x${height}`).toBeGreaterThanOrEqual(-0.5);
+      expect(box!.y, `button on screen (top) at ${width}x${height}`).toBeGreaterThanOrEqual(-0.5);
+      expect(
+        box!.x + box!.width,
+        `button on screen (right) at ${width}x${height}`
+      ).toBeLessThanOrEqual(width + 0.5);
+      expect(
+        box!.y + box!.height,
+        `button on screen (bottom) at ${width}x${height}`
+      ).toBeLessThanOrEqual(height + 0.5);
+    }
+  }
+});

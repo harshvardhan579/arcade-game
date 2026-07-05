@@ -426,10 +426,17 @@ h2 {
   }
 
   .arcade-shell {
+    /* dvh tracks the visual viewport as mobile browser chrome collapses;
+       the vh line is the fallback for engines without dvh support. */
     height: 100vh;
+    height: 100dvh;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    /* The selector and case-study panels are display: none here, so the
+       stage is the only in-flow child — it must land in the constrained
+       row or its content can overflow the viewport. */
+    grid-template-rows: minmax(0, 1fr);
     padding: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
 
   .selector,
@@ -461,9 +468,15 @@ h2 {
   }
 
   .game-root {
-    width: min(100%, calc((100vh - 230px) * var(--game-aspect)));
+    /* Row-derived sizing: fill the stage's flexible row and let
+       aspect-ratio set the width, so the canvas can never overflow
+       into the touch controls below (same pattern as desktop). */
+    width: auto;
+    height: 100%;
     min-height: 0;
-    max-height: calc(100vh - 230px);
+    max-height: 100%;
+    max-width: 100%;
+    align-self: center;
   }
 
   .touch-controls {
