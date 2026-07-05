@@ -101,6 +101,8 @@ test('mobile controls hint follows the picker and keeps controls in view', async
   await page.getByLabel('Choose game').selectOption('star-courier');
   await expect(hint).toHaveText('← → move · ● fires');
   await expect(page.locator('.touch-controls')).toBeInViewport();
+  // The marketing eyebrow is desktop chrome; phones spend that space on play.
+  await expect(page.locator('.eyebrow')).toBeHidden();
 });
 
 test('mobile game over shows a touch restart affordance and the picker carries high scores', async ({

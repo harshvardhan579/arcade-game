@@ -478,8 +478,20 @@ h2 {
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
+  /* Phones spend topbar space on play: the marketing eyebrow is desktop
+     chrome, and Restart demotes to secondary weight so the picker leads. */
+  .eyebrow {
+    display: none;
+  }
+
   .topbar {
     align-items: flex-end;
+  }
+
+  .restart-button {
+    color: var(--cyan);
+    background: rgba(77, 255, 225, 0.08);
+    border: 1px solid #2b636e;
   }
 
   .topbar-actions {

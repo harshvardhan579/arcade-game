@@ -10,11 +10,26 @@ git history (`4741c09`, `8def1ed`).
 | ----- | ---------------------------------------------------- | --------------------- |
 | 1     | Viewport fit, no accidental scroll, safe canvas size | done (`3049502`)      |
 | 2     | Touch controls / d-pad ergonomics, thumb reach       | done (`c190dfd`)      |
-| 3     | Picker, restart, high scores, instructions           | **done (this slice)** |
-| 4     | Mobile HUD/canvas framing, reduced clutter           | queued                |
+| 3     | Picker, restart, high scores, instructions           | done (`b379896`)      |
+| 4     | Mobile HUD/canvas framing, reduced clutter           | **done (this slice)** |
 | 5     | Touch a11y, focus/active states, orientation         | queued                |
 | 6     | Mobile screenshot verification + full validation     | queued                |
 | 7     | Docs + final summary                                 | queued                |
+
+## Phase 4 (2026-07-05) — what changed
+
+**P1-10 fixed (inverted mobile topbar hierarchy):** the marketing eyebrow is hidden on mobile
+(`display: none` in the max-width block — it remains desktop chrome), reclaiming topbar space
+for the canvas; Restart demotes to a quiet outline style (cyan text on a translucent fill with
+the shared control border) so the game picker leads. Accessible name and hooks unchanged.
+Mobile regression: `.eyebrow` hidden (fail-first verified); desktop suites untouched and green.
+
+### Phase 4 validation
+
+- shell + smoke both projects: 11 passed / 9 intentionally skipped.
+- Full `npm run validate`: Playwright 27 passed / 23 skipped; build, Vitest, lint green.
+- Screenshots: at 375×667 the full HUD line now fits, the canvas gained the reclaimed topbar
+  height, and the topbar reads picker-first.
 
 ## Phase 3 (2026-07-05) — what changed
 
