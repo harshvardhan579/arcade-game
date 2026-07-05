@@ -1,31 +1,48 @@
-# Next Run — Playtest Fix Pass
+# NEXT_RUN — Playtest Fix Pass Complete
 
-## Last iteration (2026-07-05, Phase G)
+## Final state (2026-07-05, Phase H)
 
-**Slice: arcade-wide cohesion polish. All scene-side; zero logic changes; no tests weakened.**
+The playtest-driven pass on branch `fable-playtest-fixes-1` is complete: all eight phases done, every commit landed green, docs current.
 
-**Inconsistencies found and fixed:**
+**Phase H changes:** `README.md` Games section rewritten to describe the actual games (auto-runner Bounce Circuit, weaver/debris Star Courier, neon Lane Rush, seven-piece Circuit Stack with ghost preview, Serpent's surfaced speed ramp); the stale "single-screen Bounce Circuit" shell note replaced; the Validation section now names the pixel-signature switching regression. `CLAUDE.md` gained three future-agent invariants: the scene stop-before-start switching fix, the pixel-signature contract (colors, thresholds, never weaken), and RNG draw-order discipline (derive cosmetic variety from stable data; probe dependent tests if a draw must be added). No gameplay changes.
 
-- **Game-over presentation** was Lane Rush-only → the dim overlay moved into `BaseGameScene.renderState`, so every game now dims identically under the shared "GAME OVER - press Space" HUD line (Lane Rush's local copy removed).
-- **Score popups** were amber in Lane Rush, white in Star Courier, missing elsewhere → unified on amber `#ffd166` via the shared `popText`: Serpent pops `+10×multiplier` at the eaten food, Circuit Stack pops the clear bonus at the cleared row, Bounce pops `+25` at the collected orb, Courier's `+15` recolored. Status text (WAVE banner) stays cyan — score = amber, player = cyan, hazard = red/warm, special = magenta across all five games.
+**Validation:** full `npm run validate` ✓ — build + strict tsc, 54 Vitest, ESLint + import boundary + Prettier, Playwright 22 passed / 18 intentionally skipped. Flake confidence: `tests/switching.spec.ts` 3/3 under `--repeat-each=3`; deep `tests/games.spec.ts` 20/20 under `--repeat-each=2`. No flakes observed; no sleeps added anywhere in the pass.
 
-**Neon Serpent restyle (gameplay untouched):** soft cyan halo pass under every segment, body alpha fading toward the tail (head stays brightest), a magenta halo ring around the pulsing food, obstacles restyled as mines (outer glow stroke + dark core dot — hazard-red language consistent with Courier), and the playfield border glow now scales with `speedLevel` so the speed ramp is ambient as well as in the HUD.
+## Commits in this pass (oldest first)
 
-**Circuit Stack restyle (readability-first):** locked cells got bevels (light top edge, shaded bottom); the active piece gained a glow halo and bright top highlight; a **ghost landing preview** (outline cells at the computed drop position — a bounded ≤14×4 scan of `pieceCells` against `this.logic.grid`, presentation-only, hidden when the piece is already grounded); the NEXT preview gained a small static label created once in `create()`.
+| Commit    | Phase | Summary                                                                       |
+| --------- | ----- | ----------------------------------------------------------------------------- |
+| `80e64b0` | A     | P0 switching fix (stop outgoing scene) + pixel-signature regression test      |
+| `fb10f68` | B     | Circuit Stack full tetromino set, 7-bag randomizer, ±2 kicks, preview sizing  |
+| `f9949d8` | C     | Neon Serpent speed ramp tuned (80 ms floor) and surfaced (`Spd N`, hint)      |
+| `1e3001c` | D     | Bounce Circuit redesigned into a scrolling procedural auto-runner             |
+| `4114bdd` | E     | Star Courier weavers, telegraphed debris, defense line, readability + juice   |
+| `bc7e712` | F     | Lane Rush neon racer overhaul (shoulders/posts/haze/layered cars/popups)      |
+| `e9fd550` | G     | Arcade-wide cohesion (shared game-over dim, amber popups, Serpent/Stack glow) |
+| this      | H     | Docs refresh, invariants, flake-confidence validation                         |
 
-**Pixel-signature discipline:** switching spec re-run after the restyles and again after popup unification — all five signatures hold (serpent's food halo ring is alpha-blended, far from the magenta match window; circuit's grid strokes untouched so the gridline blend is identical; courier ship, lane road, bounce ground untouched). Screenshot-verified both restyled games, ghost preview visible.
+Test growth this pass: 40 → 54 Vitest; e2e 22 active per run (40 defined across projects) including the canvas pixel regression.
 
-**Performance:** all new draw loops are bounded (snake ≤ grid cells, circuit grid 8×14, ghost scan ≤ 56 checks) with no per-frame allocations added.
+## Known remaining polish ideas (none blocking)
 
-**Validation:** 54 vitest ✓ (no logic changes), switching + games desktop e2e 11/11 ✓, full `npm run validate` ✓ (build + tsc, 54 vitest, lint, e2e 22 passed / 18 intentionally skipped).
+1. Circuit Stack row-clear path still has no e2e (logic-tested only; honest gap, needs a test-only fast setup hook).
+2. Per-scene lazy loading could shrink the initial app chunk further (Phaser vendor chunk already split).
+3. Audio is minimal — per-game cue palettes would deepen identity (synthesized only, no e2e audio assertions).
+4. `PAUSE` semantic input is mapped but unused by any logic.
+5. Mobile shows high scores only in-canvas (selector cards are desktop-only).
+6. Bounce Circuit LEFT/RIGHT nudge is subtle; a playtest may want it stronger or telegraphed in the hint.
 
-**Deliberately skipped:** shell/CSS changes — the cabinet treatment, cards, focus states, and mobile layout from the earlier overhaul still hold up, and the task allowed shell work "only if needed."
+## Recommended manual QA checklist (~10 minutes)
 
-## Playtest phase status
+1. `npm run dev` → desktop: click through all five games **in both directions**, ending with Circuit Stack → each other game; confirm the visible game always matches the selected card and hint.
+2. Neon Serpent: eat several foods — confirm `+N` popups, `Spd` climbing, faster steps, mine obstacles readable; die on a mine; Space restarts.
+3. Circuit Stack: confirm the ghost outline tracks moves/rotations, the I piece appears within a bag or two, and a row clear pops the bonus.
+4. Bounce Circuit: confirm forward motion + parallax immediately; jump over spikes (coyote/buffer should feel forgiving); collect an orb; die; confirm distance banked into the score.
+5. Star Courier: shoot a drone (+15 popup), watch a weaver drift, let a debris warning fall and dodge it, try to shoot debris (shot absorbed), lose to the defense line.
+6. Lane Rush: dodge for near-miss popups; crash; confirm dim + shake + restart.
+7. Mobile viewport (or device): pick each game from the dropdown, confirm canvas + d-pad fit the first viewport and the hint updates.
+8. OS reduced-motion on: confirm games stay playable and informational (warnings, defense line, ghost) while shake/particles/popups are gone.
 
-- Phase A ✅ (`80e64b0`) · B ✅ (`fb10f68`) · C ✅ (`f9949d8`) · D ✅ (`1e3001c`) · E ✅ (`4114bdd`) · F ✅ (`bc7e712`) · **G ✅ (this commit)**
-- **Phase H ⬜ (final):** full validation + docs.
+## Merge recommendation
 
-## Next task
-
-**Phase H — closing pass.** (1) `README.md` is stale: the Games section still describes Bounce Circuit as a "portrait single-screen platformer with jump physics, spike hazard, key pickup, locked door" and Star Courier/Lane Rush/Circuit Stack descriptions predate the hazard/tetromino/visual work; the Architecture section should mention the shared effects helpers (spark emitter, popText, shared game-over dim). (2) `CLAUDE.md` invariants section: add the pixel-signature contract (switching spec depends on road/ground/grid/food/ship color signatures — restyles must re-run it) and the no-new-rng-draws determinism caution for seeded games. (3) Re-run full validation including a `--repeat-each=2` pass on the deep e2e suites for flake confidence. (4) Close with a session summary here.
+**Ready for review and merge into `main`.** All work is on `fable-playtest-fixes-1` (8 commits, each individually green through the full validation chain), architecture constraints intact (pure logic boundary enforced, zero external assets, synthesized audio only, no guards weakened). Suggested flow: open a PR from `fable-playtest-fixes-1` → `main`, run the manual QA checklist above on the preview, merge.

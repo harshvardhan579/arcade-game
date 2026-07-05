@@ -79,9 +79,13 @@ Delegate via the agents in `.claude/agents/` when the task matches:
 
 The autonomous improvement loop lives in `.claude/loop.md`; it records progress in `NEXT_RUN.md`.
 
-## Architecture Notes (updated 2026-07-04, post-overhaul)
+## Architecture Notes (updated 2026-07-05, post-playtest pass)
 
 All debts from the initial audit are resolved; preserve these invariants:
+
+- **Scene switching stops the outgoing scene:** `startGame` in `src/main.ts` tracks `currentSceneKey` and calls `game.scene.stop` before `game.scene.start`, because Phaser's `SceneManager.start` does **not** stop the running scene — without the stop, scenes stack and later scenes in the config list render on top of newly selected ones. The regression test is `tests/switching.spec.ts`.
+- **Pixel-signature contract:** `tests/switching.spec.ts` proves the selected game is actually rendered by counting canvas pixels of per-game signature colors — Lane Rush road `#0d252b` dominant (> 200k px), Bounce Circuit's full-width ground strip `#12353c`, Circuit Stack grid strokes `#31545a` @ 0.8 over the base background, Neon Serpent food magenta (bounded 50..3000), Star Courier ship cyan in the bottom-center region. Visual restyles must keep these signatures (or update the spec deliberately) and must re-run the spec; never weaken it — bridge/DOM assertions cannot catch stacked-scene bugs.
+- **RNG draw discipline:** deterministic logic tests and e2e scripts depend on the _order_ of `SeededRandom` draws (e.g. Star Courier's seed-9 column-2 opener, Lane Rush's seed-12 crash at tick ~102). Do not add rng draws casually; derive cosmetic variety from stable data instead (Lane Rush car variants use `spawnTick % 3`). If a draw must be added, probe and update the dependent tests deliberately.
 
 - **Scenes render truth:** every game's snapshot exposes real entity positions (`projectiles`/`enemies`, `traffic`, `pieceCells`, …) and scenes draw from them. Never regress to count-based synthetic layouts. Contract tests in each `*Logic.test.ts` pin positions, determinism, and snapshot detachment.
 - **High scores:** `ScoreManager.record()` persists per-game maxima, publishes `highScore` through the bridge/HUD, and dispatches `arcade-high-score` CustomEvents that `GameSelector` renders on cards. `tests/highscore.spec.ts` guards the full path including real gameplay.

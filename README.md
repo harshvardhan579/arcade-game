@@ -35,7 +35,7 @@ npm run validate
 
 `npm run validate` runs build, Vitest, ESLint/import-boundary/Prettier, and Playwright in sequence. Playwright requires its Chromium browser cache; install it with `npx playwright install chromium` if prompted.
 
-The Playwright suites go beyond smoke: every game has a deep interaction test (deterministic win/death runs, entity-bounds contracts), high-score persistence is verified against real gameplay and reloads, audio lifecycle is guarded by an AudioContext/listener-count instrumentation test, and the shell has controls-hint and mobile first-viewport assertions.
+The Playwright suites go beyond smoke: every game has a deep interaction test (deterministic progression/death runs, entity-bounds contracts), high-score persistence is verified against real gameplay and reloads, audio lifecycle is guarded by an AudioContext/listener-count instrumentation test, the shell has controls-hint and mobile first-viewport assertions, and a pixel-signature switching regression reads the rendered canvas to prove the selected game is actually the one on screen — bridge and DOM checks alone cannot catch stacked-scene bugs.
 
 ## Architecture
 
@@ -57,17 +57,17 @@ Shared systems live in `src/core/`:
 
 ## Games
 
-- Neon Serpent: polished vertical slice with grid movement, portal wrapping, food, combo decay, speed ramping, obstacles, collision, and restart.
-- Bounce Circuit: portrait single-screen platformer with jump physics, spike hazard, key pickup, locked door, win, and game-over.
-- Star Courier: vertical shooter with projectiles, enemy spawning, object pools, collisions, and deterministic wave scaling.
-- Lane Rush: three-lane racer with lane clamping, traffic spawning, speed ramping, collision, and near-miss scoring.
-- Circuit Stack: falling-block puzzle with grid occupancy, rotation with wall-kick attempt, row clearing, scoring, next-piece state, and spawn-blocked game-over.
+- Neon Serpent: grid snake with portal wrapping, a combo multiplier, seeded food and mine-styled obstacles, and a visible 17-level speed ramp — eating accelerates the step interval from 144 ms down to an 80 ms floor, surfaced as `Spd N` in the HUD.
+- Bounce Circuit: procedural auto-runner — the world scrolls at a ramping capped speed past seeded chunks of spike clusters, one-way platforms, and orb pickups under a parallax skyline; jumping has coyote time and a landing buffer, orbs score immediately, and the distance run banks into the score on death.
+- Star Courier: vertical shooter with straight-falling drones plus sinusoidally drifting weavers from wave 2, telegraphed un-shootable debris rocks that absorb shots and must be dodged, a dashed defense line, kill popups, wave banners, fixed object pools, and deterministic wave scaling.
+- Lane Rush: neon three-lane racer — near-miss scoring with `+12`/`+5` popups, speed-scaled lane dashes and roadside posts, layered car shapes whose color variants derive from the spawn tick (no extra RNG draws), and crash feedback.
+- Circuit Stack: falling-block puzzle with the full seven-piece tetromino set dealt from a seeded 7-bag, wall kicks (including the ±2 kicks the I piece needs), a ghost landing preview, a shape-accurate next-piece box, multi-row clear scoring, and spawn-blocked game-over.
 
 ## Responsive Shell
 
 Desktop uses a three-column arcade layout: selector, canvas stage, and case-study panel. Mobile portrait hides secondary panels, keeps the canvas and controls in the first viewport, disables gameplay page scrolling, and exposes large touch controls.
 
-The shell supports per-game aspect metadata. The current MVP set uses portrait-friendly layouts for all games, including a vertical shooter treatment for Star Courier and a portrait single-screen Bounce Circuit.
+The shell supports per-game aspect metadata; all five games use portrait-friendly layouts. Selecting a game stops the outgoing Phaser scene before starting the next one, shows that game's control hints, and keeps per-game high scores visible on the selector cards.
 
 ## Zero-Asset And Legal Note
 
