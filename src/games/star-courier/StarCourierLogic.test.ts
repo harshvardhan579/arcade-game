@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { StarCourierLogic } from './StarCourierLogic';
+import { StarCourierLogic, courierDebrisWarnTicks, courierWeaverWave } from './StarCourierLogic';
+
+function alignPlayer(logic: StarCourierLogic, column: number): void {
+  let guard = 0;
+  while (logic.getState().playerX !== column && guard < 20) {
+    logic.handleInput(logic.getState().playerX > column ? 'LEFT' : 'RIGHT');
+    guard += 1;
+  }
+}
+
+// Deactivate enemies before they can reach the defense line, so debris-focused
+// tests are not ended early by an unshot invader.
+function disarmEnemies(logic: StarCourierLogic, fully = false): void {
+  logic.enemies.forEach((enemy) => {
+    if (fully || enemy.y > 9) enemy.active = false;
+  });
+}
 
 describe('StarCourierLogic', () => {
   it('reuses fixed object pools without growth', () => {
@@ -92,6 +108,122 @@ describe('StarCourierLogic', () => {
       logic.step();
     }
     expect(logic.getState().isGameOver).toBe(false);
+  });
+
+  it('spawns drifting weavers from wave two, deterministically', () => {
+    const findWeaverDrift = () => {
+      const logic = new StarCourierLogic();
+      logic.restart(9);
+      const drift: number[] = [];
+      for (let i = 0; i < 400 && drift.length < 12; i += 1) {
+        disarmEnemies(logic);
+        logic.step();
+        const state = logic.getState();
+        const weaver = state.enemies.find((enemy) => enemy.kind === 1);
+        if (weaver) {
+          expect(state.wave).toBeGreaterThanOrEqual(courierWeaverWave);
+          drift.push(weaver.x);
+        }
+      }
+      return drift;
+    };
+    const drift = findWeaverDrift();
+    expect(drift.length, 'a weaver must appear within 400 ticks').toBe(12);
+    expect(new Set(drift).size, 'weavers must drift horizontally').toBeGreaterThan(1);
+    for (const x of drift) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(10);
+    }
+    expect(findWeaverDrift()).toEqual(drift);
+  });
+
+  it('telegraphs debris with a warning before it falls', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(9);
+    let guard = 0;
+    while (logic.getState().debris.length === 0 && guard < 600) {
+      disarmEnemies(logic);
+      logic.step();
+      guard += 1;
+    }
+    const warned = logic.getState().debris[0]!;
+    expect(warned.warning).toBe(true);
+    expect(warned.y).toBe(0);
+    for (let i = 0; i <= courierDebrisWarnTicks; i += 1) {
+      disarmEnemies(logic);
+      logic.step();
+    }
+    const falling = logic.getState().debris[0]!;
+    expect(falling.warning).toBe(false);
+    expect(falling.y).toBeGreaterThan(0);
+  });
+
+  it('debris blocks projectiles but cannot be destroyed', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(9);
+    let guard = 0;
+    while (
+      (logic.getState().debris.length === 0 || logic.getState().debris[0]!.warning) &&
+      guard < 700
+    ) {
+      disarmEnemies(logic, true);
+      logic.step();
+      guard += 1;
+    }
+    const rock = logic.getState().debris[0]!;
+    alignPlayer(logic, Math.round(rock.x));
+    logic.handleInput('ACTION');
+    expect(logic.getState().activeProjectiles).toBe(1);
+    let steps = 0;
+    while (logic.getState().activeProjectiles > 0 && steps < 30) {
+      disarmEnemies(logic, true);
+      logic.step();
+      steps += 1;
+    }
+    const state = logic.getState();
+    expect(state.activeProjectiles, 'the shot must be absorbed').toBe(0);
+    expect(steps, 'absorption must happen before the shot leaves the screen').toBeLessThan(12);
+    expect(state.debris.length, 'the rock must survive the hit').toBeGreaterThan(0);
+    expect(state.score).toBe(0);
+  });
+
+  it('debris kills on contact but passes the bottom harmlessly', () => {
+    const collide = new StarCourierLogic();
+    collide.restart(9);
+    let guard = 0;
+    while (collide.getState().debris.length === 0 && guard < 600) {
+      disarmEnemies(collide);
+      collide.step();
+      guard += 1;
+    }
+    const rockX = Math.round(collide.getState().debris[0]!.x);
+    alignPlayer(collide, rockX);
+    guard = 0;
+    while (!collide.getState().isGameOver && collide.getState().debris.length > 0 && guard < 200) {
+      disarmEnemies(collide);
+      collide.step();
+      guard += 1;
+    }
+    expect(collide.getState().isGameOver, 'parking under the rock must be fatal').toBe(true);
+
+    const dodge = new StarCourierLogic();
+    dodge.restart(9);
+    guard = 0;
+    while (dodge.getState().debris.length === 0 && guard < 600) {
+      disarmEnemies(dodge);
+      dodge.step();
+      guard += 1;
+    }
+    const dodgeRockX = dodge.getState().debris[0]!.x;
+    alignPlayer(dodge, dodgeRockX < 5 ? 10 : 0);
+    guard = 0;
+    while (dodge.getState().debris.length > 0 && !dodge.getState().isGameOver && guard < 200) {
+      disarmEnemies(dodge);
+      dodge.step();
+      guard += 1;
+    }
+    expect(dodge.getState().debris.length, 'the rock must fall off the bottom').toBe(0);
+    expect(dodge.getState().isGameOver).toBe(false);
   });
 
   it('scales waves deterministically', () => {
