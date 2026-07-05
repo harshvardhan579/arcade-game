@@ -22,9 +22,9 @@ const games: GameDefinition[] = [
   },
   {
     id: 'bounce-circuit',
-    controls: '← → move · ↑ jump · Space restarts',
+    controls: '↑ jump · ← → shift · Space restarts',
     title: 'Bounce Circuit',
-    subtitle: 'Precision key-and-door platforming',
+    subtitle: 'Neon skyline auto-runner',
     sceneKey: 'bounce-circuit',
     aspectRatio: 3 / 4,
     orientation: 'portrait'

@@ -26,70 +26,45 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 });
 
-test('Bounce Circuit: jump rises and lands, spike ends the run, ACTION restarts', async ({
-  page
-}) => {
-  await openGame(page, 'Bounce Circuit', 'bounce-circuit');
-  await page.waitForFunction(() => window.__ARCADE__!.getState().playerY === 0);
-  await page.keyboard.press('ArrowUp');
-  await page.waitForFunction(() => (window.__ARCADE__!.getState().playerY as number) > 0);
-  await page.waitForFunction(() => window.__ARCADE__!.getState().playerY === 0);
-
-  let over = false;
-  for (let i = 0; i < 30 && !over; i += 1) {
-    const before = (await snapshot(page)).tick as number;
-    await page.keyboard.press('ArrowRight');
-    await page.waitForFunction(
-      (tick) => (window.__ARCADE__!.getState().tick as number) > tick,
-      before
-    );
-    over = (await snapshot(page)).isGameOver as boolean;
-  }
-  expect(over, 'walking into the spike at x=4 must end the run').toBe(true);
-
-  await page.keyboard.press(' ');
-  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === false);
-  const restarted = await snapshot(page);
-  expect(restarted.playerX).toBe(1);
-  expect(restarted.score).toBe(0);
-});
-
-test('Bounce Circuit: jumping the spike, grabbing the key, and reaching the door wins', async ({
-  page
-}) => {
-  test.setTimeout(40_000);
+test('Bounce Circuit: auto-runs forward with working jump feel', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
   await openGame(page, 'Bounce Circuit', 'bounce-circuit');
-  let finished = false;
-  for (let i = 0; i < 80 && !finished; i += 1) {
-    const state = await snapshot(page);
-    const phase = state.phase as string;
-    if (phase === 'won' || state.isGameOver === true) {
-      finished = true;
-      break;
-    }
-    const x = state.playerX as number;
-    const y = state.playerY as number;
-    if (y === 0 && x >= 2.8 && x < 4) await page.keyboard.press('ArrowUp');
-    if (!(y > 0 && x >= 5)) await page.keyboard.press('ArrowRight');
-    await page.waitForFunction(
-      (tick) => (window.__ARCADE__!.getState().tick as number) > tick,
-      state.tick as number
-    );
-  }
-  await page.waitForFunction(() => window.__ARCADE__!.getState().phase === 'won', undefined, {
+  const start = await snapshot(page);
+  await page.waitForFunction(
+    (camera) => (window.__ARCADE__!.getState().cameraX as number) > camera + 2,
+    start.cameraX as number,
+    { timeout: 8_000 }
+  );
+  await page.waitForFunction(() => window.__ARCADE__!.getState().grounded === true);
+  await page.keyboard.press('ArrowUp');
+  await page.waitForFunction(() => (window.__ARCADE__!.getState().playerY as number) > 0);
+  await page.waitForFunction(() => window.__ARCADE__!.getState().grounded === true, undefined, {
     timeout: 5_000
   });
-  const won = await snapshot(page);
-  expect(won.score).toBe(100);
-  expect(won.hasKey).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('Bounce Circuit: an unguided run dies on a spike, banks distance, and restarts', async ({
+  page
+}) => {
+  test.setTimeout(30_000);
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await openGame(page, 'Bounce Circuit', 'bounce-circuit');
+  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === true, undefined, {
+    timeout: 15_000
+  });
+  const over = await snapshot(page);
+  expect(over.score as number, 'death must bank the distance run').toBeGreaterThanOrEqual(28);
   await page.keyboard.press(' ');
   await page.waitForFunction(() => {
     const state = window.__ARCADE__!.getState();
-    return state.phase === 'playing' && state.score === 0;
+    return state.isGameOver === false && (state.cameraX as number) < 2 && state.score === 0;
   });
   expect(errors).toEqual([]);
 });
