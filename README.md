@@ -65,7 +65,7 @@ Shared systems live in `src/core/`:
 
 ## Responsive Shell
 
-Desktop uses a three-column arcade layout: selector, canvas stage, and case-study panel. Mobile portrait hides secondary panels, keeps the canvas and controls in the first viewport, disables gameplay page scrolling, and exposes large touch controls.
+Desktop uses a three-column arcade layout — selector, canvas stage, and case-study panel — sized to exactly the viewport with no page scrolling, the touch controls hidden, and the canvas centered as the cabinet screen (e2e-asserted at 1280×800 through 1512×982). Mobile portrait hides secondary panels, keeps the canvas and controls in the first viewport, disables gameplay page scrolling, and exposes large touch controls.
 
 The shell supports per-game aspect metadata; all five games use portrait-friendly layouts. Selecting a game stops the outgoing Phaser scene before starting the next one, shows that game's control hints, and keeps per-game high scores visible on the selector cards.
 

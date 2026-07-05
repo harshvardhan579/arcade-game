@@ -1,5 +1,7 @@
 # Pocket Arcade — Desktop UI Audit
 
+> **Status (2026-07-05, end of desktop UI pass):** all P0/P1 findings fixed on branch `desktop-ui-pass-1`. Acceptance criteria: 1–8 and 10 met and largely e2e-asserted (no-scroll + hidden d-pad + single brand at all four viewports; transitions with reduced-motion zeroing; accurate structured case study; card hierarchy with tabular numerals; meta/scrollbar chrome). Criterion 9 (keyboard) is met behaviorally — tab order is DOM-logical, focus rings verified by screenshot, and Space-after-click is exercised by the existing game suites — but has no dedicated new assertion beyond the pre-existing focus styles. Remaining soft item: some copy uses straight apostrophes rather than typographic ones.
+
 Audited 2026-07-05 on branch `fable-playtest-fixes-1` (all gameplay phases complete, validation green). Scope: laptop/desktop shell UI only — layout, selector, cards, instructions, high scores, hierarchy, focus/hover, cabinet identity. Viewports inspected via live screenshots: 1440×900, 1280×800, 1512×982, 1366×768, plus a keyboard-focus state. Frameworks applied: UI/UX Pro Max priority checklist, Bencium design critique (hierarchy/spacing/typographic scale), Vercel Web Interface Guidelines.
 
 ## 1. Current desktop UI problems, ranked by severity

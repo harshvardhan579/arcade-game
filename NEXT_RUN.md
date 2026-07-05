@@ -1,48 +1,43 @@
-# NEXT_RUN — Playtest Fix Pass Complete
+# NEXT_RUN — Desktop UI Pass Complete
 
-## Final state (2026-07-05, Phase H)
+## Final state (2026-07-05, branch `desktop-ui-pass-1`)
 
-The playtest-driven pass on branch `fable-playtest-fixes-1` is complete: all eight phases done, every commit landed green, docs current.
+The laptop/desktop UI pass driven by `UI_DESKTOP_AUDIT.md` and `.claude/desktop-ui-loop.md` is complete. All seven phases executed in green slices; no gameplay, logic, or scene-draw code was touched; no test was weakened.
 
-**Phase H changes:** `README.md` Games section rewritten to describe the actual games (auto-runner Bounce Circuit, weaver/debris Star Courier, neon Lane Rush, seven-piece Circuit Stack with ghost preview, Serpent's surfaced speed ramp); the stale "single-screen Bounce Circuit" shell note replaced; the Validation section now names the pixel-signature switching regression. `CLAUDE.md` gained three future-agent invariants: the scene stop-before-start switching fix, the pixel-signature contract (colors, thresholds, never weaken), and RNG draw-order discipline (derive cosmetic variety from stable data; probe dependent tests if a draw must be added). No gameplay changes.
+## Commits in this pass
 
-**Validation:** full `npm run validate` ✓ — build + strict tsc, 54 Vitest, ESLint + import boundary + Prettier, Playwright 22 passed / 18 intentionally skipped. Flake confidence: `tests/switching.spec.ts` 3/3 under `--repeat-each=3`; deep `tests/games.spec.ts` 20/20 under `--repeat-each=2`. No flakes observed; no sleeps added anywhere in the pass.
+| Commit    | Phase | Summary                                                                                              |
+| --------- | ----- | ---------------------------------------------------------------------------------------------------- |
+| `06f32b3` | Audit | Screenshot-driven desktop audit + execution loop                                                     |
+| `dc8182f` | 1     | P0s fixed: d-pad hidden on desktop, true-fit no-scroll layout, centered canvas, single brand heading |
+| `1929a24` | 2     | Card hierarchy, even heights, eased hover/active, Now Playing badge, tabular numerals                |
+| `f37e1a1` | 3     | Case-study panel rewritten: accurate content in four labeled sections                                |
+| `b54df15` | 4     | Neon brand glow, interaction transitions, dark scrollbars, meta description/theme-color              |
+| `26a40e6` | 5     | Layout regression extended to all four laptop viewports + horizontal-overflow assertion              |
+| this      | 6–7   | Final screenshots, flake runs, docs status                                                           |
 
-## Commits in this pass (oldest first)
+## Validation
 
-| Commit    | Phase | Summary                                                                       |
-| --------- | ----- | ----------------------------------------------------------------------------- |
-| `80e64b0` | A     | P0 switching fix (stop outgoing scene) + pixel-signature regression test      |
-| `fb10f68` | B     | Circuit Stack full tetromino set, 7-bag randomizer, ±2 kicks, preview sizing  |
-| `f9949d8` | C     | Neon Serpent speed ramp tuned (80 ms floor) and surfaced (`Spd N`, hint)      |
-| `1e3001c` | D     | Bounce Circuit redesigned into a scrolling procedural auto-runner             |
-| `4114bdd` | E     | Star Courier weavers, telegraphed debris, defense line, readability + juice   |
-| `bc7e712` | F     | Lane Rush neon racer overhaul (shoulders/posts/haze/layered cars/popups)      |
-| `e9fd550` | G     | Arcade-wide cohesion (shared game-over dim, amber popups, Serpent/Stack glow) |
-| this      | H     | Docs refresh, invariants, flake-confidence validation                         |
+- Full `npm run validate` ✓ — build + strict tsc, 54 Vitest, ESLint + import boundary + Prettier, Playwright 23 passed / 19 intentionally skipped (includes the new desktop layout regression).
+- Flake confidence: `tests/shell.spec.ts` + `tests/switching.spec.ts` 8/8 under `--repeat-each=2`.
+- The Phase 1 regression was verified to fail against the pre-fix CSS before committing.
+- Pixel-signature switching tests passed unmodified throughout (all changes were DOM/CSS; canvas untouched).
+- Mobile specs (smoke, shell picker + first-viewport, highscore) green after every shell change — mobile behavior unchanged.
+- Screenshot-verified at 1440×900, 1280×800, 1512×982, 1366×768: no clipped chrome, no scroll, composed three-column cabinet.
 
-Test growth this pass: 40 → 54 Vitest; e2e 22 active per run (40 defined across projects) including the canvas pixel regression.
+## Remaining polish ideas (non-blocking)
 
-## Known remaining polish ideas (none blocking)
+1. Typographic apostrophes/quotes in shell copy (currently straight in places).
+2. A dedicated keyboard-navigation e2e (tab-order walk + Space-on-focused-card no-double-fire) — behavior is correct and indirectly covered, but not pinned by a targeted test.
+3. Mobile UI pass (explicitly out of scope here).
+4. Optional: subtle background animation behind the columns (reduced-motion-gated) if more identity is wanted later.
 
-1. Circuit Stack row-clear path still has no e2e (logic-tested only; honest gap, needs a test-only fast setup hook).
-2. Per-scene lazy loading could shrink the initial app chunk further (Phaser vendor chunk already split).
-3. Audio is minimal — per-game cue palettes would deepen identity (synthesized only, no e2e audio assertions).
-4. `PAUSE` semantic input is mapped but unused by any logic.
-5. Mobile shows high scores only in-canvas (selector cards are desktop-only).
-6. Bounce Circuit LEFT/RIGHT nudge is subtle; a playtest may want it stronger or telegraphed in the hint.
+## Manual QA (~3 minutes)
 
-## Recommended manual QA checklist (~10 minutes)
-
-1. `npm run dev` → desktop: click through all five games **in both directions**, ending with Circuit Stack → each other game; confirm the visible game always matches the selected card and hint.
-2. Neon Serpent: eat several foods — confirm `+N` popups, `Spd` climbing, faster steps, mine obstacles readable; die on a mine; Space restarts.
-3. Circuit Stack: confirm the ghost outline tracks moves/rotations, the I piece appears within a bag or two, and a row clear pops the bonus.
-4. Bounce Circuit: confirm forward motion + parallax immediately; jump over spikes (coyote/buffer should feel forgiving); collect an orb; die; confirm distance banked into the score.
-5. Star Courier: shoot a drone (+15 popup), watch a weaver drift, let a debris warning fall and dodge it, try to shoot debris (shot absorbed), lose to the defense line.
-6. Lane Rush: dodge for near-miss popups; crash; confirm dim + shake + restart.
-7. Mobile viewport (or device): pick each game from the dropdown, confirm canvas + d-pad fit the first viewport and the hint updates.
-8. OS reduced-motion on: confirm games stay playable and informational (warnings, defense line, ghost) while shake/particles/popups are gone.
+1. `npm run dev` at a laptop window: confirm no scrollbars, no d-pad, one glowing "Pocket Arcade", GAMES label, NOW PLAYING on the active card.
+2. Hover cards and Restart (eased glow), Tab through cards → Restart (yellow focus rings), pick each game — hint and canvas follow.
+3. Read the case-study column — content matches the actual games.
 
 ## Merge recommendation
 
-**Ready for review and merge into `main`.** All work is on `fable-playtest-fixes-1` (8 commits, each individually green through the full validation chain), architecture constraints intact (pure logic boundary enforced, zero external assets, synthesized audio only, no guards weakened). Suggested flow: open a PR from `fable-playtest-fixes-1` → `main`, run the manual QA checklist above on the preview, merge.
+Ready for review. `desktop-ui-pass-1` contains the audit plus six green implementation commits, stacked on the completed playtest pass (`fable-playtest-fixes-1`). Suggested: PR `desktop-ui-pass-1` → `main` (or into the playtest branch's PR if that one is still open).
