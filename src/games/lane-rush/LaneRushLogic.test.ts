@@ -35,6 +35,9 @@ describe('LaneRushLogic', () => {
     const later = logic.getState();
     expect(later.traffic[0]!.y).toBeCloseTo(car.y + later.speed, 2);
     expect(later.traffic[0]!.lane).toBe(car.lane);
+    expect(later.traffic[0]!.variant).toBe(car.variant);
+    expect(car.variant).toBeGreaterThanOrEqual(0);
+    expect(car.variant).toBeLessThan(3);
     expect(later.trafficCount).toBe(later.traffic.length);
   });
 
@@ -56,12 +59,18 @@ describe('LaneRushLogic', () => {
     for (let i = 0; i < 40; i += 1) logic.step();
     const state = logic.getState();
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
-    (state.traffic as { lane: number; y: number; scored: boolean }[]).push({
+    (state.traffic as { lane: number; y: number; scored: boolean; variant: number }[]).push({
       lane: 0,
       y: 99,
-      scored: false
+      scored: false,
+      variant: 0
     });
-    expect(logic.getState().traffic).not.toContainEqual({ lane: 0, y: 99, scored: false });
+    expect(logic.getState().traffic).not.toContainEqual({
+      lane: 0,
+      y: 99,
+      scored: false,
+      variant: 0
+    });
   });
 
   it('awards near-miss score without registering a hit', () => {

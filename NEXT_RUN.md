@@ -1,28 +1,36 @@
 # Next Run — Playtest Fix Pass
 
-## Last iteration (2026-07-05, Phase E)
+## Last iteration (2026-07-05, Phase F)
 
-**Slice: Star Courier hazards + readability.**
+**Slice: Lane Rush visual/game-feel overhaul.**
 
-**Audit:** the game had exactly one threat type (plain circles descending in straight lines), unshaped projectiles, no un-shootable hazard, no telegraphing, no marker for the y=11.5 lose line, and no wave-change feedback beyond the HUD number.
+**Logic (`LaneRushLogic.ts`, minimal):** traffic cars gain a `variant` (0–2) derived from `spawnTick % 3` — zero extra rng draws, so the seed-12 deterministic sequence (near-miss at ~3.4 s, crash at tick 102) is untouched; verified by running the crash e2e and highscore specs unchanged. Variant exposed in the snapshot; stability asserted in the traffic contract test.
 
-**Logic (`StarCourierLogic.ts`):**
+**Scene (`LaneRushScene.ts`, rewritten):**
 
-- **Weaver enemy (kind 1), from wave 2:** drifts sinusoidally (±1.8 columns around its spawn column, clamped to bounds) while descending — same collision rules, but demands prediction. Spawn mix is seeded (35% from wave 2); wave 1 stays pure drones for onboarding. Enemy snapshots now carry `kind`.
-- **Debris hazard, from wave 2 (every 130 ticks):** telegraphed as a `warning` for 24 ticks at its column, then falls fast (0.24/step). It cannot be shot — it absorbs projectiles and survives — kills on ship contact, and passes the bottom harmlessly (unlike enemies, which still lose the game by crossing). The asymmetry teaches "shoot ships, dodge rocks". Exposed as a `debris` array (`x`, `y`, `warning`).
-- Pools: `enemies`/`debris` made public with exported types, matching the test-manipulation pattern used by Serpent/Circuit/Bounce. The first enemy's column still comes from the first rng draw, so seed 9's column-2 opener — which the deterministic e2e and two logic tests rely on — is unchanged (verified by running them, per the probe-first instruction).
+- **Road presentation:** dark shoulders (12% each side) with neon edge lines; roadside light posts with glow dots scrolling at road speed on both shoulders; glowing lane dashes (soft outer pass + bright core) still scrolling with `state.speed`; a four-band depth haze darkening the top of the road for fake perspective.
+- **Cars:** layered shapes replace plain rectangles — traffic cars have per-variant body colors (coral/amber/magenta from the existing palette), dark cabins, and amber taillights facing the player; the player car is cyan with a dark cabin, windshield band, and white headlights, keeping its bob.
+- **Speed sensation:** faint speed streaks appear across the road above speed 0.26 (on top of the scrolling posts/dashes).
+- **Feedback:** near-misses now pop `+12`/`+5` at the scored car's true position (amount derived from the same lane-distance rule the logic scores by) plus the existing sparks/shake; crashes add a burst at the player car on top of the shake/red flash; game over dims the whole road under the HUD message. `popText` was extracted into `src/games/effects.ts` (third consumer) and Star Courier refactored onto it.
+- All decorative motion (post/dash scroll, streaks, bob, popups) stays `reducedMotion`-gated as before.
 
-**Scene (`StarCourierScene.ts`):** shaped drone hulls (winged triangle + cockpit dot) and weaver diamonds (magenta) replace circles; projectiles recolored to the player-owned cyan-white with fading trails; debris drawn as gray rock clusters with a blinking warning chevron at the spawn column (static under reduced motion — the telegraph is fairness information); a dashed red defense line marks the lose threshold; enemies within 3 units of the line get a red proximity ring (always drawn — informational); layered ship with cockpit + flickering thruster; score popups (`+15`) at true kill positions and a fading `WAVE N` banner + subtle teal flash on wave change (both reduced-motion gated; tweened texts destroy on complete). Kill-position matching now tolerates weaver drift (|dx| < 0.4 instead of exact x). Screenshot-verified: warning chevron, proximity ring, defense line, shaped ships, trail all render.
+**Pixel-signature constraint held:** the road fill `#0d252b` remains dominant (shoulders take 24%, haze dims only the top bands) — the switching spec's >200k-pixel road assertion passes unmodified. Screenshot-verified: posts, edge lines, glowing dashes, layered cars with taillights/headlights, depth haze all render.
 
-**Tests (8 → 12 logic):** weavers appear from wave 2 and drift within bounds, reproducibly; debris warns before falling; debris absorbs shots without dying (and no score); debris kills on contact while a dodged rock exits harmlessly. Debris tests disarm line-approaching enemies via the public pool (an unshot invader would otherwise end the run at ~tick 146, before debris reaches the ship at ~197). All prior tests pass unchanged, including both seed-9 collision tests and the pool-stability test.
-
-**Validation:** star-courier 12/12 ✓; games + switching desktop e2e 11/11 ✓ (deterministic column-2 kill run and pixel signatures unchanged); full `npm run validate` ✓ (build + tsc, 54 vitest, lint, e2e 22 passed / 18 intentionally skipped).
+**Validation:** lane-rush logic 6/6 ✓; affected desktop e2e (games incl. seed-12 crash, highscore live-card, switching pixels) 14/14 ✓; full `npm run validate` ✓ (build + tsc, 54 vitest, lint, e2e 22 passed / 18 intentionally skipped).
 
 ## Playtest phase status
 
-- Phase A ✅ (`80e64b0`) · B ✅ (`fb10f68`) · C ✅ (`f9949d8`) · D ✅ (`1e3001c`) · **E ✅ (this commit)**
-- Phase F ⬜ Lane Rush visual/game-feel overhaul (the playtest's "biggest graphics enhancement" ask). Phase G ⬜ arcade-wide polish. Phase H ⬜ final validation/docs.
+- Phase A ✅ (`80e64b0`) · B ✅ (`fb10f68`) · C ✅ (`f9949d8`) · D ✅ (`1e3001c`) · E ✅ (`4114bdd`) · **F ✅ (this commit)**
+- Phase G ⬜ arcade-wide cohesive graphics polish. Phase H ⬜ final validation + docs.
 
 ## Next task
 
-**Phase F — Lane Rush visual overhaul.** Playtest: "not pleasant to play visually... don't just draw basic rectangles." Plan: (1) road presentation — shoulders/edge lines, center dashes already scroll; add roadside posts/scenery scrolling at road speed, subtle vertical gradient bands for depth; (2) car shapes — layered procedural cars (body + cabin + lights + wheel hints) for player and traffic, distinct traffic colors per lane or per car (seeded, from logic state if variety is logic-side — consider exposing a per-car `hue`/variant in the traffic snapshot); (3) speed sensation — speed-scaled dash scroll exists; add speed streak lines at high speed and a mild exhaust trail; (4) near-miss/collision feedback exists (sparks/shake) — add a brief slow flash on near-miss score popup (`+12/+5`) reusing the Star Courier popText pattern (consider extracting popText into effects.ts now that two scenes want it); (5) keep the road fill color `#0d252b` dominant — the switching spec's lane-rush signature requires > 200k pixels of it; verify with the pixel spec after restyling; (6) probe the crash e2e timing if traffic variety changes rng consumption (it does if variants draw from rng — the crash test relies on seed 12's collision at tick ~102; adding an rng draw per spawn shifts lanes → re-probe and update the near-miss/crash expectations, or derive variants without extra rng draws, e.g. hash of spawn tick).
+**Phase G — cohesive retro-neon identity across all five games.** The per-game passes (D–F) upgraded Bounce, Courier, and Lane Rush; the gap is now consistency and the two games that predate this pass:
+
+1. **Neon Serpent:** still the plainest visually — grid + rounded rects. Candidates: glow pass on the snake (soft outer fill), food halo, obstacle warning styling consistent with Courier's hazard language (red family), subtle animated background pulse.
+2. **Circuit Stack:** flat grid + solid cells. Candidates: cell bevels/glow for locked cells, ghost-piece landing preview (logic-derivable in the scene from `pieceCells` + grid drop scan — presentation only), grid backdrop vignette.
+3. **Cross-game consistency:** shared color language is mostly in place (cyan = player, red/warm = hazards, yellow = pickups/score, magenta = special). Verify each game honors it; unify popText colors (+N amber in Lane Rush vs white in Courier — pick one, suggest amber for scores everywhere).
+4. Keep every existing pixel signature intact (grid-stroke for circuit-stack presence, serpent food magenta 50..3000, courier ship cyan, lane road, bounce ground) — run `tests/switching.spec.ts` after each game's restyle.
+5. Performance sanity: draw calls grew this pass (posts/streaks/haze are bounded loops); keep new Phase G loops bounded and allocation-free; spot-check frame feel in the browser if anything stutters.
+
+After G: **Phase H** — full validation, README/CLAUDE.md refresh (Bounce Circuit description is stale: README still calls it "portrait single-screen platformer with key pickup"; the games list needs the runner/hazard updates), and a closing session summary here.

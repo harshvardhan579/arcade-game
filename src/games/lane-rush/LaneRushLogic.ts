@@ -9,11 +9,17 @@ interface Traffic {
   lane: number;
   y: number;
   scored: boolean;
+  variant: number;
 }
 
 export interface LaneRushState extends GameSnapshot {
   lane: number;
-  traffic: ReadonlyArray<{ readonly lane: number; readonly y: number; readonly scored: boolean }>;
+  traffic: ReadonlyArray<{
+    readonly lane: number;
+    readonly y: number;
+    readonly scored: boolean;
+    readonly variant: number;
+  }>;
   trafficCount: number;
   speed: number;
 }
@@ -66,7 +72,12 @@ export class LaneRushLogic implements GameLogic<LaneRushState> {
   }
 
   getState(): LaneRushState {
-    const traffic = this.traffic.map((car) => ({ lane: car.lane, y: car.y, scored: car.scored }));
+    const traffic = this.traffic.map((car) => ({
+      lane: car.lane,
+      y: car.y,
+      scored: car.scored,
+      variant: car.variant
+    }));
     return {
       score: this.score,
       isGameOver: this.gameOver,
@@ -84,6 +95,8 @@ export class LaneRushLogic implements GameLogic<LaneRushState> {
     const lanes = [0, 1, 2].filter((lane) => !occupiedTop.has(lane));
     if (lanes.length <= 1) return;
     const lane = lanes[this.rng.integer(lanes.length)] as number;
-    this.traffic.push({ lane, y: -1, scored: false });
+    // Visual variant derives from the spawn tick, not the rng, so adding it
+    // cannot shift the deterministic traffic sequence.
+    this.traffic.push({ lane, y: -1, scored: false, variant: this.tick % 3 });
   }
 }

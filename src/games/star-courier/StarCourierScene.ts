@@ -1,9 +1,7 @@
 import type Phaser from 'phaser';
 import { BaseGameScene } from '../BaseGameScene';
-import { createSparkEmitter, deathFeedback, smallShake } from '../effects';
+import { createSparkEmitter, deathFeedback, popText, smallShake } from '../effects';
 import { StarCourierLogic, type StarCourierState } from './StarCourierLogic';
-
-const HUD_FONT = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
 export class StarCourierScene extends BaseGameScene<StarCourierState> {
   protected logic = new StarCourierLogic();
@@ -140,19 +138,6 @@ export class StarCourierScene extends BaseGameScene<StarCourierState> {
     }
   }
 
-  private popText(x: number, y: number, message: string, color: string, size = 14): void {
-    const label = this.add
-      .text(x, y, message, { color, fontFamily: HUD_FONT, fontSize: `${size}px` })
-      .setOrigin(0.5);
-    this.tweens.add({
-      targets: label,
-      y: y - 26,
-      alpha: 0,
-      duration: 420,
-      onComplete: () => label.destroy()
-    });
-  }
-
   private reactToTransitions(
     state: StarCourierState,
     toX: (x: number) => number,
@@ -170,7 +155,7 @@ export class StarCourierScene extends BaseGameScene<StarCourierState> {
           );
           if (!survived) {
             this.sparks?.explode(14, toX(previous.x), toY(previous.y));
-            this.popText(toX(previous.x), toY(previous.y) - 14, '+15', '#d8fff9');
+            popText(this, toX(previous.x), toY(previous.y) - 14, '+15', '#d8fff9');
           }
         }
         smallShake(this);
@@ -179,7 +164,7 @@ export class StarCourierScene extends BaseGameScene<StarCourierState> {
         this.sparks?.explode(4, toX(state.playerX), toY(11.5) - 48);
       }
       if (state.wave > this.lastWave && !state.isGameOver) {
-        this.popText(width / 2, 96, `WAVE ${state.wave}`, '#4dffe1', 20);
+        popText(this, width / 2, 96, `WAVE ${state.wave}`, '#4dffe1', 20);
         this.cameras.main.flash(110, 40, 140, 125);
       }
       if (state.isGameOver && !this.lastGameOver) {

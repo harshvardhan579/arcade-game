@@ -33,6 +33,30 @@ export function smallShake(scene: Phaser.Scene): void {
   scene.cameras.main.shake(80, 0.0035);
 }
 
+export function popText(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  message: string,
+  color: string,
+  size = 14
+): void {
+  const label = scene.add
+    .text(x, y, message, {
+      color,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontSize: `${size}px`
+    })
+    .setOrigin(0.5);
+  scene.tweens.add({
+    targets: label,
+    y: y - 26,
+    alpha: 0,
+    duration: 420,
+    onComplete: () => label.destroy()
+  });
+}
+
 export function deathFeedback(scene: Phaser.Scene): void {
   scene.cameras.main.shake(180, 0.008);
   scene.cameras.main.flash(140, 255, 79, 100);
