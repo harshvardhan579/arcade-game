@@ -25,18 +25,26 @@ test('desktop fits without scrolling, hides touch controls, and brands once', as
   test.skip(Boolean(viewport && viewport.width < 900), 'desktop-only layout assertions');
   for (const [width, height] of [
     [1440, 900],
-    [1280, 800]
+    [1280, 800],
+    [1512, 982],
+    [1366, 768]
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
     await expect(page.locator('.touch-controls')).toBeHidden();
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollHeight - window.innerHeight
-    );
-    expect(overflow, `page must not scroll vertically at ${width}x${height}`).toBeLessThanOrEqual(
-      0
-    );
+    const overflow = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth
+    }));
+    expect(
+      overflow.vertical,
+      `page must not scroll vertically at ${width}x${height}`
+    ).toBeLessThanOrEqual(0);
+    expect(
+      overflow.horizontal,
+      `page must not scroll horizontally at ${width}x${height}`
+    ).toBeLessThanOrEqual(0);
     await expect(page.getByRole('heading', { name: 'Pocket Arcade' })).toHaveCount(1);
   }
 });
