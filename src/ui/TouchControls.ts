@@ -1,11 +1,11 @@
 import type { SemanticInput } from '../core/types';
 
-const buttons: Array<[SemanticInput, string]> = [
-  ['UP', '↑'],
-  ['LEFT', '←'],
-  ['ACTION', '●'],
-  ['RIGHT', '→'],
-  ['DOWN', '↓']
+const buttons: Array<[SemanticInput, string, string]> = [
+  ['UP', '↑', 'Move up'],
+  ['LEFT', '←', 'Move left'],
+  ['ACTION', '●', 'Action'],
+  ['RIGHT', '→', 'Move right'],
+  ['DOWN', '↓', 'Move down']
 ];
 
 // Held direction buttons auto-repeat for parity with OS keyboard repeat.
@@ -16,13 +16,14 @@ export function createTouchControls(): HTMLElement {
   const wrap = document.createElement('section');
   wrap.className = 'touch-controls';
   wrap.setAttribute('aria-label', 'Virtual controls');
-  for (const [input, label] of buttons) {
+  for (const [input, glyph, label] of buttons) {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.arcadeInput = input;
     button.className = `touch-button touch-${input.toLowerCase()}`;
-    button.textContent = label;
-    button.title = input.toLowerCase();
+    button.textContent = glyph;
+    button.setAttribute('aria-label', label);
+    button.title = label;
 
     let delayTimer = 0;
     let intervalTimer = 0;

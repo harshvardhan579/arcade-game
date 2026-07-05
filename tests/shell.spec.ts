@@ -158,6 +158,104 @@ test('mobile game over shows a touch restart affordance and the picker carries h
   );
 });
 
+test('coarse-pointer landscape phones keep the game playable', async ({ page, viewport }) => {
+  test.skip(
+    Boolean(viewport && viewport.width >= 900),
+    'runs on the coarse-pointer mobile project only'
+  );
+  for (const [width, height] of [
+    [667, 375],
+    [844, 390],
+    [932, 430]
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+
+    // A touch device must always have working inputs — including at 932px
+    // wide, which used to fall into the keyboard-only desktop layout.
+    await expect(
+      page.locator('.touch-controls'),
+      `touch controls visible at ${width}x${height}`
+    ).toBeVisible();
+    await expect(
+      page.locator('.selector'),
+      `desktop selector stays hidden at ${width}x${height}`
+    ).toBeHidden();
+
+    const overflow = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth
+    }));
+    expect(overflow.vertical, `no vertical scroll at ${width}x${height}`).toBeLessThanOrEqual(0);
+    expect(overflow.horizontal, `no horizontal scroll at ${width}x${height}`).toBeLessThanOrEqual(
+      0
+    );
+
+    const canvas = await page.locator('#game-root canvas').boundingBox();
+    expect(canvas, `canvas must render at ${width}x${height}`).not.toBeNull();
+    expect(
+      canvas!.width,
+      `canvas must be playable-sized at ${width}x${height}`
+    ).toBeGreaterThanOrEqual(160);
+
+    for (const button of await page.locator('.touch-button').all()) {
+      const box = await button.boundingBox();
+      expect(box, `every touch button must render at ${width}x${height}`).not.toBeNull();
+      expect(box!.height, `44px touch targets at ${width}x${height}`).toBeGreaterThanOrEqual(44);
+      expect(box!.x, `button on screen (left) at ${width}x${height}`).toBeGreaterThanOrEqual(-0.5);
+      expect(box!.y, `button on screen (top) at ${width}x${height}`).toBeGreaterThanOrEqual(-0.5);
+      expect(
+        box!.x + box!.width,
+        `button on screen (right) at ${width}x${height}`
+      ).toBeLessThanOrEqual(width + 0.5);
+      expect(
+        box!.y + box!.height,
+        `button on screen (bottom) at ${width}x${height}`
+      ).toBeLessThanOrEqual(height + 0.5);
+      const disjoint =
+        box!.x >= canvas!.x + canvas!.width - 0.5 ||
+        box!.x + box!.width <= canvas!.x + 0.5 ||
+        box!.y >= canvas!.y + canvas!.height - 0.5 ||
+        box!.y + box!.height <= canvas!.y + 0.5;
+      expect(disjoint, `button clear of the canvas at ${width}x${height}`).toBe(true);
+    }
+  }
+});
+
+test('touch buttons expose action labels and reduced motion stays playable', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only accessibility assertions');
+  const labels: Array<[string, string]> = [
+    ['UP', 'Move up'],
+    ['DOWN', 'Move down'],
+    ['LEFT', 'Move left'],
+    ['RIGHT', 'Move right'],
+    ['ACTION', 'Action']
+  ];
+  for (const [input, name] of labels) {
+    await expect(page.locator(`[data-arcade-input="${input}"]`)).toHaveAccessibleName(name);
+  }
+
+  // Reduced motion must strip decoration, not playability, on touch too.
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  const before = await page.evaluate(() => window.__ARCADE__!.getState().tick as number);
+  await page.locator('[data-arcade-input="DOWN"]').click();
+  await page.waitForFunction(
+    (tick) => (window.__ARCADE__!.getState().tick as number) > tick,
+    before
+  );
+  expect(errors).toEqual([]);
+});
+
 test('touch buttons show pressed feedback and directions repeat while held', async ({
   page,
   viewport

@@ -527,3 +527,109 @@ h2 {
     min-height: 44px;
   }
 }
+
+/* Landscape phones (coarse pointer, short viewport) — including widths that
+   cross the 900px desktop breakpoint, where a touch device would otherwise
+   get the keyboard-only desktop layout. Canvas centered at full row height;
+   the touch clusters overlay the dead side margins. Fine-pointer desktops
+   never match this block. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  .arcade-shell {
+    height: 100vh;
+    height: 100dvh;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    padding: 8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      calc(8px + env(safe-area-inset-left));
+  }
+
+  .selector,
+  .case-study,
+  .eyebrow {
+    display: none;
+  }
+
+  .mobile-game-picker {
+    display: grid;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+  }
+
+  .topbar {
+    align-items: center;
+  }
+
+  .topbar-actions {
+    flex-direction: row;
+    align-items: end;
+    gap: 8px;
+  }
+
+  .restart-button,
+  .mobile-game-select {
+    min-height: 44px;
+  }
+
+  .restart-button {
+    color: var(--cyan);
+    background: rgba(77, 255, 225, 0.08);
+    border: 1px solid #2b636e;
+  }
+
+  .stage {
+    position: relative;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .game-root {
+    width: auto;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    max-width: 100%;
+    align-self: center;
+  }
+
+  .touch-controls {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(48px, 62px)) 1fr minmax(84px, 100px);
+    grid-template-rows: minmax(52px, 1fr) repeat(3, minmax(44px, 50px)) minmax(8px, 1fr);
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .touch-button {
+    pointer-events: auto;
+  }
+
+  .touch-up {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .touch-left {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .touch-right {
+    grid-column: 3;
+    grid-row: 3;
+  }
+
+  .touch-down {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .touch-action {
+    grid-column: 5;
+    grid-row: 2 / span 3;
+  }
+}

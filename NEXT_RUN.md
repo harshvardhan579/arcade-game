@@ -11,10 +11,40 @@ git history (`4741c09`, `8def1ed`).
 | 1     | Viewport fit, no accidental scroll, safe canvas size | done (`3049502`)      |
 | 2     | Touch controls / d-pad ergonomics, thumb reach       | done (`c190dfd`)      |
 | 3     | Picker, restart, high scores, instructions           | done (`b379896`)      |
-| 4     | Mobile HUD/canvas framing, reduced clutter           | **done (this slice)** |
-| 5     | Touch a11y, focus/active states, orientation         | queued                |
+| 4     | Mobile HUD/canvas framing, reduced clutter           | done (`81c2896`)      |
+| 5     | Touch a11y, focus/active states, orientation         | **done (this slice)** |
 | 6     | Mobile screenshot verification + full validation     | queued                |
 | 7     | Docs + final summary                                 | queued                |
+
+## Phase 5 (2026-07-05) — what changed
+
+**P0-2 fixed (landscape phones broken both sides of the 900px breakpoint):** a new
+`@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px)` block —
+placed last so it wins the cascade over both the mobile and desktop blocks — gives coarse-
+pointer landscape phones a playable composition: full-height centered canvas, direction
+cluster overlaid on the left dead margin, action button on the right, compact single-row
+topbar, desktop panels hidden, safe-area insets on all sides. This also plugs the 932×430
+hole where a landscape Pro Max used to get the keyboard-only desktop layout. Fine-pointer
+desktops can never match the query; all desktop suites green unmodified.
+
+**Touch a11y:** the five d-pad buttons now carry aria-labels ("Move up/down/left/right",
+"Action"); glyphs stay presentational; `data-arcade-input` hooks unchanged. Focus-visible
+rings already covered all controls.
+
+**New regressions (mobile project):** landscape playability at 667×375, 844×390, 932×430
+(controls visible, selector hidden, no scroll, canvas ≥160px wide, every button ≥44px,
+fully on-screen and disjoint from the canvas) — fail-first verified (pre-fix: hidden
+controls at 932, 33px canvas at 667); accessible names on all five buttons; a
+reduced-motion emulation run on the mobile project proving play continues without errors.
+
+### Phase 5 validation
+
+- Mobile shell specs: 6 passed. Full `npm run validate`: Playwright 29 passed / 25
+  intentionally skipped; build, Vitest, lint green.
+- Screenshots at 667×375 and 932×430: centered playable canvas, flanked controls, no
+  clipped chrome.
+- Known limitation (documented, out of phone scope): iPad landscape (coarse pointer,
+  height > 500px, width ≥ 900px) still gets the desktop layout without touch controls.
 
 ## Phase 4 (2026-07-05) — what changed
 
