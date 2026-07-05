@@ -308,15 +308,36 @@ test('mobile canvas and touch controls share the viewport without overlap', asyn
   viewport
 }) => {
   test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only layout assertions');
+  // The last two sizes are the small-viewport geometry of an iPhone SE and an
+  // iPhone 14 with Safari's bottom toolbar visible — the layout must fit the
+  // height Safari actually gives the page, not the toolbar-inclusive 100vh.
   for (const [width, height] of [
     [375, 667],
     [390, 844],
     [412, 915],
-    [430, 932]
+    [430, 932],
+    [375, 553],
+    [390, 664]
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto('/');
     await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+
+    // Root-cause pin for the real-device Safari toolbar bug: the base
+    // min-height: 100vh must never win over the shell's svh height — on iOS
+    // 100vh includes the toolbar band, pushing DOWN/ACTION underneath it.
+    const shell = await page.evaluate(() => {
+      const style = getComputedStyle(document.querySelector('.arcade-shell')!);
+      return { minHeight: style.minHeight, height: style.height };
+    });
+    expect(
+      shell.minHeight,
+      `min-height must not reintroduce 100vh sizing at ${width}x${height}`
+    ).toBe('0px');
+    expect(
+      Number.parseFloat(shell.height),
+      `shell must lay out to the viewport height at ${width}x${height}`
+    ).toBeLessThanOrEqual(height + 0.5);
 
     const overflow = await page.evaluate(() => ({
       vertical: document.documentElement.scrollHeight - window.innerHeight,

@@ -455,17 +455,26 @@ h2 {
   }
 
   .arcade-shell {
-    /* dvh tracks the visual viewport as mobile browser chrome collapses;
-       the vh line is the fallback for engines without dvh support. */
+    /* svh is the small viewport: the height iOS Safari actually leaves above
+       its bottom toolbar. This page cannot scroll, so the toolbar never
+       collapses — laying out for svh keeps the bottom row (canvas edge,
+       DOWN, ACTION) tappable. dvh is deliberately not used: iOS updates it
+       lazily and it can report the toolbar-inclusive height on load.
+       min-height: 0 is load-bearing — the base min-height: 100vh (toolbar-
+       inclusive on iOS) would otherwise beat the svh height and push the
+       controls under the toolbar; vh line is the no-svh fallback. */
     height: 100vh;
-    height: 100dvh;
+    height: 100svh;
+    min-height: 0;
     grid-template-columns: 1fr;
     /* The selector and case-study panels are display: none here, so the
        stage is the only in-flow child — it must land in the constrained
        row or its content can overflow the viewport. */
     grid-template-rows: minmax(0, 1fr);
     padding: 10px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    /* Clearance above the toolbar edge even when the safe-area inset is 0
+       (it reports 0 while the toolbar itself occupies that band). */
+    padding-bottom: max(14px, calc(10px + env(safe-area-inset-bottom)));
   }
 
   .selector,
@@ -535,8 +544,11 @@ h2 {
    never match this block. */
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
   .arcade-shell {
+    /* Same svh + min-height discipline as portrait: the base
+       min-height: 100vh must never resize the shell under browser chrome. */
     height: 100vh;
-    height: 100dvh;
+    height: 100svh;
+    min-height: 0;
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr);
     padding: 8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))

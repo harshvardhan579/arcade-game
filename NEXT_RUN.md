@@ -1,4 +1,44 @@
-# NEXT_RUN — Mobile UI Pass Complete (branch `mobile-ui-pass-1`)
+# NEXT_RUN — Mobile UI Pass Complete (+ real-device Safari fix)
+
+## Real-device QA addendum (2026-07-05, post-pass P0 fix)
+
+**The bug (found on a real iPhone, portrait Safari):** the bottom toolbar covered the DOWN
+button, the ACTION button, and the last line of the canvas — despite the pass's
+`100dvh`/safe-area work. Everything else from the pass held up on device (no canvas/d-pad
+overlap, buttons work, rotation works).
+
+**Root cause:** the base rule `.arcade-shell { min-height: 100vh }` was never overridden in
+the mobile media block (the desktop block overrides it; the mobile block did not). On iOS,
+`100vh` is the **toolbar-inclusive large viewport**, and `min-height` beats `height` — so it
+silently defeated the `100dvh` line and stretched the grid under the toolbar. Headless tests
+missed it because emulation never diverges `vh` from `dvh`.
+
+**Fix (`src/style.css`, mobile + coarse-landscape blocks only):**
+
+- `min-height: 0` on `.arcade-shell` in both blocks — the actual kill shot.
+- Height switched `100dvh` → `100svh` (with the `100vh` fallback line kept): the page cannot
+  scroll, so Safari's toolbar never collapses — the small viewport is the honest layout
+  height, and iOS updates `dvh` lazily enough that it can report the large viewport on load.
+- Portrait bottom clearance: `padding-bottom: max(14px, calc(10px + env(safe-area-inset-bottom)))`
+  so DOWN/ACTION keep a visible gap above the toolbar edge even while the inset reports 0.
+
+**Regression (extended "share the viewport" test, mobile project):** two toolbar-constrained
+small-viewport geometries added to the loop — **375×553** and **390×664** (SE / iPhone 14
+with the toolbar visible) — plus a computed-style pin that `.arcade-shell` `min-height`
+resolves to `0px` and its used height never exceeds the viewport. **Fail-first verified:**
+pre-fix the pin failed with `min-height: 667px` (= `100vh`), the exact value that shoves the
+controls under the toolbar on device.
+
+**Validation:** shell + smoke both projects 13 passed / 11 intentionally skipped (includes
+landscape suite re-verifying the landscape-block change); full `npm run validate` green
+(Playwright 29 passed / 25 skipped). Measured at 375×553: canvas bottom 350, DOWN 485–539,
+ACTION 361–539 — all 14px above the toolbar line, no scroll.
+
+**Remaining manual QA (real iPhone, ~2 min):** portrait Safari — canvas bottom row and
+DOWN/ACTION fully visible and tappable with the toolbar showing; rotate to landscape and
+back; long-press/double-tap checks from the earlier list still apply.
+
+# Mobile UI pass close-out (branch `mobile-ui-pass-1`)
 
 The mobile browser UI pass driven by `UI_MOBILE_AUDIT.md` and `.claude/mobile-ui-loop.md`
 is **complete**: all seven phases executed in green slices; no gameplay or logic code was
