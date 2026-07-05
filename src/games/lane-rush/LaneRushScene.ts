@@ -53,7 +53,7 @@ export class LaneRushScene extends BaseGameScene<LaneRushState> {
   }
 
   protected override hudExtra(state: LaneRushState): string {
-    return `Speed ${state.speed}`;
+    return `Spd ${state.speed.toFixed(2)}`;
   }
 
   private drawRoadside(

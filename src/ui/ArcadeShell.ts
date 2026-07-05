@@ -1,4 +1,5 @@
 import type { GameDefinition } from '../core/types';
+import { hasCoarsePointer } from '../core/Viewport';
 import { createCaseStudyPanel } from './CaseStudyPanel';
 import { createGameSelector, createMobileGameSelect } from './GameSelector';
 import { createTouchControls } from './TouchControls';
@@ -37,7 +38,9 @@ export function createArcadeShell(
   const hint = stage.querySelector<HTMLElement>('.controls-hint');
   const showControls = (id: string) => {
     const game = games.find((item) => item.id === id) ?? games[0];
-    if (hint && game) hint.textContent = game.controls;
+    if (hint && game) {
+      hint.textContent = hasCoarsePointer() ? game.controlsTouch : game.controls;
+    }
   };
   showControls(games[0]?.id ?? '');
   window.addEventListener('arcade-select-game', (event) => {

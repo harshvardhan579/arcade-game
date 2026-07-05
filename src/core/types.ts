@@ -35,7 +35,10 @@ export interface GameDefinition {
   id: string;
   title: string;
   subtitle: string;
+  /** Keyboard wording, shown on fine-pointer (desktop) devices. */
   controls: string;
+  /** Touch wording, shown on coarse-pointer (phone/tablet) devices. */
+  controlsTouch: string;
   sceneKey: string;
   aspectRatio: number;
   orientation: 'portrait' | 'landscape' | 'square';

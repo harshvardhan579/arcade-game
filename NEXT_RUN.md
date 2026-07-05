@@ -9,12 +9,40 @@ git history (`4741c09`, `8def1ed`).
 | Phase | Scope                                                | Status                |
 | ----- | ---------------------------------------------------- | --------------------- |
 | 1     | Viewport fit, no accidental scroll, safe canvas size | done (`3049502`)      |
-| 2     | Touch controls / d-pad ergonomics, thumb reach       | **done (this slice)** |
-| 3     | Picker, restart, high scores, instructions           | queued                |
+| 2     | Touch controls / d-pad ergonomics, thumb reach       | done (`c190dfd`)      |
+| 3     | Picker, restart, high scores, instructions           | **done (this slice)** |
 | 4     | Mobile HUD/canvas framing, reduced clutter           | queued                |
 | 5     | Touch a11y, focus/active states, orientation         | queued                |
 | 6     | Mobile screenshot verification + full validation     | queued                |
 | 7     | Docs + final summary                                 | queued                |
+
+## Phase 3 (2026-07-05) — what changed
+
+**P0-4 fixed (game over was a frozen screen on mobile):** end-of-run messaging moved out of the
+one-line HUD (which clipped it off at mobile widths) into a centered, width-scaled overlay text
+in `BaseGameScene` — `GAME OVER` / `CLEARED` plus a device-correct second line ("Tap ● to
+restart" on coarse pointers, "Press Space to restart" otherwise). Pixel-verified via a polled
+canvas readback (the 140ms death camera flash tints every pixel while it decays, so the
+assertion waits it out).
+
+**P2-12 fixed (HUD clipping):** HUD font scales with canvas width (`clamp(10..16px, width/26)`),
+and Lane Rush's raw `Speed 0.223` is now `Spd 0.22`. Scene files touched ⇒ pixel-signature
+switching spec re-run green.
+
+**P1-7 fixed (keyboard copy on touch devices):** `GameDefinition` gained `controlsTouch`; the
+shell hint picks it on `pointer: coarse` devices. The two exact-string mobile assertions in
+`tests/shell.spec.ts` were updated in this same slice (desktop strings untouched).
+
+**P2-11/P2-14 fixed:** mobile picker options carry persisted highs (`Neon Serpent · High 777`),
+live-updated on `arcade-high-score`; the select blurs after a choice like the cards do.
+
+### Phase 3 validation
+
+- Mobile shell specs: 4 passed (hint copy, game-over overlay + picker highs + blur,
+  pressed/repeat, no-overlap). Fail-first verified for the hint copy and overlay tests.
+- `tests/switching.spec.ts` desktop: green (scene presentation changed).
+- Full `npm run validate`: Playwright 27 passed / 23 intentionally skipped; build + tsc,
+  54 Vitest, lint all green.
 
 ## Phase 2 (2026-07-05) — what changed
 

@@ -95,11 +95,65 @@ test('mobile controls hint follows the picker and keeps controls in view', async
   viewport
 }) => {
   test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only assertion');
+  // Coarse-pointer devices get touch wording, not keyboard wording.
   const hint = page.locator('.controls-hint');
-  await expect(hint).toHaveText('Arrows steer · eating speeds up · Space restarts');
+  await expect(hint).toHaveText('D-pad steers · eating speeds up · ● restarts');
   await page.getByLabel('Choose game').selectOption('star-courier');
-  await expect(hint).toHaveText('← → move · Space fires');
+  await expect(hint).toHaveText('← → move · ● fires');
   await expect(page.locator('.touch-controls')).toBeInViewport();
+});
+
+test('mobile game over shows a touch restart affordance and the picker carries high scores', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only assertions');
+  test.setTimeout(60_000);
+
+  // Picker options surface persisted per-game highs (cards are hidden on mobile).
+  await page.evaluate(() => window.localStorage.setItem('pocket-arcade:neon-serpent:high', '777'));
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  await expect(page.locator('.mobile-game-select option[value="neon-serpent"]')).toHaveText(
+    'Neon Serpent · High 777'
+  );
+
+  // Choosing a game must release focus from the select, like the cards do.
+  await page.getByLabel('Choose game').selectOption('lane-rush');
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'lane-rush');
+  expect(
+    await page.evaluate(() => document.activeElement?.className ?? ''),
+    'the picker must blur after selection'
+  ).not.toContain('mobile-game-select');
+
+  // A parked Lane Rush run crashes on its own; the game-over overlay must
+  // paint readable text (fill #d8fff9) in the canvas center — the one-line
+  // HUD used to clip the restart instruction off entirely on mobile.
+  // Polled because the 140ms death camera flash tints every pixel while it decays.
+  await page.waitForFunction(() => window.__ARCADE__!.getState().isGameOver === true, undefined, {
+    timeout: 30_000
+  });
+  await page.waitForFunction(
+    () => {
+      const canvas = document.querySelector('#game-root canvas') as HTMLCanvasElement;
+      const ctx = canvas.getContext('2d')!;
+      const y0 = Math.floor(canvas.height * 0.35);
+      const image = ctx.getImageData(0, y0, canvas.width, Math.floor(canvas.height * 0.4));
+      let count = 0;
+      for (let i = 0; i < image.data.length; i += 4) {
+        if (
+          Math.abs(image.data[i]! - 216) <= 6 &&
+          Math.abs(image.data[i + 1]! - 255) <= 6 &&
+          Math.abs(image.data[i + 2]! - 249) <= 6
+        ) {
+          count += 1;
+        }
+      }
+      return count > 150;
+    },
+    undefined,
+    { timeout: 5_000 }
+  );
 });
 
 test('touch buttons show pressed feedback and directions repeat while held', async ({

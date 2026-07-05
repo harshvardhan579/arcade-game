@@ -14,6 +14,7 @@ const games: GameDefinition[] = [
   {
     id: 'neon-serpent',
     controls: 'Arrows steer · eating speeds up · Space restarts',
+    controlsTouch: 'D-pad steers · eating speeds up · ● restarts',
     title: 'Neon Serpent',
     subtitle: 'Portal snake with combo decay',
     sceneKey: 'neon-serpent',
@@ -23,6 +24,7 @@ const games: GameDefinition[] = [
   {
     id: 'bounce-circuit',
     controls: '↑ jump · ← → shift · Space restarts',
+    controlsTouch: '↑ jump · ← → shift · ● restarts',
     title: 'Bounce Circuit',
     subtitle: 'Neon skyline auto-runner',
     sceneKey: 'bounce-circuit',
@@ -32,6 +34,7 @@ const games: GameDefinition[] = [
   {
     id: 'star-courier',
     controls: '← → move · Space fires',
+    controlsTouch: '← → move · ● fires',
     title: 'Star Courier',
     subtitle: 'Vertical shooter with object pools',
     sceneKey: 'star-courier',
@@ -41,6 +44,7 @@ const games: GameDefinition[] = [
   {
     id: 'lane-rush',
     controls: '← → change lanes',
+    controlsTouch: '← → change lanes',
     title: 'Lane Rush',
     subtitle: 'Three-lane near-miss racer',
     sceneKey: 'lane-rush',
@@ -50,6 +54,7 @@ const games: GameDefinition[] = [
   {
     id: 'circuit-stack',
     controls: '← → move · ↑ rotate · ↓ drop',
+    controlsTouch: '← → move · ↑ rotate · ↓ drop',
     title: 'Circuit Stack',
     subtitle: 'Falling-block scoring puzzle',
     sceneKey: 'circuit-stack',
