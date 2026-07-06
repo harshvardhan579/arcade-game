@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #071114;
   --panel: #0e2026;
   --line: #1f4a53;
@@ -8,6 +9,35 @@
   --pink: #ff4fd8;
   --red: #ff7557;
   --yellow: #ffd166;
+  /* Shell theme tokens. Dark is the arcade identity and the default; the
+     [data-theme='light'] block below overrides. Dark values are byte-for-byte
+     the literals they replaced, so the dark theme renders identically.
+     Cyan/pink stay identity FILLS in both themes; --accent-text/--score-text
+     exist because cyan/yellow-as-TEXT need darker variants on light. */
+  --bg-glow: rgba(77, 255, 225, 0.12);
+  --bg-grad-a: #081418;
+  --bg-grad-b: #05090b;
+  --panel-fill: rgba(14, 32, 38, 0.88);
+  --h1-glow: rgba(77, 255, 225, 0.22);
+  --accent-text: var(--cyan);
+  --score-text: var(--yellow);
+  --focus-ring: var(--yellow);
+  --on-accent: #081418;
+  --card-bg: #0a181d;
+  --card-border: #183942;
+  --card-hover-bg: #0c222a;
+  --card-glow: rgba(77, 255, 225, 0.1);
+  --card-glow-active: rgba(77, 255, 225, 0.16);
+  --control-bg: #102a31;
+  --control-border: #2b636e;
+  --control-pressed: #16414c;
+  --control-pressed-glow: rgba(77, 255, 225, 0.2);
+  --action-pressed: #ff7ce2;
+  --action-pressed-glow: rgba(255, 79, 216, 0.35);
+  --quiet-fill: rgba(77, 255, 225, 0.08);
+  --restart-glow: rgba(77, 255, 225, 0.35);
+  --stage-glow: rgba(77, 255, 225, 0.13);
+  --scrollbar-thumb: #1f4a53;
   --game-aspect: 0.75;
   color: var(--text);
   background: var(--bg);
@@ -19,6 +49,39 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
+}
+
+/* Daylight cabinet: bright shell chrome around game canvases that stay
+   dark/neon (the .game-root screen keeps its literal dark bezel). Contrast
+   targets from the Phase 0 plan: text 13.2:1, muted 5.9:1, accent-text
+   5.4:1, focus ring 4.4:1. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #e9f1f1;
+  --line: #b7ced2;
+  --text: #0b2a30;
+  --muted: #3f6169;
+  --bg-glow: rgba(11, 110, 95, 0.07);
+  --bg-grad-a: #f6fbfb;
+  --bg-grad-b: #dfe9e9;
+  --panel-fill: rgba(246, 250, 250, 0.92);
+  --h1-glow: rgba(11, 110, 95, 0.18);
+  --accent-text: #0b6e5f;
+  --score-text: #8a5a00;
+  --focus-ring: #b45309;
+  --card-bg: #ffffff;
+  --card-border: #c3d7da;
+  --card-hover-bg: #eef6f6;
+  --card-glow: rgba(11, 42, 48, 0.12);
+  --card-glow-active: rgba(11, 42, 48, 0.16);
+  --control-bg: #ffffff;
+  --control-border: #9dbfc5;
+  --control-pressed: #cfe2e3;
+  --control-pressed-glow: rgba(11, 42, 48, 0.15);
+  --quiet-fill: rgba(11, 110, 95, 0.08);
+  --restart-glow: rgba(11, 42, 48, 0.2);
+  --stage-glow: rgba(11, 42, 48, 0.2);
+  --scrollbar-thumb: #9dbfc5;
 }
 
 * {
@@ -42,8 +105,8 @@ body,
 
 body {
   background:
-    radial-gradient(circle at 50% 0%, rgba(77, 255, 225, 0.12), transparent 32rem),
-    linear-gradient(180deg, #081418 0%, #05090b 100%);
+    radial-gradient(circle at 50% 0%, var(--bg-glow), transparent 32rem),
+    linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%);
 }
 
 button,
@@ -71,7 +134,7 @@ select {
 
 .panel {
   border: 1px solid var(--line);
-  background: rgba(14, 32, 38, 0.88);
+  background: var(--panel-fill);
   border-radius: 8px;
 }
 
@@ -91,7 +154,7 @@ h1 {
   font-size: clamp(1.45rem, 2.2vw, 2.2rem);
   font-weight: 800;
   letter-spacing: -0.01em;
-  text-shadow: 0 0 20px rgba(77, 255, 225, 0.22);
+  text-shadow: 0 0 20px var(--h1-glow);
   text-wrap: balance;
 }
 
@@ -138,8 +201,8 @@ h2 {
   padding: 12px;
   color: var(--text);
   text-align: left;
-  background: #0a181d;
-  border: 1px solid #183942;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: 8px;
   cursor: pointer;
   transition:
@@ -164,22 +227,22 @@ h2 {
 .game-card:hover,
 .game-card.is-active {
   border-color: var(--cyan);
-  background: #0c222a;
+  background: var(--card-hover-bg);
   box-shadow:
     inset 3px 0 0 var(--cyan),
-    0 0 16px rgba(77, 255, 225, 0.1);
+    0 0 16px var(--card-glow);
 }
 
 .game-card.is-active {
   box-shadow:
     inset 3px 0 0 var(--cyan),
-    0 0 22px rgba(77, 255, 225, 0.16);
+    0 0 22px var(--card-glow-active);
 }
 
 .game-card.is-active::after {
   content: 'Now playing' / '';
   margin-top: 2px;
-  color: var(--cyan);
+  color: var(--accent-text);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -187,7 +250,7 @@ h2 {
 }
 
 .game-card .card-high {
-  color: var(--yellow);
+  color: var(--score-text);
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
 }
@@ -196,7 +259,7 @@ h2 {
 .touch-button:focus-visible,
 .restart-button:focus-visible,
 .mobile-game-select:focus-visible {
-  outline: 2px solid var(--yellow);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -206,7 +269,7 @@ h2 {
 }
 
 .touch-button:active {
-  background: #16414c;
+  background: var(--control-pressed);
 }
 
 .restart-button:hover {
@@ -234,7 +297,7 @@ h2 {
 .restart-button {
   min-height: 42px;
   padding: 0 16px;
-  color: #081418;
+  color: var(--on-accent);
   background: var(--cyan);
   border: 0;
   border-radius: 8px;
@@ -247,7 +310,7 @@ h2 {
 }
 
 .restart-button:hover {
-  box-shadow: 0 0 18px rgba(77, 255, 225, 0.35);
+  box-shadow: 0 0 18px var(--restart-glow);
 }
 
 .topbar-actions {
@@ -265,8 +328,8 @@ h2 {
   max-width: 180px;
   padding: 0 36px 0 12px;
   color: var(--text);
-  background: #102a31;
-  border: 1px solid #2b636e;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s ease-out;
@@ -282,9 +345,11 @@ h2 {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
+  /* The cabinet screen stays literally dark in both themes — the games'
+     neon canvases need it; only the outer glow follows the theme. */
   background: #071114;
   box-shadow:
-    0 0 26px rgba(77, 255, 225, 0.13),
+    0 0 26px var(--stage-glow),
     inset 0 0 46px rgba(0, 0, 0, 0.45);
   touch-action: none;
 }
@@ -323,8 +388,8 @@ h2 {
 
 .touch-button {
   color: var(--text);
-  background: #102a31;
-  border: 1px solid #2b636e;
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   font-size: 1.35rem;
   font-weight: 800;
@@ -347,7 +412,7 @@ h2 {
 .touch-action {
   grid-column: 5;
   grid-row: 1 / span 3;
-  color: #081418;
+  color: var(--on-accent);
   background: var(--pink);
   font-size: 1.6rem;
 }
@@ -365,14 +430,14 @@ h2 {
 /* preventDefault on pointerdown suppresses :active, so pressed feedback
    is driven by this class from TouchControls. */
 .touch-button.is-pressed {
-  background: #16414c;
+  background: var(--control-pressed);
   transform: translateY(1px);
-  box-shadow: 0 0 14px rgba(77, 255, 225, 0.2);
+  box-shadow: 0 0 14px var(--control-pressed-glow);
 }
 
 .touch-action.is-pressed {
-  background: #ff7ce2;
-  box-shadow: 0 0 18px rgba(255, 79, 216, 0.35);
+  background: var(--action-pressed);
+  box-shadow: 0 0 18px var(--action-pressed-glow);
 }
 
 .case-study {
@@ -382,7 +447,7 @@ h2 {
 
 .case-study .panel-label {
   margin: 16px 0 4px;
-  color: var(--cyan);
+  color: var(--accent-text);
 }
 
 .case-study p:not(.panel-label) {
@@ -433,7 +498,7 @@ h2 {
   .case-study {
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: #1f4a53 transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 
   .selector::-webkit-scrollbar,
@@ -443,7 +508,7 @@ h2 {
 
   .selector::-webkit-scrollbar-thumb,
   .case-study::-webkit-scrollbar-thumb {
-    background: #1f4a53;
+    background: var(--scrollbar-thumb);
     border-radius: 4px;
   }
 
@@ -505,9 +570,9 @@ h2 {
   }
 
   .restart-button {
-    color: var(--cyan);
-    background: rgba(77, 255, 225, 0.08);
-    border: 1px solid #2b636e;
+    color: var(--accent-text);
+    background: var(--quiet-fill);
+    border: 1px solid var(--control-border);
   }
 
   .topbar-actions {
@@ -592,9 +657,9 @@ h2 {
   }
 
   .restart-button {
-    color: var(--cyan);
-    background: rgba(77, 255, 225, 0.08);
-    border: 1px solid #2b636e;
+    color: var(--accent-text);
+    background: var(--quiet-fill);
+    border: 1px solid var(--control-border);
   }
 
   .stage {

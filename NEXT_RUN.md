@@ -6,12 +6,43 @@ Loop: `.claude/theme-pass-loop.md` (one phase per invocation, strict order).
 
 | Phase | Scope                                     | Status              |
 | ----- | ----------------------------------------- | ------------------- |
-| 0     | Theme audit + design decision (analysis)  | **done** (this run) |
-| 1     | CSS variable foundation, both token sets  | next                |
-| 2     | Theme toggle UI + tests                   | pending             |
+| 0     | Theme audit + design decision (analysis)  | done (`84eb4f5`)    |
+| 1     | CSS variable foundation, both token sets  | **done** (this run) |
+| 2     | Theme toggle UI + tests                   | next                |
 | 3     | Persistence + system preference + no-FOUC | pending             |
 | 4     | Desktop/mobile polish, both themes        | pending             |
 | 5     | Validation, docs, close-out               | pending             |
+
+## Phase 1 (this run) — what changed
+
+**`src/style.css` only; no DOM, no scenes, no logic, no tests changed.**
+
+- All inventoried shell literals promoted to the Phase 0 token names in `:root` with
+  **byte-for-byte today's values**; `color-scheme: dark` declared on `:root`;
+  `:root[data-theme='light']` override block added with the Phase 0 palette +
+  `color-scheme: light`. Cyan/yellow-as-text usages re-pointed to
+  `--accent-text`/`--score-text`/`--focus-ring` (dark values alias `--cyan`/`--yellow`,
+  so dark is unchanged); identity fills (`--cyan` Restart, card accents, `--pink`
+  ACTION) untouched. The only remaining literals are the cabinet screen by design:
+  `.game-root` `#071114`, vignette, scanlines (verified by grep).
+- **Dark verified pixel-identical:** element screenshots (desktop topbar/selector/
+  case-study; mobile topbar/touch-controls) at 1440×900 + 390×844 are **byte-identical**
+  before vs after (`cmp`); full-page diffs are confined to the animating canvas (live
+  seeds — different runs). `color-scheme: dark` produced zero visual change including
+  the select.
+- **Light sanity-checked** by flipping `data-theme` manually: daylight cabinet reads as
+  designed on desktop + mobile (white cards, amber highs, teal accents, dark neon
+  canvas in a light shell, legible d-pad). Polish notes deferred to Phase 4.
+- No `touch-action`, no focus-ring width/style, no geometry properties touched.
+
+### Phase 1 validation
+
+- `shell + smoke` both projects: 16 passed / 12 intentionally skipped.
+- Full `npm run validate`: build + strict tsc, 73 Vitest, ESLint + import boundary +
+  Prettier, Playwright 35 passed / 29 intentionally skipped (dark default — no
+  `data-theme` attribute exists yet, so every existing assertion ran unchanged).
+- Screenshots (scratchpad, ephemeral): `theme-before-*` / `theme-after-*` /
+  `theme-light-*`.
 
 ## Phase 0 — theme design plan (no code changed this phase)
 
