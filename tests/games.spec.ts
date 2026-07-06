@@ -37,7 +37,7 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript((seeds) => {
     window.__ARCADE_FIXED_SEEDS__ = seeds;
   }, FORCED_DEFAULT_SEEDS);
-  await page.goto('/');
+  await page.goto('/?game=neon-serpent');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 });
 

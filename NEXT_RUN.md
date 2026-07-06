@@ -6,12 +6,53 @@ Loop: `.claude/home-screen-loop.md` (one phase per invocation, strict order).
 
 | Phase | Scope                                   | Status              |
 | ----- | --------------------------------------- | ------------------- |
-| 0     | Design audit + decisions (analysis)     | **done** (this run) |
-| 1     | Home mode architecture + spec migration | next                |
-| 2     | Procedural logos + home cards           | pending             |
+| 0     | Design audit + decisions (analysis)     | done (`33e9dec`)    |
+| 1     | Home mode architecture + spec migration | **done** (this run) |
+| 2     | Procedural logos + home cards           | next                |
 | 3     | Game-mode polish (Back)                 | pending             |
 | 4     | Tests and regression sweep              | pending             |
 | 5     | Docs and close                          | pending             |
+
+## Phase 1 (this run) — what changed
+
+- **Mode architecture:** `data-mode="home" | "game"` on `.arcade-shell`; `main.ts` owns
+  it. Boot shows the home hub with **zero Phaser work and no canvas** — the engine is
+  constructed lazily on first selection (`scene: []` + `scene.add(key, Class,
+autoStart)`; mode flips to `game` first so `clientWidth` measures a visible stage).
+  `?game=<id>` deep-links straight to game mode (validated; invalid → home; composes
+  with `?seed=`). A home bridge stub (`activeScene: 'home'`) publishes at boot and on
+  Back so mode is always assertable. Browser history untouched.
+- **Back:** `‹ Games` (`.back-button`, accessible name "Back to games") in the topbar
+  between picker and Restart; stops the scene, nulls the key (no stacking),
+  republishes the stub, flips mode. Quiet accent styling; 44 px on touch layouts;
+  mobile portrait topbar row 2 is now `auto 1fr auto` (Back, Restart, toggle — zero
+  added height).
+- **Home hub (`src/ui/HomeScreen.ts`):** header (own `h1` + tagline + a second
+  theme-toggle instance) + five functional `.home-card` buttons dispatching
+  `arcade-select-game`. Plain by design — emblems/hooks/highs are Phase 2.
+- **Theme toggle resync:** `applyTheme` broadcasts `arcade-theme`; every toggle
+  instance resyncs its accessible name (verified e2e: toggling on home relabels the
+  game-mode instance).
+- **Spec migration (all six suites):** nine `goto('/')` sites → `/?game=neon-serpent`
+  (bit-identical in-game behavior; every seeded pin held unchanged).
+  **Deliberate pin updates:** desktop tab order is now cards ×5 → **Back** (6) →
+  Restart (7) — and the follow-up `Shift+Tab` in that test needed **two** hops so
+  Enter re-activates the last card instead of triggering Back; theme-toggle locators
+  scoped to `.topbar .theme-toggle` (two instances exist); smoke's `h1` assertion
+  scoped to `h1:visible` (one heading renders per mode); the landscape chrome
+  disjointness list gains `.back-button` (did **not** trip — three controls fit).
+- **New `tests/home.spec.ts` (6 tests):** home-first boot (five cards, zero canvas,
+  hidden Back, no errors); select → Back → re-select flow; deep links valid+invalid;
+  theme toggle from home incl. cross-instance resync; mobile home no-scroll fit at
+  375×667 + 667×375 with every card in-viewport.
+
+### Phase 1 validation
+
+- `tests/home.spec.ts`: 9 passed / 1 intentionally skipped, first run.
+- Full Playwright: **53 passed / 31 intentionally skipped** (was 44/30; +9/+1 home).
+- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
+  Playwright 53/31. Screenshots: home hub (dark desktop, light mobile), game mode
+  with Back (scratchpad `home-*.png`).
 
 ## Phase 0 — design decisions (no code changed this phase)
 

@@ -121,6 +121,8 @@ select {
 .restart-button,
 .mobile-game-select,
 .theme-toggle,
+.back-button,
+.home-card,
 .game-card {
   touch-action: manipulation;
 }
@@ -131,6 +133,114 @@ select {
   grid-template-columns: minmax(220px, 280px) minmax(320px, 1fr) minmax(260px, 340px);
   gap: 16px;
   padding: 16px;
+}
+
+/* App modes: the shell shows exactly one surface set. Home is the boot
+   default (no Phaser work until a game is chosen); game mode is the classic
+   cabinet. The attribute rules out-specify every media-block display rule. */
+.home-screen {
+  display: none;
+}
+
+.arcade-shell[data-mode='home'] {
+  grid-template-columns: 1fr;
+}
+
+.arcade-shell[data-mode='home'] .selector,
+.arcade-shell[data-mode='home'] .stage,
+.arcade-shell[data-mode='home'] .case-study {
+  display: none;
+}
+
+.arcade-shell[data-mode='home'] .home-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  min-height: 0;
+}
+
+.home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-tagline {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  align-content: start;
+  min-height: 0;
+}
+
+.home-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  color: var(--text);
+  text-align: left;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease-out,
+    background-color 0.18s ease-out,
+    box-shadow 0.18s ease-out,
+    transform 0.18s ease-out;
+}
+
+.home-card strong {
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.home-card span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.home-card:hover {
+  border-color: var(--cyan);
+  background: var(--card-hover-bg);
+  box-shadow: 0 0 16px var(--card-glow);
+}
+
+.home-card:active {
+  transform: translateY(1px);
+}
+
+.back-button {
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--accent-text);
+  background: var(--quiet-fill);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease-out,
+    background-color 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.back-button:hover {
+  border-color: var(--accent-text);
+}
+
+.back-button:active {
+  transform: translateY(1px);
 }
 
 .panel {
@@ -257,8 +367,10 @@ h2 {
 }
 
 .game-card:focus-visible,
+.home-card:focus-visible,
 .touch-button:focus-visible,
 .restart-button:focus-visible,
+.back-button:focus-visible,
 .theme-toggle:focus-visible,
 .mobile-game-select:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -605,11 +717,11 @@ h2 {
   }
 
   .topbar-actions {
-    /* Picker spans the full width; Restart and the theme toggle share the
-       second row, so the toggle adds zero topbar height (the canvas row
-       keeps every pixel it had before the toggle existed). */
+    /* Picker spans the full width; Back, Restart, and the theme toggle share
+       the second row, so neither control adds topbar height (the canvas row
+       keeps every pixel). */
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: auto 1fr auto;
     align-items: stretch;
     gap: 8px;
   }
@@ -639,6 +751,7 @@ h2 {
      only so desktop chrome keeps its exact metrics. */
   .restart-button,
   .mobile-game-select,
+  .back-button,
   .theme-toggle {
     min-height: 44px;
   }
@@ -692,6 +805,7 @@ h2 {
 
   .restart-button,
   .mobile-game-select,
+  .back-button,
   .theme-toggle {
     min-height: 44px;
   }

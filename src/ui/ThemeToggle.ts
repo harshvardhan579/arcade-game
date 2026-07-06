@@ -20,6 +20,9 @@ export function applyTheme(theme: ThemeName): void {
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', theme === 'light' ? '#e9f1f1' : '#071114');
+  // Multiple toggle instances exist (home header + game topbar); broadcast
+  // so every instance resyncs its accessible name, not just the clicked one.
+  window.dispatchEvent(new CustomEvent('arcade-theme', { detail: theme }));
 }
 
 /**
@@ -40,9 +43,9 @@ export function createThemeToggle(): HTMLButtonElement {
   };
   button.addEventListener('click', () => {
     applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
-    syncLabel();
     button.blur();
   });
+  window.addEventListener('arcade-theme', syncLabel);
   syncLabel();
   return button;
 }
