@@ -8,91 +8,86 @@ Loop: `.claude/gameplay-replayability-loop.md` (one phase per invocation, strict
 | ----- | -------------------------------------------------- | ------------------- |
 | 0     | Mobile rapid-tap zoom P0 (CSS/touch, no gameplay)  | done (`cedf11a`)    |
 | 1     | Runtime seed variation, deterministic tests intact | done (`3b8d761`)    |
-| 2     | Bounce Circuit: jump tuning, double jump, variety  | **done** (this run) |
-| 3     | Star Courier: movement/aiming feel                 | next                |
-| 4     | Lane Rush: pseudo-3D + double-tap boost            | pending             |
+| 2     | Bounce Circuit: jump tuning, double jump, variety  | done (`beb15b5`)    |
+| 3     | Star Courier: movement/aiming feel                 | **done** (this run) |
+| 4     | Lane Rush: pseudo-3D + double-tap boost            | next                |
 | 5     | Circuit Stack: live 7-bag variation                | pending             |
 | 6     | Validation + docs close-out                        | pending             |
 
-## Phase 2 (this run) — what changed
+## Phase 3 (this run) — what changed
 
-All gameplay truth in `BounceCircuitLogic.ts` (exported, tested constants); scene change
-is presentation-only; no other game touched; ACTION stays single-shot per tap (no input
-semantics changed anywhere).
+**Queued glide strafing.** Movement truth lives in `StarCourierLogic.ts`; the scene only
+draws; movement consumes **zero rng draws**, so every seeded spawn (incl. the seed-9
+column-2 opener) is untouched. No bullet-hell: spawn cadence, pools (8/10/4), wave
+scaling, and telegraphs unchanged.
 
-- **Jump nerf (controllable):** `runnerJumpVelocity` 5.2 → **4.2** — peak drops from
-  ~3.68 to ~2.34 units, so one press no longer sails over everything and orbs on the
-  arc are reachable on purpose.
-- **Double jump (new):** second press while airborne = `runnerDoubleJumpVelocity = 3.2`
-  (~+1.3 from the press point; mastering both roughly equals the old single jump).
-  One per airtime, re-armed on landing; coyote press still gives the full first jump
-  and keeps the air jump in hand; a press after the air jump is spent falls back to
-  the existing landing buffer. The tallest (2.5) platforms are now **double-jump
-  content**: unreachable solo (pinned), landable with first+double (pinned).
-- **Orb collectability:** pickup box widened from 0.55/0.75 to exported
-  `runnerOrbWindowX = 0.7` / `runnerOrbWindowY = 0.95`. The y-reach now covers the
-  platform-orb offset (0.8), so landing on / running across a platform collects its
-  orb — previously it silently required a second hop.
-- **Chunk variety + fair progression:** two harder archetypes unlock at
-  `runnerHardChunkAt = 96` units (gated by stable chunk position, not rng):
-  type 5 **spike fence** (three spikes at 1.1 spacing — clearable with a timed jump at
-  post-gate speeds, double jump as recovery) and type 6 **orb bounty** (orb at y 1.3
-  over a spike — risk-priced reward on the jump arc). The "never two spikeless chunks
-  in a row" cadence rule is preserved across the wider table.
-- **Scene (`BounceCircuitScene.ts`):** spark puff on the double-jump impulse
-  (reduced-motion gated); rendering stays entity-based, ground-strip signature
-  untouched.
-- **Discoverability:** Bounce hint is now "↑ jump, again mid-air · ← → shift ·
-  Space/● restarts" (`main.ts`), with the pinned string in `tests/switching.spec.ts`
-  updated in this same slice. README game line and case-study test count (57 → 63)
-  refreshed.
+- **Logic:** LEFT/RIGHT no longer teleport one column — they queue whole columns onto
+  an integer `targetX` (rapid taps stack; clamped 0..10), and `step()` glides
+  `playerX` toward it at exported `courierMoveStep = 0.55`/step (~11.5 columns/sec at
+  the 48 ms scene step — full board in under a second, five columns in 10 steps). The
+  glide converges **exactly** onto the integer column (round2 arithmetic), so a
+  settled ship is always column-aligned for firing; shots fired mid-glide leave from
+  the fractional x and still connect within the 0.65 hit reach. `playerTargetX` is
+  exposed in the snapshot for tests/HUD.
+- **Scene (`StarCourierScene.ts`, presentation only):** the smooth motion falls out of
+  drawing the float `playerX`; added a small nose lean toward the queued column
+  (reduced-motion gated). Ship at rest is unchanged — bottom-center cyan pixel
+  signature safe (re-run green).
+- **Shared input (the one allowed exception):** `TouchControls` hold-repeat tightened
+  300 ms → **200 ms** delay, 90 ms → **70 ms** interval, so hold-to-strafe starts
+  promptly on phones (each repeat queues one column). ACTION stays single-shot; a tap
+  still emits exactly one input. This affects all games' d-pads (faster held
+  soft-drop/lane-weave — strictly friendlier); the pressed/repeat and tap-once specs
+  passed unmodified on both projects.
+- **Docs:** README Star Courier line describes the glide; case-study count 63 → 66.
 
 ## Deliberately updated pins (old → new, why)
 
-- **`buffers a jump pressed just before landing` (vitest) rewritten:** a mid-air press
-  now consumes the double jump first, so the buffer behavior is asserted _after_ the
-  air jump is spent (third press buffers; impulse unchanged at press; auto-jump fires
-  on landing). Same contract, one step later in the input sequence.
-- **Seed-11 e2e course changed** (chunk table widened) but both Bounce e2e tests held
-  **without edits** — re-probed: unguided death banks ≥ 28 (structural: first spike
-  can't appear before the 32-unit grace) and completes in ~8.3 s against the 15 s
-  timeout.
-- No other pinned value changed; seeds 9/11/12 vitest tests were constant-based and
-  survived the retune by construction.
+- **Vitest `alignPlayer` helper** now queues the target and glides (its internal steps
+  fully disarm enemies so debris scenarios cannot be ended by an unshot invader).
+- **Seed-3 projectile test:** settles on column 6 before firing (was: fire immediately
+  after an instant move).
+- **Seed-9 park tests (collision / near-miss column):** assert `playerTargetX`
+  immediately, then let the survival loop / an explicit settle loop cover the glide.
+- **E2e `games.spec.ts`:** the 8×LEFT clamp and 3×LEFT park assertions now check the
+  queued target and `waitForFunction` the arrival (`playerX === 0` / `=== 2`). The
+  fire-until-kill loop needed no change — a settled ship kills exactly as before.
 
-## New tests (Bounce vitest 13 → 19)
+## New tests (Star vitest 12 → 15)
 
-- Double jump: smaller impulse, one-per-airtime, re-armed on landing.
-- Buffer-after-double (the rewritten pin above).
-- Coyote precedence: full impulse, air jump preserved.
-- Tuning pin: solo peak in [2.2, 2.5); first+double lands on a 2.5 platform.
-- Orb reach: collects a 0.8-high orb while grounded; ignores one just past the reach.
-- Hard-chunk gate: fence and bounty both appear in a seed-11 probe run and **never
-  before 96 units** (scan-then-survive loop that prunes only kill-band spikes).
-- Course variation: seeds 21 vs 22 differ across several chunks (first-chunk-only
-  comparison was a real cross-seed coincidence — both open with a pair at [37, 38.1]).
+- **Movement responsiveness pin:** 5 presses queue instantly (target 0, position still
+  5 until `step()`); glide settles exactly in `ceil(5/0.55) = 10` steps; full-board
+  crossing in `ceil(10/0.55) = 19` steps.
+- **Kill feasibility:** seed-9 opener — queue 3×LEFT, settle, fire → score ≥ 15, no
+  game over.
+- **Mid-glide alignment:** a single shot fired from a fractional x (inside half a
+  column) is the only projectile in flight and alone makes the kill (`score === 15`).
 
 ## Validation (all green)
 
-- `npx vitest run src/games/bounce-circuit`: 19 passed.
-- Bounce e2e (forced seed 11) + `switching.spec.ts` (scene + hint touched): green.
-- Full `npm run validate`: build + strict tsc, **63 Vitest**, ESLint + import boundary
+- `npx vitest run src/games/star-courier`: 15 passed.
+- Star e2e (forced seed 9): both tests green (~2.1 s / ~9.5 s).
+- `switching` + `smoke` + `shell` both projects (scene + shared input touched):
+  17 passed / 13 intentionally skipped — repeat/tap-once and pixel signatures held.
+- Full `npm run validate`: build + strict tsc, **66 Vitest**, ESLint + import boundary
   - Prettier, Playwright **33 passed / 27 intentionally skipped**.
-- Note: the import boundary caught the word "wind\*w" in two of my own comments
-  (guardrail 3 of the loop file) — reworded to "reach"/"band"; the guard works.
 
 ## Manual QA additions (next real-device pass)
 
-- Bounce: one tap = short controllable hop; tap again mid-air = visible second kick
-  with spark puff; tallest platforms only reachable with the double jump; orbs collect
-  when landing on platforms; fences/bounties start appearing after ~30 s of running.
+- Star Courier: mash ← 3× — ship sweeps smoothly and stops dead on the column; hold a
+  direction — strafe starts within ~200 ms and tracks the held thumb; nose leans while
+  gliding; firing right after arriving kills the column's enemy without re-tapping.
+- Re-check other games' held d-pad feel (soft-drop, lane weave) with the quicker
+  repeat; confirm a Bounce hold still reads as jump + auto double jump, not a spam.
 
-## Next task (Phase 3 — start cold from the loop file)
+## Next task (Phase 4 — start cold from the loop file)
 
-Star Courier movement/aiming feel: pick the smallest coherent set from — logic glide
-toward an integer target column (fast deterministic traversal, column-precise aiming),
-scene-side visual interpolation, tighter `TouchControls` repeat delay (global input
-change: re-run pressed/repeat + tap-once specs both projects). Movement consumes no
-RNG (seed-9 spawns safe) but `games.spec.ts` pins position-after-presses (3×LEFT → x 2,
-8×LEFT → x 0) — update deliberately if semantics become target/glide. Full detail in
-`.claude/gameplay-replayability-loop.md` Phase 3.
+Lane Rush pseudo-3D + boost: logic keeps three lanes and the y-model — add exported
+speed cap, tick-based ACTION double-tap boost (cooldown, `boostTicksLeft`/
+`boostCooldownLeft` in the snapshot, dead-ACTION still restarts; never write the word
+"wind\*w" in logic comments); scene rewrite to horizon/trapezoid/depth-scaled rendering
+with a legible near-miss zone and boost feedback. **The `#0d252b > 200k px` road
+signature and Star Courier's `< 100k` road check in `tests/switching.spec.ts` must be
+re-measured and updated deliberately.** Speed-curve changes shift the seed-12 crash
+timing — re-probe `games.spec.ts` / `shell.spec.ts` / `highscore.spec.ts` waits. Full
+detail in `.claude/gameplay-replayability-loop.md` Phase 4.

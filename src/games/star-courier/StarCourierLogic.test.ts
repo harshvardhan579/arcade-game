@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { StarCourierLogic, courierDebrisWarnTicks, courierWeaverWave } from './StarCourierLogic';
+import {
+  StarCourierLogic,
+  courierDebrisWarnTicks,
+  courierMoveStep,
+  courierWeaverWave
+} from './StarCourierLogic';
 
+// Queue the target column, then glide there. The internal steps disarm all
+// enemies so mid-scenario alignment can never be ended by an unshot invader.
 function alignPlayer(logic: StarCourierLogic, column: number): void {
   let guard = 0;
-  while (logic.getState().playerX !== column && guard < 20) {
-    logic.handleInput(logic.getState().playerX > column ? 'LEFT' : 'RIGHT');
+  while (logic.getState().playerTargetX !== column && guard < 20) {
+    logic.handleInput(logic.getState().playerTargetX > column ? 'LEFT' : 'RIGHT');
+    guard += 1;
+  }
+  guard = 0;
+  while (logic.getState().playerX !== column && guard < 40) {
+    disarmEnemies(logic, true);
+    logic.step();
     guard += 1;
   }
 }
@@ -40,6 +53,8 @@ describe('StarCourierLogic', () => {
     const logic = new StarCourierLogic();
     logic.restart(3);
     logic.handleInput('RIGHT');
+    // Movement is a glide now: settle on the column before firing.
+    while (logic.getState().playerX !== 6) logic.step();
     logic.handleInput('ACTION');
     const fired = logic.getState();
     expect(fired.projectiles).toEqual([{ x: 6, y: 9 }]);
@@ -48,6 +63,78 @@ describe('StarCourierLogic', () => {
     expect(moved.projectiles[0]!.x).toBe(6);
     expect(moved.projectiles[0]!.y).toBeCloseTo(7.9);
     expect(moved.activeProjectiles).toBe(moved.projectiles.length);
+  });
+
+  it('queued presses glide the ship at the exported rate and settle exactly', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(1);
+    for (let i = 0; i < 5; i += 1) logic.handleInput('LEFT');
+    const queued = logic.getState();
+    expect(queued.playerTargetX, 'presses must queue instantly').toBe(0);
+    expect(queued.playerX, 'the glide happens in step(), not in the press').toBe(5);
+    let steps = 0;
+    while (logic.getState().playerX !== 0 && steps < 30) {
+      logic.step();
+      steps += 1;
+    }
+    expect(logic.getState().playerX, 'the glide must settle exactly on the column').toBe(0);
+    expect(steps, 'crossing five columns must be fast').toBe(Math.ceil(5 / courierMoveStep));
+    // Full-board responsiveness pin: 10 columns in under a second of steps.
+    for (let i = 0; i < 10; i += 1) logic.handleInput('RIGHT');
+    let across = 0;
+    while (logic.getState().playerX !== 10 && across < 30) {
+      logic.step();
+      across += 1;
+    }
+    expect(across).toBe(Math.ceil(10 / courierMoveStep));
+  });
+
+  it('kills the seed-9 opener after gliding to its column', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(9);
+    while (logic.getState().enemies.length === 0) logic.step();
+    for (let i = 0; i < 3; i += 1) logic.handleInput('LEFT');
+    expect(logic.getState().playerTargetX, 'seed 9 opener sits in column 2').toBe(2);
+    let guard = 0;
+    while (logic.getState().playerX !== 2 && guard < 15) {
+      logic.step();
+      guard += 1;
+    }
+    expect(logic.getState().playerX).toBe(2);
+    guard = 0;
+    while (logic.getState().score < 15 && guard < 60) {
+      if (logic.getState().activeProjectiles === 0) logic.handleInput('ACTION');
+      logic.step();
+      guard += 1;
+    }
+    expect(logic.getState().score, 'the settled ship must be able to kill').toBeGreaterThanOrEqual(
+      15
+    );
+    expect(logic.getState().isGameOver).toBe(false);
+  });
+
+  it('a single shot fired mid-glide within half a column still connects', () => {
+    const logic = new StarCourierLogic();
+    logic.restart(9);
+    while (logic.getState().enemies.length === 0) logic.step();
+    for (let i = 0; i < 3; i += 1) logic.handleInput('LEFT');
+    // Step until the ship is inside the hit reach of column 2 but not settled.
+    let guard = 0;
+    while (Math.abs(logic.getState().playerX - 2) >= 0.6 && guard < 15) {
+      logic.step();
+      guard += 1;
+    }
+    const glidingX = logic.getState().playerX;
+    expect(glidingX).not.toBe(2);
+    logic.handleInput('ACTION');
+    expect(logic.getState().projectiles[0]!.x, 'the shot leaves from the gliding x').toBe(glidingX);
+    // Only this one projectile is in flight; it alone must make the kill.
+    guard = 0;
+    while (logic.getState().activeProjectiles > 0 && guard < 15) {
+      logic.step();
+      guard += 1;
+    }
+    expect(logic.getState().score, 'the near-column shot must connect').toBe(15);
   });
 
   it('exposes real enemy positions that descend within bounds', () => {
@@ -79,11 +166,12 @@ describe('StarCourierLogic', () => {
   it('ends the run when an enemy reaches the ship in the same column', () => {
     const logic = new StarCourierLogic();
     logic.restart(9);
-    // Seed 9's first enemy spawns in column 2; park the ship there.
+    // Seed 9's first enemy spawns in column 2; queue the ship there (the
+    // glide settles within the long survival loop below).
     logic.handleInput('LEFT');
     logic.handleInput('LEFT');
     logic.handleInput('LEFT');
-    expect(logic.getState().playerX).toBe(2);
+    expect(logic.getState().playerTargetX).toBe(2);
     for (let i = 0; i < 400 && !logic.getState().isGameOver; i += 1) logic.step();
     const state = logic.getState();
     expect(state.isGameOver).toBe(true);
@@ -99,7 +187,8 @@ describe('StarCourierLogic', () => {
     // First enemy is in column 2; park the ship in column 3 (distance 1.0 >= 0.8).
     logic.handleInput('LEFT');
     logic.handleInput('LEFT');
-    expect(logic.getState().playerX).toBe(3);
+    expect(logic.getState().playerTargetX).toBe(3);
+    while (logic.getState().playerX !== 3) logic.step();
     for (let i = 0; i < 400; i += 1) {
       const state = logic.getState();
       const first = state.enemies[0];

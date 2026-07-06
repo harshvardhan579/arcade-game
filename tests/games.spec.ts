@@ -108,6 +108,9 @@ test('Star Courier: ACTION fires a projectile and playerX clamps at the left edg
     () => (window.__ARCADE__!.getState().projectiles as Cell[]).length > 0
   );
   for (let i = 0; i < 8; i += 1) await page.keyboard.press('ArrowLeft');
+  // Presses queue the clamped target; the ship glides there within a second.
+  expect((await snapshot(page)).playerTargetX).toBe(0);
+  await page.waitForFunction(() => window.__ARCADE__!.getState().playerX === 0);
   const state = await snapshot(page);
   expect(state.playerX).toBe(0);
   for (const projectile of state.projectiles as Cell[]) {
@@ -132,7 +135,8 @@ test('Star Courier: killing the first enemy scores and an unchecked wave ends th
     { timeout: 10_000 }
   );
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowLeft');
-  expect((await snapshot(page)).playerX, 'seed 9 spawns the first enemy in column 2').toBe(2);
+  expect((await snapshot(page)).playerTargetX, 'seed 9 spawns the first enemy in column 2').toBe(2);
+  await page.waitForFunction(() => window.__ARCADE__!.getState().playerX === 2);
 
   let scored = false;
   for (let i = 0; i < 6 && !scored; i += 1) {
