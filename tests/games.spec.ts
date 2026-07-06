@@ -180,6 +180,22 @@ test('Lane Rush: lane clamps at both edges and traffic stays within world bounds
   }
 });
 
+test('Lane Rush: double-tap ACTION triggers the boost', async ({ page }) => {
+  await openGame(page, 'Lane Rush', 'lane-rush');
+  const before = await snapshot(page);
+  expect(before.boostTicksLeft).toBe(0);
+  await page.keyboard.press(' ');
+  await page.keyboard.press(' ');
+  // handleInput arms the boost instantly; the multiplied speed lands on the
+  // next fixed step, so wait on both together.
+  await page.waitForFunction((baseline) => {
+    const state = window.__ARCADE__!.getState();
+    return (state.boostTicksLeft as number) > 0 && (state.speed as number) > baseline * 1.4;
+  }, before.speed as number);
+  const boosted = await snapshot(page);
+  expect(boosted.boostTicksLeft as number).toBeGreaterThan(0);
+});
+
 test('Lane Rush: a parked player near-misses, then crashes, then restarts cleanly', async ({
   page
 }) => {

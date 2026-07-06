@@ -10,7 +10,7 @@ export function createCaseStudyPanel(): HTMLElement {
     <p class="panel-label">The games</p>
     <p>A portal snake with a visible speed ramp, a scrolling procedural auto-runner, a shooter with telegraphed hazards, a neon three-lane racer, and a seven-piece stacker with a ghost landing preview.</p>
     <p class="panel-label">Validation</p>
-    <p>Strict TypeScript, 66 deterministic logic and contract tests, an import boundary that keeps engines framework-free, and Playwright suites that read canvas pixels to prove the selected game is truly on screen — across desktop and mobile viewports.</p>
+    <p>Strict TypeScript, 70 deterministic logic and contract tests, an import boundary that keeps engines framework-free, and Playwright suites that read canvas pixels to prove the selected game is truly on screen — across desktop and mobile viewports.</p>
   `;
   return panel;
 }

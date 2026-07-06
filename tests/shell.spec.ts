@@ -24,7 +24,7 @@ test('desktop controls hint follows the selected game', async ({ page, viewport 
   const hint = page.locator('.controls-hint');
   await expect(hint).toHaveText('Arrows steer · eating speeds up · Space restarts');
   await page.getByRole('button', { name: /Lane Rush/ }).click();
-  await expect(hint).toHaveText('← → change lanes');
+  await expect(hint).toHaveText('← → change lanes · double-tap Space = boost');
   await page.getByRole('button', { name: /Circuit Stack/ }).click();
   await expect(hint).toHaveText('← → move · ↑ rotate · ↓ drop');
 });

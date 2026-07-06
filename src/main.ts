@@ -43,8 +43,8 @@ const games: GameDefinition[] = [
   },
   {
     id: 'lane-rush',
-    controls: '← → change lanes',
-    controlsTouch: '← → change lanes',
+    controls: '← → change lanes · double-tap Space = boost',
+    controlsTouch: '← → change lanes · double-tap ● = boost',
     title: 'Lane Rush',
     subtitle: 'Three-lane near-miss racer',
     sceneKey: 'lane-rush',

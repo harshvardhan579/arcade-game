@@ -9,85 +9,92 @@ Loop: `.claude/gameplay-replayability-loop.md` (one phase per invocation, strict
 | 0     | Mobile rapid-tap zoom P0 (CSS/touch, no gameplay)  | done (`cedf11a`)    |
 | 1     | Runtime seed variation, deterministic tests intact | done (`3b8d761`)    |
 | 2     | Bounce Circuit: jump tuning, double jump, variety  | done (`beb15b5`)    |
-| 3     | Star Courier: movement/aiming feel                 | **done** (this run) |
-| 4     | Lane Rush: pseudo-3D + double-tap boost            | next                |
-| 5     | Circuit Stack: live 7-bag variation                | pending             |
+| 3     | Star Courier: movement/aiming feel                 | done (`c82c92c`)    |
+| 4     | Lane Rush: pseudo-3D + boost + crash impact        | **done** (this run) |
+| 5     | Circuit Stack: live 7-bag variation                | next                |
 | 6     | Validation + docs close-out                        | pending             |
 
-## Phase 3 (this run) — what changed
+## Phase 4 (this run) — what changed
 
-**Queued glide strafing.** Movement truth lives in `StarCourierLogic.ts`; the scene only
-draws; movement consumes **zero rng draws**, so every seeded spawn (incl. the seed-9
-column-2 opener) is untouched. No bullet-hell: spawn cadence, pools (8/10/4), wave
-scaling, and telegraphs unchanged.
+**Logic (`LaneRushLogic.ts`) — three-lane model kept, zero new rng draws:**
 
-- **Logic:** LEFT/RIGHT no longer teleport one column — they queue whole columns onto
-  an integer `targetX` (rapid taps stack; clamped 0..10), and `step()` glides
-  `playerX` toward it at exported `courierMoveStep = 0.55`/step (~11.5 columns/sec at
-  the 48 ms scene step — full board in under a second, five columns in 10 steps). The
-  glide converges **exactly** onto the integer column (round2 arithmetic), so a
-  settled ship is always column-aligned for firing; shots fired mid-glide leave from
-  the fractional x and still connect within the 0.65 hit reach. `playerTargetX` is
-  exposed in the snapshot for tests/HUD.
-- **Scene (`StarCourierScene.ts`, presentation only):** the smooth motion falls out of
-  drawing the float `playerX`; added a small nose lean toward the queued column
-  (reduced-motion gated). Ship at rest is unchanged — bottom-center cyan pixel
-  signature safe (re-run green).
-- **Shared input (the one allowed exception):** `TouchControls` hold-repeat tightened
-  300 ms → **200 ms** delay, 90 ms → **70 ms** interval, so hold-to-strafe starts
-  promptly on phones (each repeat queues one column). ACTION stays single-shot; a tap
-  still emits exactly one input. This affects all games' d-pads (faster held
-  soft-drop/lane-weave — strictly friendlier); the pressed/repeat and tap-once specs
-  passed unmodified on both projects.
-- **Docs:** README Star Courier line describes the glide; case-study count 63 → 66.
+- **Speed cap:** the ramp `0.18 + tick/2400` now plateaus at exported
+  `laneRushMaxSpeed = 0.38` (~tick 480). Below that point the curve is unchanged, so
+  the **seed-12 parked-crash timing (~tick 102) was untouched** — every existing
+  Lane Rush e2e wait passed without edits, exactly as predicted.
+- **Double-tap boost:** two ACTION taps within `laneRushDoubleTapTicks = 8` (~340 ms)
+  arm `laneRushBoostDurationTicks = 90` (~3.8 s) of `laneRushBoostMultiplier = 1.6`×
+  speed, then `laneRushBoostCooldownTicks = 240` (~10 s) of cooldown. Tick-based (no
+  clocks in logic), single ACTION does nothing (no mobile spam), ACTION-while-dead
+  still restarts first. `boostTicksLeft`/`boostCooldownTicks` in the snapshot.
+- **Crash exposure for the impact animation:** `crashLane`/`crashY` capture the
+  colliding car's true lane/depth (-1 while alive; reset on restart).
+- `traffic` became public (matching the other four games' test conventions).
 
-## Deliberately updated pins (old → new, why)
+**Scene (`LaneRushScene.ts`) — full pseudo-3D rewrite, presentation only:**
 
-- **Vitest `alignPlayer` helper** now queues the target and glides (its internal steps
-  fully disarm enemies so debris scenarios cannot be ended by an unshot invader).
-- **Seed-3 projectile test:** settles on column 6 before firing (was: fire immediately
-  after an instant move).
-- **Seed-9 park tests (collision / near-miss column):** assert `playerTargetX`
-  immediately, then let the survival loop / an explicit settle loop cover the glide.
-- **E2e `games.spec.ts`:** the 8×LEFT clamp and 3×LEFT park assertions now check the
-  queued target and `waitForFunction` the arrival (`playerX === 0` / `=== 2`). The
-  fire-until-kill loop needed no change — a settled ship kills exactly as before.
+- Horizon at 30% height with a boost-reactive glow line; night-sky bands; ground
+  shoulders; **road trapezoid in the exact signature color `#0d252b`**; straight
+  perspective edges (screen x/y are both affine in eased depth `t^1.7`, so edges stay
+  lines while world spacing compresses toward the horizon).
+- Depth-scaled scrolling lane dashes (quads via `fillPoints`), roadside posts with
+  glow caps, speed streaks (intensified while boosting), far-road haze.
+- Cars painter-sorted far→near and scaled 0.2→~0.85 by depth; a same-lane car bearing
+  down glows red (danger cue); the **near-miss scoring band (world y 9.1–10.4) is
+  visible on the asphalt** and flashes when a near-miss lands; popups scale with depth.
+- Player car in the foreground with visual lane-lerp (snap under reduced motion),
+  bob, and boost exhaust flames; HUD reads `Spd 0.33 BOOST` / `boost 9s` / `boost ●●`.
+- **Crash impact at the true collision point:** shockwave rings expand from
+  `crashLane`/`crashY`, the struck car is shoved forward/sideways as the 460 ms decay
+  runs, the player car jitters, plus the existing 26-spark burst and shake/flash.
+  Under reduced motion: no jitter/rings/scroll, static red rims on both cars instead —
+  feedback stays, churn goes.
+- Screenshot-verified (run/boost/crash) at 1440×900 — the crash frame shows the
+  struck car jolted into the player with rings and debris at the collision point.
 
-## New tests (Star vitest 12 → 15)
+**Deliberate pin updates (same slice):**
 
-- **Movement responsiveness pin:** 5 presses queue instantly (target 0, position still
-  5 until `step()`); glide settles exactly in `ceil(5/0.55) = 10` steps; full-board
-  crossing in `ceil(10/0.55) = 19` steps.
-- **Kill feasibility:** seed-9 opener — queue 3×LEFT, settle, fire → score ≥ 15, no
-  game over.
-- **Mid-glide alignment:** a single shot fired from a fractional x (inside half a
-  column) is the only projectile in flight and alone makes the kill (`score === 15`).
+- **Pixel signature re-measured:** the pseudo-3D trapezoid renders **113,765** road
+  pixels on the desktop canvas (old flat fill > 200k). `tests/switching.spec.ts`
+  threshold updated 200k → **80k** with the measurement documented inline. The check
+  itself is intact; Star Courier's `< 100k` road check needed no change.
+- **Hint copy:** Lane Rush hints gained "· double-tap Space/● = boost" (`main.ts`) with
+  the pinned strings updated in `shell.spec.ts` + `switching.spec.ts`.
+- README Lane Rush line rewritten; case-study count 66 → 70.
+
+## New tests
+
+- **Vitest (Lane 6 → 10):** speed ramps monotonically to exactly the cap (survives by
+  clearing public traffic); double-tap inside the interval boosts at the multiplier /
+  slow second tap does not; boost expires into cooldown, cooldown blocks re-boost,
+  re-arms after; parked seed-12 crash exposes `crashLane`/`crashY` inside the crash
+  band and ACTION still restarts (clearing crash + boost state).
+- **E2e (`games.spec.ts`, +1):** double-tap Space arms the boost and the multiplied
+  speed lands on the next fixed step (first version raced the 42 ms step — the wait
+  now covers both conditions).
 
 ## Validation (all green)
 
-- `npx vitest run src/games/star-courier`: 15 passed.
-- Star e2e (forced seed 9): both tests green (~2.1 s / ~9.5 s).
-- `switching` + `smoke` + `shell` both projects (scene + shared input touched):
-  17 passed / 13 intentionally skipped — repeat/tap-once and pixel signatures held.
-- Full `npm run validate`: build + strict tsc, **66 Vitest**, ESLint + import boundary
-  - Prettier, Playwright **33 passed / 27 intentionally skipped**.
+- `npx vitest run src/games/lane-rush`: 10 passed.
+- Lane e2e + switching (signature re-measured): green; parked-crash and mobile
+  game-over waits unchanged.
+- Full `npm run validate`: build + strict tsc, **70 Vitest**, ESLint + import boundary
+  - Prettier, Playwright **34 passed / 28 intentionally skipped**.
+- Screenshots (scratchpad `lane-3d-run/boost/crash.png`, ephemeral): pseudo-3D
+  composition, boost feedback, and collision impact all verified visually.
 
 ## Manual QA additions (next real-device pass)
 
-- Star Courier: mash ← 3× — ship sweeps smoothly and stops dead on the column; hold a
-  direction — strafe starts within ~200 ms and tracks the held thumb; nose leans while
-  gliding; firing right after arriving kills the column's enemy without re-tapping.
-- Re-check other games' held d-pad feel (soft-drop, lane weave) with the quicker
-  repeat; confirm a Bounce hold still reads as jump + auto double jump, not a spam.
+- Lane Rush: road reads as 3D at phone sizes (dashes converge, cars grow); double-tap
+  ● boosts with flames + BOOST HUD and cannot re-trigger during cooldown; near-miss
+  band flashes on +12/+5; crash shows rings/jolt at the actual collision spot; with
+  reduced motion enabled, crash still clearly reads via the red rims.
 
-## Next task (Phase 4 — start cold from the loop file)
+## Next task (Phase 5 — start cold from the loop file)
 
-Lane Rush pseudo-3D + boost: logic keeps three lanes and the y-model — add exported
-speed cap, tick-based ACTION double-tap boost (cooldown, `boostTicksLeft`/
-`boostCooldownLeft` in the snapshot, dead-ACTION still restarts; never write the word
-"wind\*w" in logic comments); scene rewrite to horizon/trapezoid/depth-scaled rendering
-with a legible near-miss zone and boost feedback. **The `#0d252b > 200k px` road
-signature and Star Courier's `< 100k` road check in `tests/switching.spec.ts` must be
-re-measured and updated deliberately.** Speed-curve changes shift the seed-12 crash
-timing — re-probe `games.spec.ts` / `shell.spec.ts` / `highscore.spec.ts` waits. Full
-detail in `.claude/gameplay-replayability-loop.md` Phase 4.
+Circuit Stack live 7-bag variation — verification-first: e2e in live (unforced) mode
+that two restarts yield different `runSeed`s (and optionally differing early
+`nextPiece` sequences with retry tolerance); fixed-seed bag pins (vitest seeds
+21/9/1/2/5/6/7/3 + runtime 14) stay untouched. No hold piece/T-spin/garbage/queue.
+Optional small gravity curve only if low-risk and pinned. Full detail in
+`.claude/gameplay-replayability-loop.md` Phase 5.
