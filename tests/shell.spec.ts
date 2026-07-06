@@ -377,3 +377,35 @@ test('mobile canvas and touch controls share the viewport without overlap', asyn
     }
   }
 });
+
+test('page surfaces opt out of double-tap zoom so rapid taps cannot zoom mid-game', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only touch assertions');
+  // Headless cannot reproduce iOS Safari's double-tap zoom itself; this pins
+  // the computed touch-action contract that suppresses it. A gesture is only
+  // allowed if the touched element AND its ancestors allow it, so html/body
+  // carrying `manipulation` protects every off-control tap (topbar, shell
+  // padding, grid gaps) while keeping pinch-zoom available for accessibility.
+  const surfaces = await page.evaluate(() => {
+    const read = (selector: string) => {
+      const el = selector === 'html' ? document.documentElement : document.querySelector(selector);
+      return el ? getComputedStyle(el).touchAction : 'missing';
+    };
+    return {
+      html: read('html'),
+      body: read('body'),
+      restart: read('.restart-button'),
+      select: read('.mobile-game-select'),
+      gameRoot: read('.game-root'),
+      touchControls: read('.touch-controls')
+    };
+  });
+  expect(surfaces.html, 'html must opt out of double-tap zoom').toBe('manipulation');
+  expect(surfaces.body, 'body must opt out of double-tap zoom').toBe('manipulation');
+  expect(surfaces.restart, 'Restart keeps its tap-safe opt-out').toBe('manipulation');
+  expect(surfaces.select, 'game picker keeps its tap-safe opt-out').toBe('manipulation');
+  expect(surfaces.gameRoot, 'canvas keeps swallowing all gestures').toBe('none');
+  expect(surfaces.touchControls, 'd-pad keeps swallowing all gestures').toBe('none');
+});
