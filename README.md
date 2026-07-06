@@ -41,7 +41,7 @@ The Playwright suites go beyond smoke: every game has a deep interaction test (d
 
 Each game is split into:
 
-- A pure `*Logic.ts` engine with deterministic seeded randomness that exposes real entity positions in its state snapshot.
+- A pure `*Logic.ts` engine with deterministic seeded randomness that exposes real entity positions in its state snapshot. Live play draws a fresh run seed per run (new game, Restart, or restart-after-death) from `src/core/RunSeeds.ts`, so obstacles, enemies, traffic, and pieces vary between runs; tests force exact seeds through a documented hook (`window.__ARCADE_FIXED_SEEDS__` / `?seed=N`) and stay fully reproducible.
 - A Phaser `*Scene.ts` renderer that translates semantic input, draws every entity at its true logic position, layers procedural feedback (particles, shake, flashes via the shared `src/games/effects.ts` helper), and publishes canvas state through `window.__ARCADE__`.
 - A focused Vitest file for happy paths, edge cases, and snapshot contracts (positions in bounds, determinism, JSON-serializable and detached).
 
@@ -81,6 +81,6 @@ The app itself contains no runtime AI or ML. The case-study framing is intention
 
 ## Current Limitations
 
-- Phaser ships as its own ~319 kB gzip vendor chunk (the app chunk is ~9 kB gzip); the build still warns about Phaser's size, which is inherent to the pinned engine. Per-scene lazy loading is a possible further optimization.
+- Phaser ships as its own ~319 kB gzip vendor chunk (the app chunk is ~13 kB gzip); the build still warns about Phaser's size, which is inherent to the pinned engine. Per-scene lazy loading is a possible further optimization.
 - Synthesized audio is intentionally minimal and is not asserted in headless E2E (only that audio paths do not throw and exactly one AudioContext exists).
 - Row-clear celebrations in Circuit Stack are covered by logic tests but not exercised end-to-end (setting up a full row honestly in e2e is too slow).

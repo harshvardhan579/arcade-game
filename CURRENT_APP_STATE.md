@@ -1,10 +1,20 @@
 # Pocket Arcade — Current App State
 
-> Read-only snapshot of the repo as of 2026-07-05 (branch `mobile-ui-pass-1`, working
-> tree clean). Written to hand to a senior game developer, recruiter, or designer.
-> Everything below is grounded in the source; where a claim is inferred or uncertain it
-> says so, and features that are only _documented_ but not implemented are called out
-> explicitly.
+> Snapshot of the repo as of **2026-07-06**, refreshed at the close of
+> `gameplay-replayability-pass-1` (originally written 2026-07-05 on `mobile-ui-pass-1`).
+> Written to hand to a senior game developer, recruiter, or designer. Everything below is
+> grounded in the source; where a claim is inferred or uncertain it says so, and features
+> that are only _documented_ but not implemented are called out explicitly.
+>
+> **What the gameplay/replayability pass changed (commits `cedf11a`…`1b5e1f2`):** page-wide
+> double-tap-zoom suppression on mobile; **live run seeds** (every new run/restart/switch
+> draws a fresh seed via `src/core/RunSeeds.ts`, tests force exact seeds via
+> `window.__ARCADE_FIXED_SEEDS__`, `runSeed` in the bridge); Bounce Circuit's controllable
+> jump + **double jump**, wider orb pickup, and distance-gated hard chunks; Star Courier's
+> **queued glide strafing** (+ faster d-pad hold-repeat 200/70 ms); Lane Rush rebuilt as a
+> **pseudo-3D racer** with a speed cap, double-tap boost, visible near-miss band, and a
+> true-position crash impact; Circuit Stack's verified live 7-bag redeal + a gentle
+> **gravity/level curve**. Vitest 54 → **73**; Playwright 35 passed / 29 skipped.
 
 ---
 
@@ -20,7 +30,7 @@ constraints**: every pixel is drawn procedurally at runtime (no images, sprite s
 fonts are ever loaded), every sound is synthesized with WebAudio, and each game is split
 into a **pure, deterministic, framework-free logic engine** and a separate **Phaser
 renderer**, with an automated import-boundary guard that fails the build if the two mix.
-That separation is what lets the project be validated the way real software is: 54 Vitest
+That separation is what lets the project be validated the way real software is: 73 Vitest
 logic/contract tests plus Playwright end-to-end suites that read actual canvas pixels to
 prove the right game is on screen. Category-wise it is a **portfolio artifact / mini-arcade
 collection** — deliberately built to demonstrate frontend architecture, pure game-logic
@@ -95,9 +105,9 @@ directly (see §8).
 **Touch controls (`src/ui/TouchControls.ts`).** Builds five buttons (↑ ← ● → ↓) with
 `data-arcade-input` and aria-labels. On `pointerdown` it `preventDefault`s, toggles an
 `is-pressed` class (because `preventDefault` suppresses `:active`), dispatches one
-`arcade-virtual-input`, and — for directions only — arms auto-repeat (300 ms delay, then
-90 ms interval). **ACTION is single-shot** so holding ● can't spam fire/restart. Timers are
-cleared on `pointerup/cancel/leave`.
+`arcade-virtual-input`, and — for directions only — arms auto-repeat (200 ms delay, then
+70 ms interval — tightened for hold-to-strafe). **ACTION is single-shot** so holding ●
+can't spam fire/restart/boost. Timers are cleared on `pointerup/cancel/leave`.
 
 **Audio engine (`src/core/AudioEngine.ts`).** A **module singleton** (`export const
 audioEngine`). Lazily creates one `AudioContext` on the first pointer/key/touch gesture
@@ -114,8 +124,16 @@ cards and the mobile picker options listen for and re-render. `BaseGameScene.upd
 
 **Test bridge (`src/core/TestBridge.ts`).** Publishes `window.__ARCADE__ = { activeScene,
 getState() }`. `getState()` returns a fresh spread of the latest logic snapshot **plus**
-`highScore`. Snapshots are JSON-serializable and never expose Phaser objects; Playwright
-reads them with `page.evaluate`.
+`highScore` and `runSeed`. Snapshots are JSON-serializable and never expose Phaser
+objects; Playwright reads them with `page.evaluate`.
+
+**Run seeds (`src/core/RunSeeds.ts`).** Live play draws a fresh non-zero 32-bit seed per
+run (pure clock+counter mixer, unit-tested); `BaseGameScene.startNewRun()` reseeds on
+scene `create()` — so switching away and back starts a fresh run — on Restart, and on
+ACTION-after-game-over. Tests force exact seeds via the per-game map
+`window.__ARCADE_FIXED_SEEDS__` (consulted on every restart) or `?seed=N`; the seeded
+Playwright specs force the historical defaults 7/11/9/12/14 so pinned outcomes stay
+bit-identical, while smoke/switching/audio run live on purpose.
 
 **Logic ↔ rendering separation.** Truth lives in `*Logic.ts` (grid coordinates, entity
 arrays, score, phase). Scenes translate semantic input to `logic.handleInput`, run
@@ -165,12 +183,17 @@ All five share: portrait 3/4 canvas, cyan = player, warm (red/amber/pink) = haza
 - **Core loop:** the world scrolls right at a ramping capped speed; you auto-run and jump
   over spike clusters, land on one-way platforms, and grab amber orbs. Death banks the
   distance run into the score.
-- **Controls:** ↑ / ACTION jump; ← → nudge horizontally (`±1.5` clamp); ACTION restarts.
+- **Controls:** ↑ / ACTION jump (peak ~~2.34 units — reaches the 1.7/2.1 platforms);
+  **second press mid-air = smaller double jump** (~~+1.3, one per airtime, re-armed on
+  landing, coyote keeps it in hand — the route to the 2.5 platforms); ← → nudge
+  horizontally (`±1.5` clamp); ACTION restarts. Orb pickup is 0.7×0.95 wide, so landing on
+  a platform collects its orb.
 - **Scoring:** orbs `+25` each (immediate); on death `+floor(distance)`.
 - **Progression:** speed `0.22 → 0.42` cap scaled by distance (`currentSpeed`). Terrain is
-  generated ahead in 16-unit chunks with a 5-way roll (single spike, spike pair, platform +
-  orb, orb arc, ground orb) and an anti-frustration rule that avoids back-to-back spike
-  chunks.
+  generated ahead in 16-unit chunks — five base archetypes (single spike, spike pair,
+  platform + orb, orb arc, ground orb) plus two **hard archetypes gated past 96 units**
+  (three-spike fence, orb bounty over a spike), with a "never two spikeless chunks in a
+  row" cadence rule.
 - **Visual style:** two-layer parallax skyline (hashed tower heights, no RNG), full-width
   ground strip (kept exact `#12353c` for the pixel-signature test), platform highlights,
   triangular spikes, pulsing orbs.
@@ -189,10 +212,14 @@ All five share: portrait 3/4 canvas, cyan = player, warm (red/amber/pink) = haza
 ### Star Courier (`star-courier/`)
 
 - **Genre:** fixed vertical shooter (single-axis mover).
-- **Core loop:** slide left/right across 11 columns, fire upward, destroy descending drones,
+- **Core loop:** glide left/right across 11 columns, fire upward, destroy descending drones,
   dodge sinusoidal weavers (wave 2+) and un-shootable debris rocks that absorb shots. You
   die if an enemy reaches the bottom or collides with you.
-- **Controls:** ← → move (0–10 clamp), ACTION fires; ACTION restarts when dead.
+- **Controls:** ← → **queue whole columns** (rapid taps stack, clamped 0–10) and the ship
+  glides at 0.55/step (~11.5 columns/sec), settling exactly on the integer column so a
+  settled ship is always aligned for firing; mid-glide shots still connect within the 0.65
+  hit reach. ACTION fires; ACTION restarts when dead. The nose banks toward the queued
+  column while gliding.
 - **Scoring:** `+15` per enemy killed. Debris cannot be scored (shots are absorbed).
 - **Progression:** wave `+1` every 80 ticks; spawn cadence tightens (`max(14, 34 − wave×3)`
   ticks), enemy fall speed rises (`0.08 + wave×0.015`), weavers appear at wave 2 (35% roll),
@@ -213,29 +240,39 @@ All five share: portrait 3/4 canvas, cyan = player, warm (red/amber/pink) = haza
 
 ### Lane Rush (`lane-rush/`)
 
-- **Genre:** three-lane endless "dodge / near-miss" racer.
-- **Core loop:** hold a lane, hop left/right, thread between descending cars. You crash if a
-  car occupies your lane in the hit band; you **score by near-missing** cars in adjacent
-  lanes.
-- **Controls:** ← → change lane (0–2 clamp). No accelerate/brake. ACTION restarts.
+- **Genre:** **pseudo-3D** three-lane endless "dodge / near-miss" arcade racer.
+- **Core loop:** hold a lane, hop left/right, thread between cars streaming down from the
+  horizon. You crash if a car occupies your lane in the hit band; you **score by
+  near-missing** cars in adjacent lanes.
+- **Controls:** ← → change lane (0–2 clamp); **double-tap ACTION within ~340 ms = boost**
+  (1.6× speed for ~3.8 s, then a ~10 s cooldown — `boostTicksLeft`/`boostCooldownTicks` in
+  the snapshot, HUD shows `BOOST` / `boost Ns` / `boost ●●`); single ACTION while dead
+  restarts.
 - **Scoring:** near-miss `+12` if the car is one lane away, `+5` if two lanes away, once per
   car (`scored` flag).
-- **Progression:** speed `0.18 + tick/2400` (**unbounded** — no cap), traffic spawns every
+- **Progression:** speed `0.18 + tick/2400` **capped at `laneRushMaxSpeed = 0.38`**
+  (~tick 480); the boost is the only way past the plateau, briefly. Traffic spawns every
   28 ticks avoiding top-lane saturation. Car color variant derives from `spawnTick % 3` (no
   RNG draw, deliberately).
-- **Visual style:** the richest scene — scrolling roadside posts with glow dots, dashed lane
-  lines with speed-tied scroll, speed streaks past 0.26, layered player/traffic car shapes
-  with windows + lights, a `drawDepthHaze` vignette gradient.
-- **Juice:** near-miss spark + `+12/+5` popText + shake, big spark burst + death feedback on
-  crash, player-car bob.
-- **Strengths:** the near-miss scoring rewards _risk proximity_, which is more interesting
-  than pure dodging; the visual depth/motion sell speed well.
-- **Weaknesses:** the crash vs near-miss bands (`y` 8.8–10.2 vs 9.1–10.4) are invisible to
-  the player, so scoring can feel arbitrary; unbounded speed means late runs get
-  unfairly fast; only three inputs' worth of decisions.
-- **Systems:** lane clamp, per-car scored flag, band collision, tick-derived variants.
-- **More professional:** a visible near-miss "zone" flash, combo for consecutive near-misses,
-  a speed cap or difficulty plateau, a risk multiplier for tighter passes.
+- **Visual style:** pseudo-3D — horizon with a boost-reactive glow line, night-sky bands,
+  road trapezoid (exact `#0d252b` signature) with straight perspective edges (screen x/y
+  affine in eased depth `t^1.7`), depth-scaled scrolling dashes and roadside posts,
+  painter-sorted traffic scaled 0.2→~0.85 by depth, speed streaks, far-road haze, and a
+  **visible near-miss band on the asphalt** that flashes when one lands.
+- **Juice:** near-miss spark + depth-scaled `+12/+5` popText + band flash; a same-lane car
+  bearing down glows red; boost exhaust flames + `BOOST!` popup; the crash plays a
+  **460 ms impact at the true collision lane/depth** — expanding shockwave rings, the
+  struck car shoved forward/sideways, player-car jitter, sparks, shake, flash (static red
+  rims under reduced motion).
+- **Strengths:** the near-miss scoring rewards _risk proximity_; the pseudo-3D composition
+  finally sells speed and depth; boost is a real risk/reward decision (more scoring chances
+  per second, less reaction time).
+- **Weaknesses:** the hit band is still numeric rather than perfectly shaped to the drawn
+  cars; only three lanes' worth of decisions; no combo for consecutive near-misses.
+- **Systems:** lane clamp, per-car scored flag, band collision, tick-derived variants,
+  tick-based double-tap boost state machine, crash-position exposure, perspective mapping.
+- **More professional:** a combo for consecutive near-misses, a risk multiplier for tighter
+  passes, engine-pitch audio tied to speed/boost.
 
 ### Circuit Stack (`circuit-stack/`)
 
@@ -245,8 +282,10 @@ All five share: portrait 3/4 canvas, cyan = player, warm (red/amber/pink) = haza
 - **Controls:** ← → move, ↑ / ACTION rotate (with wall kicks), ↓ soft-drop. ACTION restarts.
 - **Scoring:** multi-row clears `[0, 100, 250, 450, 700]` for 1–4 lines (Tetris-like reward
   curve); a ghost/landing preview and a shape-accurate NEXT box are drawn.
-- **Progression:** **gravity is fixed** — a piece steps down every 24 ticks regardless of
-  score. Difficulty comes only from stack height, not speed (see Weaknesses).
+- **Progression:** a **gentle gravity curve** — `circuitDropTicks(linesCleared)` starts at
+  24 ticks per row and shaves 3 ticks per level (one level per 3 cleared lines), floored at
+  10 (~300 ms/row); `level`/`linesCleared` are in the snapshot and the HUD (`Lv 1 Lines 3`).
+  Live restarts redeal a fresh 7-bag order (Phase 1 seeds, e2e-verified).
 - **Visual style:** grid strokes (exact `#31545a` @ 0.8 for the pixel signature), beveled
   locked cells, magenta active piece with a soft aura, magenta ghost outline, a small NEXT
   preview box.
@@ -254,9 +293,8 @@ All five share: portrait 3/4 canvas, cyan = player, warm (red/amber/pink) = haza
   on lock, death feedback on top-out. Wall kicks include the `±2` kicks the I-piece needs.
 - **Strengths:** correct 7-bag + kicks + ghost + NEXT is a faithful, complete stacker; the
   scoring curve rewards multi-line clears.
-- **Weaknesses:** **no gravity acceleration / level system** — it never speeds up, so long
-  runs are a stamina exercise, not escalating tension; no hard-drop; no hold piece; no
-  back-to-back / T-spin scoring.
+- **Weaknesses:** no hard-drop; no hold piece; no back-to-back / T-spin scoring; a single
+  NEXT preview rather than a queue.
 - **Systems:** 7-bag shuffle, rotation matrix + kick table, row-clear compaction, ghost
   projection (computed in the scene via `dropDistance`).
 - **More professional:** a level/gravity curve tied to lines cleared, hard-drop with a slam
@@ -314,7 +352,10 @@ manipulation` on tappables. aria-labels on all five buttons.
 - **Game over:** a centered overlay (`GAME OVER` + device-correct "Tap ● to restart") drawn
   in `BaseGameScene`, replacing the old clipped one-line HUD message.
 - **Safari/browser constraints handled:** dynamic toolbar (`svh` + `min-height: 0`), safe
-  areas, no double-tap zoom, no long-press callout on glyphs.
+  areas, no long-press callout on glyphs, and **page-wide double-tap-zoom suppression** —
+  `touch-action: manipulation` on `html/body/#app` covers every off-control surface
+  (topbar, padding, grid gaps) while keeping pinch-zoom for accessibility; pinned by a
+  computed-style regression (fail-first: `html` was `auto`).
 - **Strengths:** genuinely playable portrait and phone-landscape; the picker-with-highs is a
   neat mobile answer to the hidden cards.
 - **Known limitation (documented, not fixed):** **iPad / tablet in landscape** — coarse
@@ -330,27 +371,36 @@ manipulation` on tappables. aria-labels on all five buttons.
 
 ## 7. Current test coverage
 
-**Vitest (54 cases, colocated `*.test.ts`):** per-game logic + contract tests — input
+**Vitest (73 cases, colocated `*.test.ts`):** per-game logic + contract tests — input
 clamping, scoring rules, determinism (identical snapshots for identical seeds), entity
 positions in bounds and advancing correctly, and **detached JSON-serializable snapshots**
-(mutating the returned array doesn't mutate internal state). Counts: Neon Serpent 12,
-Bounce Circuit 13, Star Courier 12, Circuit Stack 11, Lane Rush 6.
+(mutating the returned array doesn't mutate internal state) — plus, since the gameplay
+pass: double-jump/coyote/buffer mechanics and 2.5-platform reachability, hard-chunk
+gating and cross-seed course variation (Bounce), glide rate/exact settle and kill
+feasibility (Star), boost timing/cooldown, speed cap, and crash exposure (Lane), gravity
+curve and cross-seed bag variation (Circuit), and the pure seed mixer. Counts: Neon
+Serpent 12, Bounce Circuit 19, Star Courier 15, Circuit Stack 14, Lane Rush 10,
+RunSeeds 3.
 
-**Playwright (6 spec files, 33 test declarations; run across desktop + mobile projects with
-per-project `test.skip` guards):**
+**Playwright (6 spec files; last full run 35 passed / 29 intentionally skipped across the
+desktop + mobile projects, with per-project `test.skip` guards). The seeded specs
+(`games`/`shell`/`highscore`) force the historical default seeds 7/11/9/12/14 via
+`window.__ARCADE_FIXED_SEEDS__`; `smoke`/`switching`/`audio` deliberately run live:**
 
 - **`smoke.spec.ts`** — shell loads with no `console.error`, keyboard drives Neon Serpent,
-  desktop selector opens all five, mobile d-pad exists and moves the snake.
+  desktop selector opens all five, mobile d-pad exists and moves the snake, and **live
+  restarts draw fresh `runSeed`s** (both projects, unforced).
 - **`games.spec.ts`** — one or two **deep interaction tests per game**: Bounce jump feel +
-  spike death banks distance + restart; Star fire/clamp + kill-scores-15 + wave death +
-  restart; Lane lane-clamp + traffic bounds + near-miss/crash/restart; Circuit soft-drop +
-  rotate + lock fills grid; Neon obstacle death + Space restart + reduced-motion + portal
-  wrap.
+  spike death banks distance + restart; Star fire/clamp (queued target + awaited glide) +
+  kill-scores-15 + wave death + restart; Lane lane-clamp + traffic bounds + **double-tap
+  boost** + near-miss/crash/restart; Circuit soft-drop + rotate + lock fills grid +
+  **forced-seed reproducibility** + **live 7-bag redeal**; Neon obstacle death + Space
+  restart + reduced-motion + portal wrap.
 - **`switching.spec.ts`** — the **pixel-signature regression**: reads canvas `getImageData`
-  and counts per-game signature colors (Lane road `#0d252b` > 200k px, Bounce ground
-  `#12353c`, Circuit grid `#31545a`, Neon food magenta 50–3000, Star ship cyan bottom-center)
-  to prove the selected game is truly rendered — catches stacked-scene bugs that DOM/bridge
-  checks cannot. Desktop project only.
+  and counts per-game signature colors (Lane's pseudo-3D road trapezoid `#0d252b` > 80k px,
+  re-measured at ~114k; Bounce ground `#12353c`; Circuit grid `#31545a`; Neon food magenta
+  50–3000; Star ship cyan bottom-center) to prove the selected game is truly rendered —
+  catches stacked-scene bugs that DOM/bridge checks cannot. Desktop project only.
 - **`highscore.spec.ts`** — starts at 0, persists across reload, survives restart; cards show
   persisted highs; **real Lane Rush gameplay** writes a high to storage. Clears
   `pocket-arcade:*` in setup.
@@ -361,12 +411,14 @@ per-project `test.skip` guards):**
   overlay pixels + picker highs + select blur; pressed feedback + hold-to-repeat + single-
   shot ACTION; **no-overlap/fit at six portrait sizes** with a computed-style pin that
   `.arcade-shell` `min-height` resolves to `0px`; **coarse-pointer landscape playability**
-  at three sizes; d-pad aria-labels + reduced-motion run.
+  at three sizes; d-pad aria-labels + reduced-motion run; **double-tap-zoom opt-out**
+  computed-style pin on every page surface.
 
 **Bugs now protected against:** stacked/overlapping scenes, count-based fake rendering,
-the canvas burying the d-pad, the iOS Safari toolbar covering the bottom controls, audio
-listener/context leaks, and the high-score persistence path — all have dedicated,
-fail-first-verified assertions.
+the canvas burying the d-pad, the iOS Safari toolbar covering the bottom controls, rapid
+taps zooming the page mid-game, identical-every-run gameplay (live-seed variation) and
+its inverse (forced-seed reproducibility), audio listener/context leaks, and the
+high-score persistence path — all have dedicated, fail-first-verified assertions.
 
 **Bugs that could still slip through:** (1) **no visual/layout regression testing** beyond
 dominant-color counts — a scene could render entities in the wrong place and pass as long as
@@ -411,10 +463,9 @@ juice and a real validation pipeline.
   seams a careful reviewer notices.
 - **Audio is a placeholder** — four blip cues, no music, no per-game identity, `hit` and
   `game-over` both fire on death. It reads as "audio was wired, not designed."
-- **Feel is competent but not "juicy" by modern standards** — no hitstop/freeze-frames, no
-  screen-wide impact effects beyond a flash, no sustained trails, particles are short
-  bursts. Circuit Stack never speeds up; Lane Rush's speed is unbounded and its scoring
-  bands are invisible.
+- **Feel is much improved but still short of "juicy" by modern standards** — Lane Rush now
+  has a real crash impact and Bounce a double jump, but there is still no hitstop/
+  freeze-frames elsewhere, no sustained trails, and particles are short bursts.
 - Minor: iPad landscape unplayable; DPR softness; straight apostrophes in copy.
 
 **What a recruiter would notice:** the stack breadth (Vite/TS-strict/Phaser/Vitest/
@@ -422,11 +473,12 @@ Playwright/ESLint/Prettier + a custom guard), the test rigor, the responsive/mob
 and the honest "AI-assisted engineering workflow" framing — a strong frontend/tools
 signal. They may **not** notice the dead phases/pause, which is fine.
 
-**What a game developer would notice:** immediately, the clean determinism and the
-truth-renders-in-the-scene discipline (rare and good); then, that the **games lack
-meta-structure** — no win/lose arc beyond death, no pause, thin audio, no hitstop, a
-non-accelerating stacker, an uncapped racer — i.e. the _systems_ are solid but the
-_game-feel and progression layer_ is where the next real leverage is.
+**What a game developer would notice:** immediately, the clean determinism (now with
+live-seed variation layered on top without breaking it) and the truth-renders-in-the-scene
+discipline (rare and good); then, that the **games still lack meta-structure** — no
+win/lose arc beyond death, no pause, thin audio — i.e. after the gameplay pass the
+per-game feel/progression is respectable, and the remaining leverage is the meta layer
+(pause/rounds), designed audio, and cross-game juice (hitstop, trails).
 
 ---
 
@@ -434,15 +486,16 @@ _game-feel and progression layer_ is where the next real leverage is.
 
 - Shell/bootstrap: `src/main.ts`, `index.html`, `src/style.css` (647 lines: base +
   reduced-motion + `min-width:900` desktop + `max-width:899` mobile + coarse-landscape).
-- Core: `src/core/{types,InputManager,AudioEngine,ScoreManager,Storage,TestBridge,Viewport}.ts`.
+- Core: `src/core/{types,InputManager,AudioEngine,ScoreManager,Storage,TestBridge,Viewport,RunSeeds}.ts`
+  (+ `RunSeeds.test.ts`).
 - UI: `src/ui/{ArcadeShell,GameSelector,TouchControls,CaseStudyPanel}.ts`.
 - Games: `src/games/BaseGameScene.ts`, `src/games/effects.ts`, and `<game>/{*Logic,*Scene,
 *Logic.test}.ts` for neon-serpent, bounce-circuit, star-courier, lane-rush, circuit-stack.
 - Tests: `tests/{smoke,games,switching,highscore,audio,shell}.spec.ts`;
   `playwright.config.ts` (desktop + mobile projects); `scripts/import-boundary.mjs`.
 - Docs: `README.md`, `CLAUDE.md`, `NEXT_RUN.md`, `UI_DESKTOP_AUDIT.md`, `UI_MOBILE_AUDIT.md`.
-- Bundle (per `README`/`CLAUDE`, not re-measured this pass): app ≈ 9 kB gzip, Phaser vendor
-chunk ≈ 319 kB gzip (split via `build.rolldownOptions` in `vite.config.ts`).
+- Bundle (measured 2026-07-06 during the pass's final build): app ≈ 13 kB gzip, Phaser
+vendor chunk ≈ 319 kB gzip (split via `build.rolldownOptions` in `vite.config.ts`).
 </content>
 
 </invoke>

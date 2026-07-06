@@ -1,77 +1,86 @@
-# NEXT_RUN — Gameplay/Replayability Pass (branch `gameplay-replayability-pass-1`)
+# NEXT_RUN — Gameplay/Replayability Pass 1: COMPLETE
 
-Loop: `.claude/gameplay-replayability-loop.md` (one phase per invocation, strict order).
+Branch `gameplay-replayability-pass-1` is **done and ready for review** — all seven
+phases of `.claude/gameplay-replayability-loop.md` executed in green, committed slices.
+No gameplay logic was left untested, no test was weakened, and every deliberately updated
+pin (seed forcing, buffer semantics, movement assertions, the Lane Rush pixel signature,
+hint strings) is documented in its commit message.
 
-## Phase status
+## Commit table (this pass)
 
-| Phase | Scope                                              | Status              |
-| ----- | -------------------------------------------------- | ------------------- |
-| 0     | Mobile rapid-tap zoom P0 (CSS/touch, no gameplay)  | done (`cedf11a`)    |
-| 1     | Runtime seed variation, deterministic tests intact | done (`3b8d761`)    |
-| 2     | Bounce Circuit: jump tuning, double jump, variety  | done (`beb15b5`)    |
-| 3     | Star Courier: movement/aiming feel                 | done (`c82c92c`)    |
-| 4     | Lane Rush: pseudo-3D + boost + crash impact        | done (`e8ba513`)    |
-| 5     | Circuit Stack: live 7-bag variation + gravity      | **done** (this run) |
-| 6     | Validation + docs close-out                        | next                |
+| Commit    | Phase | What                                                                    |
+| --------- | ----- | ----------------------------------------------------------------------- |
+| `dcc6274` | prep  | Planning docs: state analysis, research backlog, execution loop         |
+| `cedf11a` | 0     | Page-wide double-tap-zoom suppression (`touch-action` on the root)      |
+| `3b8d761` | 1     | Live run seeds (`RunSeeds.ts`), test forcing hook, `runSeed` in bridge  |
+| `beb15b5` | 2     | Bounce: controllable jump, double jump, orb reach, gated hard chunks    |
+| `c82c92c` | 3     | Star Courier: queued glide strafing, tighter d-pad hold-repeat (200/70) |
+| `e8ba513` | 4     | Lane Rush: pseudo-3D road, speed cap, double-tap boost, crash impact    |
+| `1b5e1f2` | 5     | Circuit Stack: live 7-bag redeal verified, gentle gravity/level curve   |
+| (HEAD)    | 6     | Close-out: docs refreshed, flake fix (atomic e2e capture), validation   |
 
-## Phase 5 (this run) — what changed
+## Final validation (2026-07-06)
 
-**Live 7-bag variation: verified (verification-first, as scoped).** The Phase 1 seam
-already covers Circuit Stack — the new coverage proves the chain at both layers:
+- **Full `npm run validate`** (build + strict tsc → Vitest → ESLint + import boundary +
+  Prettier → Playwright): green. **73 Vitest** (Neon 12, Bounce 19, Star 15, Circuit 14,
+  Lane 10, RunSeeds 3); Playwright **35 passed / 29 intentionally skipped** across the
+  desktop + mobile projects; import boundary clean over 11 files; bundle app ≈ 13 kB
+  gzip / Phaser ≈ 319 kB gzip.
+- **Flake confidence:** `shell + smoke + games + switching` under `--repeat-each=2`, both
+  projects: **60 passed / 52 intentionally skipped, 0 failures**. The first repeat run
+  caught one real race — the forced-seed reproducibility e2e snapshotted in a separate
+  round-trip that could land after the first Circuit piece locked (~720 ms) under
+  parallel load; fixed by capturing atomically inside the `waitForFunction` poll (same
+  assertions, race removed), then re-run clean.
+- **Docs refreshed this phase:** `CLAUDE.md` (run-seed invariant + forcing hook, updated
+  pixel-signature thresholds, bridge contract with `highScore`/`runSeed`, bundle size),
+  `CURRENT_APP_STATE.md` (pass summary header, all five game sections, architecture,
+  test coverage, quality assessment), `RESEARCH_BACKLOG.md` (shipped-item annotations),
+  `README.md` (run-seed architecture, bundle size; game lines were updated per phase).
 
-- **E2e (`games.spec.ts`, +1):** "live restarts redeal the bag from fresh seeds" —
-  loads under the forced seed (14), then **deletes `__ARCADE_FIXED_SEEDS__` at
-  runtime** (the override is consulted on every restart, not just at boot), and two
-  Restart clicks each draw a different `runSeed`. Paired with the existing forced-
-  reproducibility test (same bag redealt under seed 14), both modes are pinned.
-- **Vitest:** different seeds shuffle different bag orders and different first-two-
-  bags spawn sequences (seeds 21 vs 9, deterministic), same seed re-deals identically;
-  the existing seven-per-bag / I-piece-rotation-and-kick / spawn-blocked pins were
-  already strong and are untouched.
-- **New:** ACTION after a blocked spawn restarts with a clean board, score 0,
-  `linesCleared` 0, level 0.
+## Manual QA on a real phone (~5 min, cannot be proven headless)
 
-**Optional pacing improvement: shipped (small, rng-free).** A gentle gravity curve in
-`CircuitStackLogic.ts`: exported `circuitDropTicks(linesCleared)` = base 24 ticks,
-−3 per level, one level per 3 cleared lines, floored at 10 (≈300 ms/row at the 30 ms
-scene step — brisk, not brutal). Pacing consumes **zero rng draws**, so every seeded
-bag pin (vitest 21/9/1/2/5/6/7/3, runtime 14) is safe by construction. `linesCleared`
-and `level` join the snapshot; the scene's only change is a `hudExtra` line
-(`Lv 0  Lines 0`) — switching pixel signatures re-run green.
+1. **Rapid-tap zoom (Phase 0):** during play, mash the d-pad (same button and alternating
+   ←/→), rapid double-tap Restart, and tap rapidly on the topbar/title and between
+   buttons — the page must never zoom. Pinch-zoom must still work (accessibility), and if
+   any zoom remains, the documented escalation is `maximum-scale=1` in the viewport meta.
+2. **Live variation (Phase 1):** restart any game twice — food/traffic/terrain/pieces
+   should visibly differ between runs.
+3. **Bounce (Phase 2):** one tap = short controllable hop; tap again mid-air = second
+   kick with a spark puff; the tallest platforms need the double jump; orbs collect when
+   landing on platforms; fences and orb bounties appear after ~30 s.
+4. **Star Courier (Phase 3):** three quick taps sweep the ship smoothly and stop exactly
+   on a column; holding a direction starts strafing within ~200 ms; firing on arrival
+   kills without extra taps; the nose leans while gliding.
+5. **Lane Rush (Phase 4):** the road reads as 3D on a phone; double-tap ● boosts (flames,
+   BOOST HUD) and cannot re-trigger during cooldown; the near-miss band flashes on
+   +12/+5; a crash shows rings/jolt at the actual collision spot; with reduced motion the
+   crash still reads via red rims.
+6. **Circuit Stack (Phase 5):** two restarts deal different openings; clearing 3 lines
+   shows `Lv 1` and noticeably (not brutally) faster falls.
+7. Held d-pad feel across games with the quicker repeat (soft-drop, lane weave), and the
+   Phase-0-era checks (rotate mid-game, first-tap audio unlock) still apply.
 
-**Not done, per scope:** no hold piece, no T-spins, no garbage/rising floor, no
-next-queue.
+## Known remaining ideas (not blocking; see RESEARCH_BACKLOG.md for detail)
 
-## New tests (Circuit vitest 11 → 14; e2e +1)
+- **iPad-landscape touch layout** — still the one unplayable device class (coarse
+  pointer, height > 500 px, width ≥ 900 px gets the keyboard-only desktop layout).
+  Highest-leverage remaining UI item.
+- **Designed audio layer** — four blip cues today; per-game SFX + a synthesized music
+  bed is the biggest remaining feel gap (keep the single-AudioContext contract).
+- **Pause + win/round meta** — `PAUSE` input and the `won`/`ready` phases are still dead
+  seams; implement or remove honestly.
+- **Hitstop everywhere** (Lane Rush's crash impact is the template; Star Courier kills
+  want it most), sustained trails, near-miss combo in Lane Rush, Bounce distance
+  milestones, daily-seed challenge on top of `RunSeeds`.
+- **Phase 7 (bundle/perf)** from the original loop remains unstarted: per-scene lazy
+  loading, DPR sharpness (measure first).
 
-- Seed-variation: bag + engine-level spawn sequences differ across seeds, reproduce
-  for a seed.
-- ACTION-restart after game over resets board/score/lines/level.
-- Gravity: pure curve values (base, boundary, step, floor) plus an engine check — a
-  triple clear reaches level 1 and the piece falls on the shortened interval.
-- E2e live-redeal (above); total Playwright now **35 passed / 29 skipped**.
+## Merge recommendation
 
-## Validation (all green)
-
-- `npx vitest run src/games/circuit-stack`: 14 passed.
-- Circuit e2e (forced + live) + `switching.spec.ts` (scene HUD touched): green.
-- Full `npm run validate`: build + strict tsc, **73 Vitest**, ESLint + import boundary
-  - Prettier, Playwright **35 passed / 29 intentionally skipped**.
-- README Circuit line and case-study count (70 → 73) refreshed.
-
-## Manual QA additions (next real-device pass)
-
-- Circuit Stack: two restarts deal visibly different opening pieces; clear 3 lines →
-  HUD shows `Lv 1` and pieces fall noticeably (not brutally) faster.
-
-## Next task (Phase 6 — start cold from the loop file)
-
-Close-out: full `npm run validate` (fresh), flake pass with `--repeat-each=2` on the
-input-sensitive suites (`shell`, `smoke`, `games`) both projects, refresh the stale
-parts of `CURRENT_APP_STATE.md` (bridge `runSeed`, switch-back-restarts, all five
-game sections, quality assessment) and `RESEARCH_BACKLOG.md` (shipped quick-wins:
-speed cap, near-miss zone, gravity curve, double jump, glide), fold the run-seed
-invariant into `CLAUDE.md`'s architecture notes, and overwrite this file with the
-consolidated real-device QA list (rapid-tap zoom, double jump, glide strafe, boost +
-pseudo-3D readability, live variation) plus a merge recommendation. Stop with a
-summary. Full detail in `.claude/gameplay-replayability-loop.md` Phase 6.
+**Ready to push and PR** (`gameplay-replayability-pass-1` → `main`): 8 commits — one
+docs prep, six green implementation slices, one close-out — each independently
+validated, with the full suite plus a doubled flake pass green at HEAD. Suggested PR
+title: "Gameplay & replayability pass: live run seeds, per-game feel tuning, pseudo-3D
+Lane Rush". The manual phone QA list above is the only outstanding verification and is
+non-blocking (all headless-provable behavior is covered by tests).

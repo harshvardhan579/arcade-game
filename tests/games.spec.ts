@@ -43,15 +43,30 @@ test.beforeEach(async ({ page }) => {
 
 test('forced seeds reproduce the identical run across restarts', async ({ page }) => {
   await openGame(page, 'Circuit Stack', 'circuit-stack');
-  await page.waitForFunction(() => (window.__ARCADE__!.getState().tick as number) > 0);
-  const first = await snapshot(page);
+  // Capture atomically inside the poll: a separate snapshot round-trip can
+  // land after the first piece locks (~720 ms under parallel-worker load),
+  // by which point nextPiece has legitimately advanced to the next deal.
+  const capture = async () => {
+    const handle = await page.waitForFunction(() => {
+      const state = window.__ARCADE__!.getState();
+      return (state.tick as number) > 0
+        ? JSON.stringify({ tick: state.tick, runSeed: state.runSeed, nextPiece: state.nextPiece })
+        : false;
+    });
+    return JSON.parse((await handle.jsonValue()) as string) as {
+      tick: number;
+      runSeed: number;
+      nextPiece: number;
+    };
+  };
+  const first = await capture();
   expect(first.runSeed, 'bridge must expose the forced run seed').toBe(14);
   await page.getByRole('button', { name: 'Restart' }).click();
   await page.waitForFunction(
     (tick) => (window.__ARCADE__!.getState().tick as number) < tick,
-    first.tick as number
+    first.tick
   );
-  const second = await snapshot(page);
+  const second = await capture();
   expect(second.runSeed, 'restart must reuse the forced seed').toBe(14);
   expect(second.nextPiece, 'the forced seed must redeal the same bag').toBe(first.nextPiece);
 });

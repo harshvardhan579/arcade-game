@@ -1,5 +1,14 @@
 # Pocket Arcade — Research Backlog
 
+> **Status (2026-07-06, end of `gameplay-replayability-pass-1`):** this pass shipped
+> several items below — **live run seeds** (replayability §1: runs now vary; tests force
+> seeds via `__ARCADE_FIXED_SEEDS__`), **Bounce double jump + hard-chunk variety**,
+> **Star Courier glide movement**, **Lane Rush pseudo-3D + speed cap + visible near-miss
+> zone + double-tap boost + crash impact** (quick-wins #2-partial and #4), and the
+> **Circuit Stack gravity curve** (quick-win #3). Quick-win #1 (iPad landscape) and #5
+> (typography) remain open, as do the audio layer, pause/win meta, hitstop-everywhere,
+> and trails. Annotations below mark shipped items; unshipped guidance still stands.
+
 > A research map to explore _before_ asking for implementation. It is specific to this
 > repo's constraints: **zero external assets** (all visuals procedural, all audio
 > synthesized), **deterministic `SeededRandom` logic** with test-critical draw order,
@@ -45,10 +54,10 @@ generic one.
 - **Failure feedback.** Current: uniform `deathFeedback` for all games/causes. Research
   cause-specific death feedback (what killed me?), slow-motion death, and "so close"
   framing near a high score.
-- **Replayability.** Current: endless single-life loops, one seed path per game per session
-  (seeds are fixed constants: 7/11/9/12/14). Research seed variety vs determinism trade-off,
-  daily-seed challenges, per-run objectives/medals, and unlockables — all while preserving
-  the fixed seeds the tests depend on (use a _separate_ play seed from the _test_ seed).
+- **Replayability.** _SHIPPED (Phase 1, 2026-07-06):_ live runs now draw a fresh seed per
+  run (`src/core/RunSeeds.ts`); tests force exact seeds via `__ARCADE_FIXED_SEEDS__` — the
+  play-seed/test-seed split below is implemented. Still open to research: daily-seed
+  challenges, per-run objectives/medals, and unlockables on top of the seed source.
 
 ---
 
@@ -236,15 +245,16 @@ repo's constraints (RNG determinism, pixel signatures, zero-asset, mobile no-scr
    (`min-width:900` + coarse + landscape + height>500). Low risk: a new coarse-pointer media
    block + a mobile-project e2e; desktop (fine pointer) can't match it. _Already scoped in
    `NEXT_RUN.md`._ **Impact: high / Risk: low.**
-2. **Hitstop + cause-specific death feedback** `[gameplay][graphics]` — freeze render a few
-   frames on kills/deaths; huge felt-quality gain. Risk: must not freeze the fixed-step
-   _logic_ or break e2e timing; gate on reduced motion. **Impact: high / Risk: low–med.**
-3. **Circuit Stack gravity/level curve** `[gameplay][test]` — make it accelerate with lines
-   cleared; pure-logic, unit-testable, fixes the biggest design gap. Risk: keep seed-14 bag
-   order intact; add tests. **Impact: high / Risk: low.**
-4. **Lane Rush speed cap + visible near-miss zone** `[gameplay][ui]` — fixes fairness +
-   scoring legibility. Risk: no new RNG draws (preserve seed-12 crash tick). **Impact: med–
-   high / Risk: low.**
+2. **Hitstop + cause-specific death feedback** `[gameplay][graphics]` — _PARTIALLY SHIPPED
+   (2026-07-06):_ Lane Rush now plays a true-position crash impact (rings/jolt/sparks);
+   hitstop/freeze-frames on kills elsewhere (Star Courier especially) remain open. Risk:
+   must not freeze the fixed-step _logic_ or break e2e timing; gate on reduced motion.
+3. **Circuit Stack gravity/level curve** `[gameplay][test]` — _SHIPPED (2026-07-06):_
+   `circuitDropTicks(linesCleared)`, level/lines in HUD, pinned by vitest; bag order
+   untouched.
+4. **Lane Rush speed cap + visible near-miss zone** `[gameplay][ui]` — _SHIPPED
+   (2026-07-06):_ `laneRushMaxSpeed = 0.38` plateau + the near-miss band drawn on the
+   asphalt with a flash on scoring; no new RNG draws (seed-12 crash tick preserved).
 5. **Typographic copy pass + HUD/shell font harmony** `[ui]` — curly apostrophes, shared
    sizing tokens. **Impact: low–med / Risk: very low.**
 
