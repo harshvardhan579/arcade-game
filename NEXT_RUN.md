@@ -1,86 +1,142 @@
-# NEXT_RUN — Gameplay/Replayability Pass 1: COMPLETE
+# NEXT_RUN — Theme Pass (branch `theme-pass-1`)
 
-Branch `gameplay-replayability-pass-1` is **done and ready for review** — all seven
-phases of `.claude/gameplay-replayability-loop.md` executed in green, committed slices.
-No gameplay logic was left untested, no test was weakened, and every deliberately updated
-pin (seed forcing, buffer semantics, movement assertions, the Lane Rush pixel signature,
-hint strings) is documented in its commit message.
+Loop: `.claude/theme-pass-loop.md` (one phase per invocation, strict order).
 
-## Commit table (this pass)
+## Phase status
 
-| Commit    | Phase | What                                                                    |
-| --------- | ----- | ----------------------------------------------------------------------- |
-| `dcc6274` | prep  | Planning docs: state analysis, research backlog, execution loop         |
-| `cedf11a` | 0     | Page-wide double-tap-zoom suppression (`touch-action` on the root)      |
-| `3b8d761` | 1     | Live run seeds (`RunSeeds.ts`), test forcing hook, `runSeed` in bridge  |
-| `beb15b5` | 2     | Bounce: controllable jump, double jump, orb reach, gated hard chunks    |
-| `c82c92c` | 3     | Star Courier: queued glide strafing, tighter d-pad hold-repeat (200/70) |
-| `e8ba513` | 4     | Lane Rush: pseudo-3D road, speed cap, double-tap boost, crash impact    |
-| `1b5e1f2` | 5     | Circuit Stack: live 7-bag redeal verified, gentle gravity/level curve   |
-| (HEAD)    | 6     | Close-out: docs refreshed, flake fix (atomic e2e capture), validation   |
+| Phase | Scope                                     | Status              |
+| ----- | ----------------------------------------- | ------------------- |
+| 0     | Theme audit + design decision (analysis)  | **done** (this run) |
+| 1     | CSS variable foundation, both token sets  | next                |
+| 2     | Theme toggle UI + tests                   | pending             |
+| 3     | Persistence + system preference + no-FOUC | pending             |
+| 4     | Desktop/mobile polish, both themes        | pending             |
+| 5     | Validation, docs, close-out               | pending             |
 
-## Final validation (2026-07-06)
+## Phase 0 — theme design plan (no code changed this phase)
 
-- **Full `npm run validate`** (build + strict tsc → Vitest → ESLint + import boundary +
-  Prettier → Playwright): green. **73 Vitest** (Neon 12, Bounce 19, Star 15, Circuit 14,
-  Lane 10, RunSeeds 3); Playwright **35 passed / 29 intentionally skipped** across the
-  desktop + mobile projects; import boundary clean over 11 files; bundle app ≈ 13 kB
-  gzip / Phaser ≈ 319 kB gzip.
-- **Flake confidence:** `shell + smoke + games + switching` under `--repeat-each=2`, both
-  projects: **60 passed / 52 intentionally skipped, 0 failures**. The first repeat run
-  caught one real race — the forced-seed reproducibility e2e snapshotted in a separate
-  round-trip that could land after the first Circuit piece locked (~720 ms) under
-  parallel load; fixed by capturing atomically inside the `waitForFunction` poll (same
-  assertions, race removed), then re-run clean.
-- **Docs refreshed this phase:** `CLAUDE.md` (run-seed invariant + forcing hook, updated
-  pixel-signature thresholds, bridge contract with `highScore`/`runSeed`, bundle size),
-  `CURRENT_APP_STATE.md` (pass summary header, all five game sections, architecture,
-  test coverage, quality assessment), `RESEARCH_BACKLOG.md` (shipped-item annotations),
-  `README.md` (run-seed architecture, bundle size; game lines were updated per phase).
+**Risk gate: PROCEED.** Shell theming is pixel-signature-safe by construction (the
+switching spec reads only the canvas, which stays dark/neon in both themes), all
+computed-style pins are color-independent, and the one geometry risk found (mobile
+topbar height) has a concrete mitigation below.
 
-## Manual QA on a real phone (~5 min, cannot be proven headless)
+### Color inventory and classification (`src/style.css`, verified line-by-line)
 
-1. **Rapid-tap zoom (Phase 0):** during play, mash the d-pad (same button and alternating
-   ←/→), rapid double-tap Restart, and tap rapidly on the topbar/title and between
-   buttons — the page must never zoom. Pinch-zoom must still work (accessibility), and if
-   any zoom remains, the documented escalation is `maximum-scale=1` in the viewport meta.
-2. **Live variation (Phase 1):** restart any game twice — food/traffic/terrain/pieces
-   should visibly differ between runs.
-3. **Bounce (Phase 2):** one tap = short controllable hop; tap again mid-air = second
-   kick with a spark puff; the tallest platforms need the double jump; orbs collect when
-   landing on platforms; fences and orb bounties appear after ~30 s.
-4. **Star Courier (Phase 3):** three quick taps sweep the ship smoothly and stop exactly
-   on a column; holding a direction starts strafing within ~200 ms; firing on arrival
-   kills without extra taps; the nose leans while gliding.
-5. **Lane Rush (Phase 4):** the road reads as 3D on a phone; double-tap ● boosts (flames,
-   BOOST HUD) and cannot re-trigger during cooldown; the near-miss band flashes on
-   +12/+5; a crash shows rings/jolt at the actual collision spot; with reduced motion the
-   crash still reads via red rims.
-6. **Circuit Stack (Phase 5):** two restarts deal different openings; clearing 3 lines
-   shows `Lv 1` and noticeably (not brutally) faster falls.
-7. Held d-pad feel across games with the quicker repeat (soft-drop, lane weave), and the
-   Phase-0-era checks (rotate mid-game, first-tap audio unlock) still apply.
+- **Existing tokens (become the dark set verbatim):** `--bg #071114`, `--panel #0e2026`,
+  `--line #1f4a53`, `--text #d8fff9`, `--muted #8fb9bd`, `--cyan #4dffe1`,
+  `--pink #ff4fd8`, `--red #ff7557`, `--yellow #ffd166`.
+- **Literals to promote to new tokens (~30):** body gradient pair `#081418/#05090b` +
+  radial cyan glow `rgba(77,255,225,.12)`; panel fill `rgba(14,32,38,.88)`; h1
+  text-shadow glow; card `#0a181d` / border `#183942` / hover `#0c222a` + cyan
+  glow shadows (.10/.16/.22 alphas); control (select + touch buttons) `#102a31` /
+  border `#2b636e` / pressed `#16414c` + pressed glow; ACTION pressed `#ff7ce2` +
+  pink glow; restart dark text `#081418` + hover glow `.35`; quiet-restart fill
+  `rgba(77,255,225,.08)` (appears twice: mobile + coarse-landscape blocks);
+  scrollbar `#1f4a53` (×2); focus outline `var(--yellow)` → becomes `--focus-ring`;
+  stage outer glow `rgba(77,255,225,.13)`.
+- **Keep literal, dark in both themes (cabinet screen):** `.game-root` background
+  `#071114`, inner vignette `rgba(0,0,0,.45)`, scanline `rgba(2,8,10,.14)` — a dark
+  screen inside a daylight cabinet is the honest arcade look. Its **border** uses
+  `--line` (themes) and its **outer glow** becomes `--stage-glow` (cyan in dark, a
+  neutral drop shadow in light).
+- **Out of scope (in-canvas, unchanged):** Phaser config `backgroundColor '#071114'`,
+  `BaseGameScene` clear fill/HUD `#d8fff9`/overlay, every scene palette, `popText`
+  colors, Circuit's NEXT label. No gameplay, no audio.
+- **`index.html`:** `theme-color` meta `#071114` → JS-updated per theme (Phase 4
+  polish); light value `#e9f1f1`.
 
-## Known remaining ideas (not blocking; see RESEARCH_BACKLOG.md for detail)
+### Palette (dark = current values verbatim; light = "daylight cabinet")
 
-- **iPad-landscape touch layout** — still the one unplayable device class (coarse
-  pointer, height > 500 px, width ≥ 900 px gets the keyboard-only desktop layout).
-  Highest-leverage remaining UI item.
-- **Designed audio layer** — four blip cues today; per-game SFX + a synthesized music
-  bed is the biggest remaining feel gap (keep the single-AudioContext contract).
-- **Pause + win/round meta** — `PAUSE` input and the `won`/`ready` phases are still dead
-  seams; implement or remove honestly.
-- **Hitstop everywhere** (Lane Rush's crash impact is the template; Star Courier kills
-  want it most), sustained trails, near-miss combo in Lane Rush, Bounce distance
-  milestones, daily-seed challenge on top of `RunSeeds`.
-- **Phase 7 (bundle/perf)** from the original loop remains unstarted: per-scene lazy
-  loading, DPR sharpness (measure first).
+Contrast ratios computed against WCAG relative luminance; text targets ≥ 4.5:1,
+non-text UI ≥ 3:1.
 
-## Merge recommendation
+| Token (new name)    | Dark (today)              | Light                      | Light contrast check        |
+| ------------------- | ------------------------- | -------------------------- | --------------------------- |
+| `--bg`              | `#071114`                 | `#e9f1f1`                  | —                           |
+| `--bg-glow`         | `rgba(77,255,225,.12)`    | `rgba(11,110,95,.07)`      | decorative                  |
+| `--bg-grad-a/-b`    | `#081418` / `#05090b`     | `#f6fbfb` / `#dfe9e9`      | —                           |
+| `--panel-fill`      | `rgba(14,32,38,.88)`      | `rgba(246,250,250,.92)`    | —                           |
+| `--line`            | `#1f4a53`                 | `#b7ced2`                  | border, decorative          |
+| `--text`            | `#d8fff9`                 | `#0b2a30`                  | **13.2:1** on `--bg` ✓      |
+| `--muted`           | `#8fb9bd`                 | `#3f6169`                  | **5.9:1** on `--bg` ✓       |
+| `--accent-text`     | `#4dffe1` (= `--cyan`)    | `#0b6e5f`                  | **5.4:1** on `--bg` ✓       |
+| `--score-text`      | `#ffd166` (= `--yellow`)  | `#8a5a00`                  | **5.9:1** on card ✓         |
+| `--focus-ring`      | `#ffd166`                 | `#b45309`                  | **4.4:1** on `--bg` ✓ (>3)  |
+| `--card-bg`         | `#0a181d`                 | `#ffffff`                  | —                           |
+| `--card-border`     | `#183942`                 | `#c3d7da`                  | —                           |
+| `--card-hover-bg`   | `#0c222a`                 | `#eef6f6`                  | —                           |
+| `--control-bg`      | `#102a31`                 | `#ffffff`                  | —                           |
+| `--control-border`  | `#2b636e`                 | `#9dbfc5`                  | 3:1-ish vs bg ✓             |
+| `--control-pressed` | `#16414c`                 | `#cfe2e3`                  | —                           |
+| `--quiet-fill`      | `rgba(77,255,225,.08)`    | `rgba(11,110,95,.08)`      | —                           |
+| `--glow-*` (alphas) | cyan `rgba(77,255,225,α)` | neutral `rgba(11,42,48,β)` | decorative shadows          |
+| `--stage-glow`      | cyan `.13`                | `rgba(11,42,48,.20)`       | decorative                  |
+| `--scrollbar-thumb` | `#1f4a53`                 | `#9dbfc5`                  | —                           |
+| `--on-accent`       | `#081418` (both)          | `#081418`                  | **14.9:1** on cyan ✓ (both) |
 
-**Ready to push and PR** (`gameplay-replayability-pass-1` → `main`): 8 commits — one
-docs prep, six green implementation slices, one close-out — each independently
-validated, with the full suite plus a doubled flake pass green at HEAD. Suggested PR
-title: "Gameplay & replayability pass: live run seeds, per-game feel tuning, pseudo-3D
-Lane Rush". The manual phone QA list above is the only outstanding verification and is
-non-blocking (all headless-provable behavior is covered by tests).
+Unchanged in both themes: `--cyan/--pink/--red/--yellow` as **fill/identity** colors
+(Restart stays cyan with dark text — 14.9:1; ACTION stays pink with dark text —
+6.6:1; ACTION pressed `#ff7ce2`). The light theme swaps cyan/yellow only where they
+are **text on background** (`--accent-text`, `--score-text`); usages to re-point:
+case-study labels, `Now playing`, quiet-Restart text, `.card-high`, focus ring.
+Also set CSS `color-scheme: dark`/`light` per theme (native select popup).
+
+### Mechanism
+
+- `:root { …dark tokens… }` (default identity = dark, no attribute needed);
+  `:root[data-theme='light'] { …overrides… }`. Toggle sets `data-theme` on `<html>`.
+- Phase 3: inline `<head>` script (zero-asset, Vite-preserved, Vercel-safe): stored
+  `pocket-arcade:theme` wins, else `prefers-color-scheme`, sets the attribute before
+  first paint (no FOUC). `SafeStorage` gains `getString/setString` (same try/catch).
+- **Playwright default colorScheme is `light`** — in the same Phase 3 slice, pin
+  `colorScheme: 'dark'` in `playwright.config.ts` shared `use`, and add explicit
+  both-direction tests via `page.emulateMedia`.
+
+### Toggle design (Phase 2)
+
+- `<button class="theme-toggle" type="button">◐</button>` in `.topbar-actions`,
+  **after Restart in DOM** (preserves the tab-order pin: cards ×5 → Restart at 6 →
+  toggle at 7). Dynamic `aria-label`: "Switch to light theme" / "Switch to dark
+  theme". Text glyph only (zero-asset). Quiet styling (control-bg/border tokens) so
+  picker → Restart hierarchy is untouched; hover/pressed/focus states in both themes.
+- **Mobile topbar height risk + mitigation:** portrait `.topbar-actions` is a column
+  (picker above Restart); naively appending a 44 px toggle steals ~52 px of canvas
+  row. Mitigation: portrait block switches `.topbar-actions` to
+  `grid-template-columns: 1fr auto` — picker spans both columns, Restart + toggle
+  share the second row side by side. Topbar height unchanged; no-overlap/no-scroll
+  pins verify. Coarse-landscape block is already a row (toggle appends); desktop flex
+  row unchanged. Toggle ≥ 44 px in both touch blocks.
+
+### Protected pins re-verified this phase (must survive untouched)
+
+- `touch-action` computed pins (html/body `manipulation`; game-root/touch-controls
+  `none`; Restart/picker `manipulation`) — theme blocks never set `touch-action`.
+- Focus ring `2px solid` (color becomes `--focus-ring`; width/style pinned).
+- Tab order: Restart at position 6 (toggle placed after).
+- Hooks: `.touch-controls`, `[data-arcade-input]`, `.mobile-game-select`,
+  `Choose game`, `.controls-hint` + exact strings, `.game-card`, `.card-high`,
+  `#game-root canvas`, Restart name, single `h1`, `.eyebrow` hidden on mobile.
+- All geometry pins (no-scroll ×4 desktop, no-overlap ×6 portrait, landscape ×3):
+  theming changes colors/shadows only, except the deliberate topbar grid above,
+  which the same pins gate.
+
+### Test plan by phase
+
+- P1: dark visually identical (screenshot before/after 1440×900 + 390×844);
+  `shell+smoke` both projects; full validate.
+- P2: toggle click + keyboard activation flip `data-theme`; accessible name;
+  ≥ 44 px on mobile; tab-order spec green unmodified; no-overlap pins green.
+- P3: system default honored (`emulateMedia colorScheme` both ways + cleared
+  storage); manual choice persists across reload and beats system; broken-storage
+  boot doesn't crash (init-script sabotage of `localStorage.getItem`); config
+  `colorScheme: 'dark'` pin; full suite.
+- P4: screenshots both themes at the four desktop + four portrait + three landscape
+  pinned viewports; fix color-only findings; optional `theme-color` meta test.
+- P5: fresh validate + `--repeat-each=2` on `shell+smoke`; docs.
+
+## Next task (Phase 1 — start cold from the loop file)
+
+Promote the inventoried literals to the token names above with today's exact values
+(dark unchanged), add the `[data-theme='light']` override block + `color-scheme`,
+verify dark is pixel-identical by screenshot, flip the attribute manually to sanity-
+check light, run `shell+smoke` both projects, then full `npm run validate`.
