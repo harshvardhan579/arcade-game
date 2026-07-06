@@ -10,91 +10,68 @@ Loop: `.claude/gameplay-replayability-loop.md` (one phase per invocation, strict
 | 1     | Runtime seed variation, deterministic tests intact | done (`3b8d761`)    |
 | 2     | Bounce Circuit: jump tuning, double jump, variety  | done (`beb15b5`)    |
 | 3     | Star Courier: movement/aiming feel                 | done (`c82c92c`)    |
-| 4     | Lane Rush: pseudo-3D + boost + crash impact        | **done** (this run) |
-| 5     | Circuit Stack: live 7-bag variation                | next                |
-| 6     | Validation + docs close-out                        | pending             |
+| 4     | Lane Rush: pseudo-3D + boost + crash impact        | done (`e8ba513`)    |
+| 5     | Circuit Stack: live 7-bag variation + gravity      | **done** (this run) |
+| 6     | Validation + docs close-out                        | next                |
 
-## Phase 4 (this run) — what changed
+## Phase 5 (this run) — what changed
 
-**Logic (`LaneRushLogic.ts`) — three-lane model kept, zero new rng draws:**
+**Live 7-bag variation: verified (verification-first, as scoped).** The Phase 1 seam
+already covers Circuit Stack — the new coverage proves the chain at both layers:
 
-- **Speed cap:** the ramp `0.18 + tick/2400` now plateaus at exported
-  `laneRushMaxSpeed = 0.38` (~tick 480). Below that point the curve is unchanged, so
-  the **seed-12 parked-crash timing (~tick 102) was untouched** — every existing
-  Lane Rush e2e wait passed without edits, exactly as predicted.
-- **Double-tap boost:** two ACTION taps within `laneRushDoubleTapTicks = 8` (~340 ms)
-  arm `laneRushBoostDurationTicks = 90` (~3.8 s) of `laneRushBoostMultiplier = 1.6`×
-  speed, then `laneRushBoostCooldownTicks = 240` (~10 s) of cooldown. Tick-based (no
-  clocks in logic), single ACTION does nothing (no mobile spam), ACTION-while-dead
-  still restarts first. `boostTicksLeft`/`boostCooldownTicks` in the snapshot.
-- **Crash exposure for the impact animation:** `crashLane`/`crashY` capture the
-  colliding car's true lane/depth (-1 while alive; reset on restart).
-- `traffic` became public (matching the other four games' test conventions).
+- **E2e (`games.spec.ts`, +1):** "live restarts redeal the bag from fresh seeds" —
+  loads under the forced seed (14), then **deletes `__ARCADE_FIXED_SEEDS__` at
+  runtime** (the override is consulted on every restart, not just at boot), and two
+  Restart clicks each draw a different `runSeed`. Paired with the existing forced-
+  reproducibility test (same bag redealt under seed 14), both modes are pinned.
+- **Vitest:** different seeds shuffle different bag orders and different first-two-
+  bags spawn sequences (seeds 21 vs 9, deterministic), same seed re-deals identically;
+  the existing seven-per-bag / I-piece-rotation-and-kick / spawn-blocked pins were
+  already strong and are untouched.
+- **New:** ACTION after a blocked spawn restarts with a clean board, score 0,
+  `linesCleared` 0, level 0.
 
-**Scene (`LaneRushScene.ts`) — full pseudo-3D rewrite, presentation only:**
+**Optional pacing improvement: shipped (small, rng-free).** A gentle gravity curve in
+`CircuitStackLogic.ts`: exported `circuitDropTicks(linesCleared)` = base 24 ticks,
+−3 per level, one level per 3 cleared lines, floored at 10 (≈300 ms/row at the 30 ms
+scene step — brisk, not brutal). Pacing consumes **zero rng draws**, so every seeded
+bag pin (vitest 21/9/1/2/5/6/7/3, runtime 14) is safe by construction. `linesCleared`
+and `level` join the snapshot; the scene's only change is a `hudExtra` line
+(`Lv 0  Lines 0`) — switching pixel signatures re-run green.
 
-- Horizon at 30% height with a boost-reactive glow line; night-sky bands; ground
-  shoulders; **road trapezoid in the exact signature color `#0d252b`**; straight
-  perspective edges (screen x/y are both affine in eased depth `t^1.7`, so edges stay
-  lines while world spacing compresses toward the horizon).
-- Depth-scaled scrolling lane dashes (quads via `fillPoints`), roadside posts with
-  glow caps, speed streaks (intensified while boosting), far-road haze.
-- Cars painter-sorted far→near and scaled 0.2→~0.85 by depth; a same-lane car bearing
-  down glows red (danger cue); the **near-miss scoring band (world y 9.1–10.4) is
-  visible on the asphalt** and flashes when a near-miss lands; popups scale with depth.
-- Player car in the foreground with visual lane-lerp (snap under reduced motion),
-  bob, and boost exhaust flames; HUD reads `Spd 0.33 BOOST` / `boost 9s` / `boost ●●`.
-- **Crash impact at the true collision point:** shockwave rings expand from
-  `crashLane`/`crashY`, the struck car is shoved forward/sideways as the 460 ms decay
-  runs, the player car jitters, plus the existing 26-spark burst and shake/flash.
-  Under reduced motion: no jitter/rings/scroll, static red rims on both cars instead —
-  feedback stays, churn goes.
-- Screenshot-verified (run/boost/crash) at 1440×900 — the crash frame shows the
-  struck car jolted into the player with rings and debris at the collision point.
+**Not done, per scope:** no hold piece, no T-spins, no garbage/rising floor, no
+next-queue.
 
-**Deliberate pin updates (same slice):**
+## New tests (Circuit vitest 11 → 14; e2e +1)
 
-- **Pixel signature re-measured:** the pseudo-3D trapezoid renders **113,765** road
-  pixels on the desktop canvas (old flat fill > 200k). `tests/switching.spec.ts`
-  threshold updated 200k → **80k** with the measurement documented inline. The check
-  itself is intact; Star Courier's `< 100k` road check needed no change.
-- **Hint copy:** Lane Rush hints gained "· double-tap Space/● = boost" (`main.ts`) with
-  the pinned strings updated in `shell.spec.ts` + `switching.spec.ts`.
-- README Lane Rush line rewritten; case-study count 66 → 70.
-
-## New tests
-
-- **Vitest (Lane 6 → 10):** speed ramps monotonically to exactly the cap (survives by
-  clearing public traffic); double-tap inside the interval boosts at the multiplier /
-  slow second tap does not; boost expires into cooldown, cooldown blocks re-boost,
-  re-arms after; parked seed-12 crash exposes `crashLane`/`crashY` inside the crash
-  band and ACTION still restarts (clearing crash + boost state).
-- **E2e (`games.spec.ts`, +1):** double-tap Space arms the boost and the multiplied
-  speed lands on the next fixed step (first version raced the 42 ms step — the wait
-  now covers both conditions).
+- Seed-variation: bag + engine-level spawn sequences differ across seeds, reproduce
+  for a seed.
+- ACTION-restart after game over resets board/score/lines/level.
+- Gravity: pure curve values (base, boundary, step, floor) plus an engine check — a
+  triple clear reaches level 1 and the piece falls on the shortened interval.
+- E2e live-redeal (above); total Playwright now **35 passed / 29 skipped**.
 
 ## Validation (all green)
 
-- `npx vitest run src/games/lane-rush`: 10 passed.
-- Lane e2e + switching (signature re-measured): green; parked-crash and mobile
-  game-over waits unchanged.
-- Full `npm run validate`: build + strict tsc, **70 Vitest**, ESLint + import boundary
-  - Prettier, Playwright **34 passed / 28 intentionally skipped**.
-- Screenshots (scratchpad `lane-3d-run/boost/crash.png`, ephemeral): pseudo-3D
-  composition, boost feedback, and collision impact all verified visually.
+- `npx vitest run src/games/circuit-stack`: 14 passed.
+- Circuit e2e (forced + live) + `switching.spec.ts` (scene HUD touched): green.
+- Full `npm run validate`: build + strict tsc, **73 Vitest**, ESLint + import boundary
+  - Prettier, Playwright **35 passed / 29 intentionally skipped**.
+- README Circuit line and case-study count (70 → 73) refreshed.
 
 ## Manual QA additions (next real-device pass)
 
-- Lane Rush: road reads as 3D at phone sizes (dashes converge, cars grow); double-tap
-  ● boosts with flames + BOOST HUD and cannot re-trigger during cooldown; near-miss
-  band flashes on +12/+5; crash shows rings/jolt at the actual collision spot; with
-  reduced motion enabled, crash still clearly reads via the red rims.
+- Circuit Stack: two restarts deal visibly different opening pieces; clear 3 lines →
+  HUD shows `Lv 1` and pieces fall noticeably (not brutally) faster.
 
-## Next task (Phase 5 — start cold from the loop file)
+## Next task (Phase 6 — start cold from the loop file)
 
-Circuit Stack live 7-bag variation — verification-first: e2e in live (unforced) mode
-that two restarts yield different `runSeed`s (and optionally differing early
-`nextPiece` sequences with retry tolerance); fixed-seed bag pins (vitest seeds
-21/9/1/2/5/6/7/3 + runtime 14) stay untouched. No hold piece/T-spin/garbage/queue.
-Optional small gravity curve only if low-risk and pinned. Full detail in
-`.claude/gameplay-replayability-loop.md` Phase 5.
+Close-out: full `npm run validate` (fresh), flake pass with `--repeat-each=2` on the
+input-sensitive suites (`shell`, `smoke`, `games`) both projects, refresh the stale
+parts of `CURRENT_APP_STATE.md` (bridge `runSeed`, switch-back-restarts, all five
+game sections, quality assessment) and `RESEARCH_BACKLOG.md` (shipped quick-wins:
+speed cap, near-miss zone, gravity curve, double jump, glide), fold the run-seed
+invariant into `CLAUDE.md`'s architecture notes, and overwrite this file with the
+consolidated real-device QA list (rapid-tap zoom, double jump, glide strafe, boost +
+pseudo-3D readability, live variation) plus a merge recommendation. Stop with a
+summary. Full detail in `.claude/gameplay-replayability-loop.md` Phase 6.

@@ -56,6 +56,27 @@ test('forced seeds reproduce the identical run across restarts', async ({ page }
   expect(second.nextPiece, 'the forced seed must redeal the same bag').toBe(first.nextPiece);
 });
 
+test('Circuit Stack: live restarts redeal the bag from fresh seeds', async ({ page }) => {
+  await openGame(page, 'Circuit Stack', 'circuit-stack');
+  expect((await snapshot(page)).runSeed, 'this spec forces seed 14 on load').toBe(14);
+  // Drop the forced-seed map: every restart from here on is a live run
+  // (nextRunSeed consults the override at each restart, not just at boot).
+  await page.evaluate(() => {
+    delete window.__ARCADE_FIXED_SEEDS__;
+  });
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(() => window.__ARCADE__!.getState().runSeed !== 14);
+  const first = await snapshot(page);
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(
+    (seed) => window.__ARCADE__!.getState().runSeed !== seed,
+    first.runSeed
+  );
+  const second = await snapshot(page);
+  expect(second.runSeed, 'each live restart draws a fresh bag seed').not.toBe(first.runSeed);
+  expect(second.isGameOver).toBe(false);
+});
+
 test('Bounce Circuit: auto-runs forward with working jump feel', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {
