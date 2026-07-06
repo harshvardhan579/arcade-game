@@ -8,7 +8,14 @@ import {
 
 type Piece = Point[];
 
-const pieces: Piece[] = [
+// Standard tetromino set: I, O, T, S, Z, J, L (anchor near each piece's center).
+export const circuitPieces: ReadonlyArray<ReadonlyArray<Point>> = [
+  [
+    { x: -1, y: 0 },
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 2, y: 0 }
+  ],
   [
     { x: 0, y: 0 },
     { x: 1, y: 0 },
@@ -22,6 +29,24 @@ const pieces: Piece[] = [
     { x: 0, y: 1 }
   ],
   [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: -1, y: 1 },
+    { x: 0, y: 1 }
+  ],
+  [
+    { x: -1, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 1 },
+    { x: 1, y: 1 }
+  ],
+  [
+    { x: -1, y: 0 },
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: -1, y: 1 }
+  ],
+  [
     { x: -1, y: 0 },
     { x: 0, y: 0 },
     { x: 1, y: 0 },
@@ -29,10 +54,20 @@ const pieces: Piece[] = [
   ]
 ];
 
+export function shuffledBag(rng: SeededRandom, size: number): number[] {
+  const bag = Array.from({ length: size }, (_, index) => index);
+  for (let i = bag.length - 1; i > 0; i -= 1) {
+    const j = rng.integer(i + 1);
+    [bag[i], bag[j]] = [bag[j] as number, bag[i] as number];
+  }
+  return bag;
+}
+
 export interface CircuitStackState extends GameSnapshot {
   occupied: number;
   pieceX: number;
   pieceY: number;
+  pieceCells: ReadonlyArray<{ readonly x: number; readonly y: number }>;
   nextPiece: number;
 }
 
@@ -42,7 +77,8 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
   readonly height = 14;
   grid: number[][] = [];
   private rng = new SeededRandom(14);
-  private piece: Piece = pieces[0] as Piece;
+  private bag: number[] = [];
+  private piece: Piece = circuitPieces[0] as Piece;
   private next = 1;
   private x = 4;
   private y = 0;
@@ -56,10 +92,11 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
 
   restart(seed = 14): CircuitStackState {
     this.rng = new SeededRandom(seed);
+    this.bag = [];
     this.grid = Array.from({ length: this.height }, () =>
       Array.from({ length: this.width }, () => 0)
     );
-    this.next = this.rng.integer(pieces.length);
+    this.next = this.drawPiece();
     this.score = 0;
     this.tick = 0;
     this.gameOver = false;
@@ -99,13 +136,19 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
       occupied: this.grid.flat().filter(Boolean).length,
       pieceX: this.x,
       pieceY: this.y,
+      pieceCells: this.piece.map((cell) => ({ x: this.x + cell.x, y: this.y + cell.y })),
       nextPiece: this.next
     };
   }
 
+  private drawPiece(): number {
+    if (this.bag.length === 0) this.bag = shuffledBag(this.rng, circuitPieces.length);
+    return this.bag.pop() as number;
+  }
+
   private spawnPiece(): void {
-    this.piece = (pieces[this.next] as Piece).map((p) => ({ ...p }));
-    this.next = this.rng.integer(pieces.length);
+    this.piece = (circuitPieces[this.next] as Piece).map((p) => ({ ...p }));
+    this.next = this.drawPiece();
     this.x = 4;
     this.y = 0;
     if (this.collides(this.piece, this.x, this.y)) this.gameOver = true;
@@ -120,7 +163,8 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
 
   private rotate(): void {
     const rotated = this.piece.map((p) => ({ x: -p.y, y: p.x }));
-    for (const kick of [0, -1, 1]) {
+    // The +-2 kicks let the four-wide I piece rotate away from the walls.
+    for (const kick of [0, -1, 1, -2, 2]) {
       if (!this.collides(rotated, this.x + kick, this.y)) {
         this.piece = rotated;
         this.x += kick;

@@ -1,11 +1,19 @@
+import type { HighScoreEventDetail } from '../core/ScoreManager';
+import { SafeStorage } from '../core/Storage';
 import type { GameDefinition } from '../core/types';
 
+function formatHigh(score: number): string {
+  return score > 0 ? `High ${score}` : 'High —';
+}
+
 export function createGameSelector(games: readonly GameDefinition[]): HTMLElement {
+  const storage = new SafeStorage();
   const wrap = document.createElement('section');
   wrap.className = 'panel selector';
   wrap.setAttribute('aria-label', 'Game selector');
-  const title = document.createElement('h2');
-  title.textContent = 'Pocket Arcade';
+  const title = document.createElement('p');
+  title.className = 'panel-label';
+  title.textContent = 'Games';
   wrap.append(title);
 
   for (const game of games) {
@@ -13,17 +21,29 @@ export function createGameSelector(games: readonly GameDefinition[]): HTMLElemen
     button.className = 'game-card';
     button.type = 'button';
     button.dataset.gameId = game.id;
-    button.innerHTML = `<strong>${game.title}</strong><span>${game.subtitle}</span><small>${game.orientation} / ${game.aspectRatio.toFixed(2)}:1</small>`;
+    const high = storage.getNumber(`pocket-arcade:${game.id}:high`, 0);
+    button.innerHTML = `<strong>${game.title}</strong><span>${game.subtitle}</span><small class="card-high">${formatHigh(high)}</small>`;
     button.addEventListener('click', () => {
       window.dispatchEvent(new CustomEvent('arcade-select-game', { detail: game.id }));
+      // Release focus so gameplay keys flow to the game right after selecting.
+      button.blur();
     });
     wrap.append(button);
   }
+
+  window.addEventListener('arcade-high-score', (event) => {
+    const detail = (event as CustomEvent<HighScoreEventDetail>).detail;
+    const card = wrap.querySelector<HTMLElement>(
+      `.game-card[data-game-id="${detail.gameId}"] .card-high`
+    );
+    if (card) card.textContent = formatHigh(detail.score);
+  });
 
   return wrap;
 }
 
 export function createMobileGameSelect(games: readonly GameDefinition[]): HTMLLabelElement {
+  const storage = new SafeStorage();
   const label = document.createElement('label');
   label.className = 'mobile-game-picker';
   label.textContent = 'Game';
@@ -31,14 +51,30 @@ export function createMobileGameSelect(games: readonly GameDefinition[]): HTMLLa
   const select = document.createElement('select');
   select.setAttribute('aria-label', 'Choose game');
   select.className = 'mobile-game-select';
+  // The selector cards (which carry high scores) are hidden on mobile, so
+  // the picker options surface each game's persisted high instead.
+  const optionLabel = (title: string, high: number) =>
+    high > 0 ? `${title} · High ${high}` : title;
   for (const game of games) {
     const option = document.createElement('option');
     option.value = game.id;
-    option.textContent = game.title;
+    option.textContent = optionLabel(
+      game.title,
+      storage.getNumber(`pocket-arcade:${game.id}:high`, 0)
+    );
     select.append(option);
   }
   select.addEventListener('change', () => {
     window.dispatchEvent(new CustomEvent('arcade-select-game', { detail: select.value }));
+    // Release focus so gameplay keys flow to the game, like the cards do.
+    select.blur();
+  });
+
+  window.addEventListener('arcade-high-score', (event) => {
+    const detail = (event as CustomEvent<HighScoreEventDetail>).detail;
+    const game = games.find((item) => item.id === detail.gameId);
+    const option = select.querySelector<HTMLOptionElement>(`option[value="${detail.gameId}"]`);
+    if (game && option) option.textContent = optionLabel(game.title, detail.score);
   });
 
   label.append(select);

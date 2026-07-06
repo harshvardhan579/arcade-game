@@ -13,6 +13,8 @@ import { markSelectedGame } from './ui/GameSelector';
 const games: GameDefinition[] = [
   {
     id: 'neon-serpent',
+    controls: 'Arrows steer · eating speeds up · Space restarts',
+    controlsTouch: 'D-pad steers · eating speeds up · ● restarts',
     title: 'Neon Serpent',
     subtitle: 'Portal snake with combo decay',
     sceneKey: 'neon-serpent',
@@ -21,14 +23,18 @@ const games: GameDefinition[] = [
   },
   {
     id: 'bounce-circuit',
+    controls: '↑ jump · ← → shift · Space restarts',
+    controlsTouch: '↑ jump · ← → shift · ● restarts',
     title: 'Bounce Circuit',
-    subtitle: 'Precision key-and-door platforming',
+    subtitle: 'Neon skyline auto-runner',
     sceneKey: 'bounce-circuit',
     aspectRatio: 3 / 4,
     orientation: 'portrait'
   },
   {
     id: 'star-courier',
+    controls: '← → move · Space fires',
+    controlsTouch: '← → move · ● fires',
     title: 'Star Courier',
     subtitle: 'Vertical shooter with object pools',
     sceneKey: 'star-courier',
@@ -37,6 +43,8 @@ const games: GameDefinition[] = [
   },
   {
     id: 'lane-rush',
+    controls: '← → change lanes',
+    controlsTouch: '← → change lanes',
     title: 'Lane Rush',
     subtitle: 'Three-lane near-miss racer',
     sceneKey: 'lane-rush',
@@ -45,6 +53,8 @@ const games: GameDefinition[] = [
   },
   {
     id: 'circuit-stack',
+    controls: '← → move · ↑ rotate · ↓ drop',
+    controlsTouch: '← → move · ↑ rotate · ↓ drop',
     title: 'Circuit Stack',
     subtitle: 'Falling-block scoring puzzle',
     sceneKey: 'circuit-stack',
@@ -67,6 +77,7 @@ const game = new Phaser.Game({
   height: gameRoot.clientHeight || 640,
   backgroundColor: '#071114',
   banner: false,
+  audio: { noAudio: true },
   render: {
     pixelArt: true,
     antialias: false
@@ -78,10 +89,18 @@ const game = new Phaser.Game({
   scene: [NeonSerpentScene, BounceCircuitScene, StarCourierScene, LaneRushScene, CircuitStackScene]
 });
 
+let currentSceneKey: string | null = null;
+
 function startGame(id: string): void {
   const definition = games.find((item) => item.id === id) ?? games[0]!;
+  if (currentSceneKey === definition.sceneKey) return;
   document.documentElement.style.setProperty('--game-aspect', String(definition.aspectRatio));
+  // SceneManager.start does not stop the running scene (unlike the in-scene
+  // ScenePlugin.start), so without an explicit stop every selected game keeps
+  // running and later scenes in the list render on top of the new one.
+  if (currentSceneKey) game.scene.stop(currentSceneKey);
   game.scene.start(definition.sceneKey);
+  currentSceneKey = definition.sceneKey;
   markSelectedGame(definition.id);
 }
 

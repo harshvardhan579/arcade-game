@@ -31,7 +31,7 @@ export default [
     }
   },
   {
-    files: ['src/**/*Scene.ts', 'src/main.ts'],
+    files: ['src/**/*Scene.ts', 'src/games/effects.ts', 'src/main.ts'],
     rules: {
       'no-restricted-imports': 'off'
     }

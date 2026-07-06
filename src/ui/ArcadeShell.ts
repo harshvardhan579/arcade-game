@@ -1,4 +1,5 @@
 import type { GameDefinition } from '../core/types';
+import { hasCoarsePointer } from '../core/Viewport';
 import { createCaseStudyPanel } from './CaseStudyPanel';
 import { createGameSelector, createMobileGameSelect } from './GameSelector';
 import { createTouchControls } from './TouchControls';
@@ -18,6 +19,7 @@ export function createArcadeShell(
       <div>
         <p class="eyebrow">Zero-Asset HTML5 Retro Arcade</p>
         <h1>Pocket Arcade</h1>
+        <p class="controls-hint" aria-label="Controls"></p>
       </div>
       <div class="topbar-actions">
         <button class="restart-button" type="button">Restart</button>
@@ -27,8 +29,22 @@ export function createArcadeShell(
   `;
   stage.querySelector('.topbar-actions')?.prepend(createMobileGameSelect(games));
   stage.append(createTouchControls());
-  stage.querySelector('.restart-button')?.addEventListener('click', () => {
+  const restart = stage.querySelector<HTMLButtonElement>('.restart-button');
+  restart?.addEventListener('click', () => {
     window.dispatchEvent(new CustomEvent('arcade-restart'));
+    restart.blur();
+  });
+
+  const hint = stage.querySelector<HTMLElement>('.controls-hint');
+  const showControls = (id: string) => {
+    const game = games.find((item) => item.id === id) ?? games[0];
+    if (hint && game) {
+      hint.textContent = hasCoarsePointer() ? game.controlsTouch : game.controls;
+    }
+  };
+  showControls(games[0]?.id ?? '');
+  window.addEventListener('arcade-select-game', (event) => {
+    showControls((event as CustomEvent<string>).detail);
   });
 
   shell.append(createGameSelector(games), stage, createCaseStudyPanel());

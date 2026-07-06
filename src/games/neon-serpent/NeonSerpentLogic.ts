@@ -8,6 +8,12 @@ import {
 
 type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
 
+export const serpentBaseSpeedMs = 144;
+export const serpentFloorSpeedMs = 80;
+export const serpentSpeedStepMs = 4;
+export const serpentMaxSpeedLevel =
+  1 + (serpentBaseSpeedMs - serpentFloorSpeedMs) / serpentSpeedStepMs;
+
 export interface NeonSerpentState extends GameSnapshot {
   snakeLength: number;
   headX: number;
@@ -17,6 +23,7 @@ export interface NeonSerpentState extends GameSnapshot {
   obstacleCount: number;
   multiplier: number;
   speedMs: number;
+  speedLevel: number;
 }
 
 const opposite: Record<Direction, Direction> = {
@@ -49,7 +56,7 @@ export class NeonSerpentLogic implements GameLogic<NeonSerpentState> {
   private gameOver = false;
   private tick = 0;
   private foodsEaten = 0;
-  private speedMs = 145;
+  private speedMs = serpentBaseSpeedMs;
 
   constructor(seed = 7) {
     this.restart(seed);
@@ -74,7 +81,7 @@ export class NeonSerpentLogic implements GameLogic<NeonSerpentState> {
     this.gameOver = false;
     this.tick = 0;
     this.foodsEaten = 0;
-    this.speedMs = 145;
+    this.speedMs = serpentBaseSpeedMs;
     this.food = this.spawnFood();
     return this.getState();
   }
@@ -119,7 +126,10 @@ export class NeonSerpentLogic implements GameLogic<NeonSerpentState> {
       this.score += 10 * this.multiplier;
       this.multiplier = Math.min(8, this.multiplier + 1);
       this.comboTimer = 8;
-      this.speedMs = Math.max(68, 145 - this.foodsEaten * 5);
+      this.speedMs = Math.max(
+        serpentFloorSpeedMs,
+        serpentBaseSpeedMs - this.foodsEaten * serpentSpeedStepMs
+      );
       if (this.foodsEaten % 3 === 0) this.addObstacle();
       this.food = this.spawnFood();
     } else {
@@ -143,7 +153,8 @@ export class NeonSerpentLogic implements GameLogic<NeonSerpentState> {
       foodY: this.food.y,
       obstacleCount: this.obstacles.length,
       multiplier: this.multiplier,
-      speedMs: this.speedMs
+      speedMs: this.speedMs,
+      speedLevel: 1 + (serpentBaseSpeedMs - this.speedMs) / serpentSpeedStepMs
     };
   }
 

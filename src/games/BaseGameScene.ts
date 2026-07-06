@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { AudioEngine } from '../core/AudioEngine';
+import { audioEngine } from '../core/AudioEngine';
+import { ScoreManager } from '../core/ScoreManager';
 import { publishBridge, updateBridgeSnapshot } from '../core/TestBridge';
-import { prefersReducedMotion } from '../core/Viewport';
+import { hasCoarsePointer, prefersReducedMotion } from '../core/Viewport';
 import type { GameLogic, GameSnapshot, SemanticInput } from '../core/types';
 
 export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.Scene {
@@ -9,10 +10,13 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
   protected readonly graphicsKey = 'playfield';
   protected graphics!: Phaser.GameObjects.Graphics;
   protected hud!: Phaser.GameObjects.Text;
+  protected stateText!: Phaser.GameObjects.Text;
+  private hudFontPx = 16;
   protected accumulator = 0;
   protected stepMs = 120;
   protected reducedMotion = false;
-  private readonly audio = new AudioEngine();
+  protected scores!: ScoreManager;
+  private readonly audio = audioEngine;
   private readonly onInput = (event: Event) => {
     const input = (event as CustomEvent<SemanticInput>).detail;
     const before = this.logic.getState();
@@ -29,6 +33,7 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
 
   create(): void {
     this.reducedMotion = prefersReducedMotion();
+    this.scores = new ScoreManager(this.scene.key);
     this.audio.attachUnlockListeners();
     this.graphics = this.add.graphics();
     this.hud = this.add.text(18, 16, '', {
@@ -36,9 +41,22 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       fontSize: '16px'
     });
+    this.stateText = this.add
+      .text(0, 0, '', {
+        color: '#d8fff9',
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        fontSize: '24px',
+        align: 'center'
+      })
+      .setOrigin(0.5)
+      .setStroke('#02080a', 4)
+      .setVisible(false);
     window.addEventListener('arcade-semantic-input', this.onInput);
     window.addEventListener('arcade-restart', this.onRestart);
-    publishBridge(this.scene.key, () => this.logic.getState());
+    publishBridge(this.scene.key, () => ({
+      ...this.logic.getState(),
+      highScore: this.scores.highScore
+    }));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('arcade-semantic-input', this.onInput);
       window.removeEventListener('arcade-restart', this.onRestart);
@@ -58,11 +76,16 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
       if (next.isGameOver && !before.isGameOver) this.audio.play('hit');
     }
     const latest = this.logic.getState();
-    updateBridgeSnapshot(latest);
+    this.scores.record(latest.score);
+    updateBridgeSnapshot({ ...latest, highScore: this.scores.highScore });
     this.renderState(latest);
   }
 
   protected abstract draw(state: TState, width: number, height: number): void;
+
+  protected hudExtra(_state: TState): string {
+    return '';
+  }
 
   private renderState(state: TState): void {
     const width = this.scale.width;
@@ -71,11 +94,31 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     this.graphics.fillStyle(0x071114, 1);
     this.graphics.fillRect(0, 0, width, height);
     this.draw(state, width, height);
-    const phase = state.isGameOver
-      ? ' GAME OVER - press Space'
-      : state.phase === 'won'
-        ? ' CLEARED'
-        : '';
-    this.hud.setText(`Score ${state.score}  Tick ${state.tick}${phase}`);
+    if (state.isGameOver) {
+      this.graphics.fillStyle(0x02080a, 0.42);
+      this.graphics.fillRect(0, 0, width, height);
+    }
+    // Narrow canvases (small phones) get a smaller HUD so the line never clips.
+    const hudPx = Math.max(10, Math.min(16, Math.floor(width / 26)));
+    if (hudPx !== this.hudFontPx) {
+      this.hudFontPx = hudPx;
+      this.hud.setFontSize(hudPx);
+    }
+    const extra = this.hudExtra(state);
+    this.hud.setText(
+      `Score ${state.score}  High ${this.scores.highScore}${extra ? `  ${extra}` : ''}`
+    );
+    // End-of-run messaging lives in a centered overlay (the HUD line used to
+    // clip it off on mobile) with device-correct restart wording.
+    const ended = state.isGameOver || state.phase === 'won';
+    if (ended) {
+      const heading = state.isGameOver ? 'GAME OVER' : 'CLEARED';
+      const restart = hasCoarsePointer() ? 'Tap ● to restart' : 'Press Space to restart';
+      this.stateText
+        .setPosition(width / 2, height / 2)
+        .setFontSize(Math.max(16, Math.min(28, Math.floor(width / 14))))
+        .setText(`${heading}\n${restart}`);
+    }
+    this.stateText.setVisible(ended);
   }
 }

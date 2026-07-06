@@ -39,12 +39,19 @@ body {
     linear-gradient(180deg, #081418 0%, #05090b 100%);
 }
 
-button {
-  font: inherit;
-}
-
+button,
 select {
   font: inherit;
+  /* Replace the default mobile grey tap flash with explicit pressed states. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Kill the double-tap-zoom delay/trigger on tappable shell controls
+   (.game-root and .touch-controls already opt out with touch-action: none). */
+.restart-button,
+.mobile-game-select,
+.game-card {
+  touch-action: manipulation;
 }
 
 .arcade-shell {
@@ -75,11 +82,15 @@ p {
 h1 {
   margin-bottom: 0;
   font-size: clamp(1.45rem, 2.2vw, 2.2rem);
-  letter-spacing: 0;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 20px rgba(77, 255, 225, 0.22);
+  text-wrap: balance;
 }
 
 h2 {
   font-size: 1rem;
+  text-wrap: balance;
 }
 
 .eyebrow,
@@ -92,7 +103,24 @@ h2 {
 .eyebrow {
   margin-bottom: 4px;
   font-size: 0.78rem;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
+}
+
+.panel-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.controls-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
 }
 
 .game-card {
@@ -107,12 +135,79 @@ h2 {
   border: 1px solid #183942;
   border-radius: 8px;
   cursor: pointer;
+  transition:
+    border-color 0.18s ease-out,
+    background-color 0.18s ease-out,
+    box-shadow 0.18s ease-out,
+    transform 0.18s ease-out;
+}
+
+.game-card strong {
+  font-size: 0.98rem;
+  letter-spacing: 0.01em;
+}
+
+.game-card span {
+  display: block;
+  min-height: 2.6em;
+  font-size: 0.85rem;
+  line-height: 1.3;
 }
 
 .game-card:hover,
 .game-card.is-active {
   border-color: var(--cyan);
-  box-shadow: inset 3px 0 0 var(--cyan);
+  background: #0c222a;
+  box-shadow:
+    inset 3px 0 0 var(--cyan),
+    0 0 16px rgba(77, 255, 225, 0.1);
+}
+
+.game-card.is-active {
+  box-shadow:
+    inset 3px 0 0 var(--cyan),
+    0 0 22px rgba(77, 255, 225, 0.16);
+}
+
+.game-card.is-active::after {
+  content: 'Now playing' / '';
+  margin-top: 2px;
+  color: var(--cyan);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.game-card .card-high {
+  color: var(--yellow);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.game-card:focus-visible,
+.touch-button:focus-visible,
+.restart-button:focus-visible,
+.mobile-game-select:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.game-card:active,
+.touch-button:active {
+  transform: translateY(1px);
+}
+
+.touch-button:active {
+  background: #16414c;
+}
+
+.restart-button:hover {
+  filter: brightness(1.12);
+}
+
+.restart-button:active {
+  transform: translateY(1px);
 }
 
 .stage {
@@ -138,6 +233,14 @@ h2 {
   border-radius: 8px;
   font-weight: 800;
   cursor: pointer;
+  transition:
+    filter 0.15s ease-out,
+    transform 0.15s ease-out,
+    box-shadow 0.15s ease-out;
+}
+
+.restart-button:hover {
+  box-shadow: 0 0 18px rgba(77, 255, 225, 0.35);
 }
 
 .topbar-actions {
@@ -158,9 +261,12 @@ h2 {
   background: #102a31;
   border: 1px solid #2b636e;
   border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out;
 }
 
 .game-root {
+  position: relative;
   width: min(100%, calc((100vh - 150px) * var(--game-aspect)));
   min-height: 480px;
   max-height: calc(100vh - 150px);
@@ -170,7 +276,26 @@ h2 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #071114;
+  box-shadow:
+    0 0 26px rgba(77, 255, 225, 0.13),
+    inset 0 0 46px rgba(0, 0, 0, 0.45);
   touch-action: none;
+}
+
+.game-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(2, 8, 10, 0.14) 0,
+    rgba(2, 8, 10, 0.14) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 
 .game-root canvas {
@@ -178,12 +303,15 @@ h2 {
 }
 
 .touch-controls {
+  /* Two thumb zones: direction cluster on the left, action on the right,
+     so move + fire works with both thumbs without crossing mid-screen. */
   display: grid;
-  grid-template-columns: repeat(3, 76px);
-  grid-template-rows: repeat(3, 58px);
-  justify-content: center;
+  grid-template-columns: repeat(3, minmax(52px, 70px)) 1fr minmax(88px, 104px);
+  grid-template-rows: repeat(3, 54px);
   gap: 8px;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .touch-button {
@@ -193,10 +321,15 @@ h2 {
   border-radius: 8px;
   font-size: 1.35rem;
   font-weight: 800;
+  transition:
+    background-color 0.12s ease-out,
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out;
 }
 
 .touch-up {
   grid-column: 2;
+  grid-row: 1;
 }
 
 .touch-left {
@@ -205,10 +338,11 @@ h2 {
 }
 
 .touch-action {
-  grid-column: 2;
-  grid-row: 2;
+  grid-column: 5;
+  grid-row: 1 / span 3;
   color: #081418;
   background: var(--pink);
+  font-size: 1.6rem;
 }
 
 .touch-right {
@@ -221,9 +355,31 @@ h2 {
   grid-row: 3;
 }
 
+/* preventDefault on pointerdown suppresses :active, so pressed feedback
+   is driven by this class from TouchControls. */
+.touch-button.is-pressed {
+  background: #16414c;
+  transform: translateY(1px);
+  box-shadow: 0 0 14px rgba(77, 255, 225, 0.2);
+}
+
+.touch-action.is-pressed {
+  background: #ff7ce2;
+  box-shadow: 0 0 18px rgba(255, 79, 216, 0.35);
+}
+
 .case-study {
   font-size: 0.94rem;
   line-height: 1.45;
+}
+
+.case-study .panel-label {
+  margin: 16px 0 4px;
+  color: var(--cyan);
+}
+
+.case-study p:not(.panel-label) {
+  margin-bottom: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -231,7 +387,62 @@ h2 {
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (min-width: 900px) {
+  html,
+  body,
+  #app {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .arcade-shell {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  .stage {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .touch-controls {
+    display: none;
+  }
+
+  .game-root {
+    width: auto;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    max-width: 100%;
+    align-self: center;
+  }
+
+  .selector,
+  .case-study {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #1f4a53 transparent;
+  }
+
+  .selector::-webkit-scrollbar,
+  .case-study::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .selector::-webkit-scrollbar-thumb,
+  .case-study::-webkit-scrollbar-thumb {
+    background: #1f4a53;
+    border-radius: 4px;
+  }
+
+  .selector::-webkit-scrollbar-track,
+  .case-study::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
@@ -244,10 +455,26 @@ h2 {
   }
 
   .arcade-shell {
+    /* svh is the small viewport: the height iOS Safari actually leaves above
+       its bottom toolbar. This page cannot scroll, so the toolbar never
+       collapses — laying out for svh keeps the bottom row (canvas edge,
+       DOWN, ACTION) tappable. dvh is deliberately not used: iOS updates it
+       lazily and it can report the toolbar-inclusive height on load.
+       min-height: 0 is load-bearing — the base min-height: 100vh (toolbar-
+       inclusive on iOS) would otherwise beat the svh height and push the
+       controls under the toolbar; vh line is the no-svh fallback. */
     height: 100vh;
+    height: 100svh;
+    min-height: 0;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    /* The selector and case-study panels are display: none here, so the
+       stage is the only in-flow child — it must land in the constrained
+       row or its content can overflow the viewport. */
+    grid-template-rows: minmax(0, 1fr);
     padding: 10px;
+    /* Clearance above the toolbar edge even when the safe-area inset is 0
+       (it reports 0 while the toolbar itself occupies that band). */
+    padding-bottom: max(14px, calc(10px + env(safe-area-inset-bottom)));
   }
 
   .selector,
@@ -260,8 +487,20 @@ h2 {
     grid-template-rows: auto minmax(0, 1fr) auto;
   }
 
+  /* Phones spend topbar space on play: the marketing eyebrow is desktop
+     chrome, and Restart demotes to secondary weight so the picker leads. */
+  .eyebrow {
+    display: none;
+  }
+
   .topbar {
     align-items: flex-end;
+  }
+
+  .restart-button {
+    color: var(--cyan);
+    background: rgba(77, 255, 225, 0.08);
+    border: 1px solid #2b636e;
   }
 
   .topbar-actions {
@@ -279,13 +518,130 @@ h2 {
   }
 
   .game-root {
-    width: min(100%, calc((100vh - 230px) * var(--game-aspect)));
+    /* Row-derived sizing: fill the stage's flexible row and let
+       aspect-ratio set the width, so the canvas can never overflow
+       into the touch controls below (same pattern as desktop). */
+    width: auto;
+    height: 100%;
     min-height: 0;
-    max-height: calc(100vh - 230px);
+    max-height: 100%;
+    max-width: 100%;
+    align-self: center;
+  }
+
+  /* Apple HIG floor is 44pt; the base 42px is scoped up on touch layouts
+     only so desktop chrome keeps its exact metrics. */
+  .restart-button,
+  .mobile-game-select {
+    min-height: 44px;
+  }
+}
+
+/* Landscape phones (coarse pointer, short viewport) — including widths that
+   cross the 900px desktop breakpoint, where a touch device would otherwise
+   get the keyboard-only desktop layout. Canvas centered at full row height;
+   the touch clusters overlay the dead side margins. Fine-pointer desktops
+   never match this block. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+  .arcade-shell {
+    /* Same svh + min-height discipline as portrait: the base
+       min-height: 100vh must never resize the shell under browser chrome. */
+    height: 100vh;
+    height: 100svh;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    padding: 8px calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      calc(8px + env(safe-area-inset-left));
+  }
+
+  .selector,
+  .case-study,
+  .eyebrow {
+    display: none;
+  }
+
+  .mobile-game-picker {
+    display: grid;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+  }
+
+  .topbar {
+    align-items: center;
+  }
+
+  .topbar-actions {
+    flex-direction: row;
+    align-items: end;
+    gap: 8px;
+  }
+
+  .restart-button,
+  .mobile-game-select {
+    min-height: 44px;
+  }
+
+  .restart-button {
+    color: var(--cyan);
+    background: rgba(77, 255, 225, 0.08);
+    border: 1px solid #2b636e;
+  }
+
+  .stage {
+    position: relative;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .game-root {
+    width: auto;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    max-width: 100%;
+    align-self: center;
   }
 
   .touch-controls {
-    grid-template-columns: repeat(3, minmax(74px, 88px));
-    grid-template-rows: repeat(3, 54px);
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(48px, 62px)) 1fr minmax(84px, 100px);
+    grid-template-rows: minmax(52px, 1fr) repeat(3, minmax(44px, 50px)) minmax(8px, 1fr);
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .touch-button {
+    pointer-events: auto;
+  }
+
+  .touch-up {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .touch-left {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .touch-right {
+    grid-column: 3;
+    grid-row: 3;
+  }
+
+  .touch-down {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .touch-action {
+    grid-column: 5;
+    grid-row: 2 / span 3;
   }
 }
