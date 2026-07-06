@@ -16,6 +16,10 @@ export function currentTheme(): ThemeName {
 export function applyTheme(theme: ThemeName): void {
   document.documentElement.dataset.theme = theme;
   storage.setString(THEME_STORAGE_KEY, theme);
+  // Keep the browser chrome (tab strip, mobile status bar) matching.
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', theme === 'light' ? '#e9f1f1' : '#071114');
 }
 
 /**

@@ -210,6 +210,13 @@ test('coarse-pointer landscape phones keep the game playable', async ({ page, vi
       `canvas must be playable-sized at ${width}x${height}`
     ).toBeGreaterThanOrEqual(160);
 
+    // The touch overlay sits above the topbar in z-order, so any overlap
+    // steals taps from Restart/the picker/the theme toggle.
+    const chrome = [];
+    for (const selector of ['.restart-button', '.mobile-game-select', '.theme-toggle']) {
+      const control = await page.locator(selector).boundingBox();
+      if (control) chrome.push({ selector, control });
+    }
     for (const button of await page.locator('.touch-button').all()) {
       const box = await button.boundingBox();
       expect(box, `every touch button must render at ${width}x${height}`).not.toBeNull();
@@ -230,6 +237,14 @@ test('coarse-pointer landscape phones keep the game playable', async ({ page, vi
         box!.y >= canvas!.y + canvas!.height - 0.5 ||
         box!.y + box!.height <= canvas!.y + 0.5;
       expect(disjoint, `button clear of the canvas at ${width}x${height}`).toBe(true);
+      for (const { selector, control } of chrome) {
+        const clear =
+          box!.x >= control.x + control.width - 0.5 ||
+          box!.x + box!.width <= control.x + 0.5 ||
+          box!.y >= control.y + control.height - 0.5 ||
+          box!.y + box!.height <= control.y + 0.5;
+        expect(clear, `button clear of ${selector} at ${width}x${height}`).toBe(true);
+      }
     }
   }
 });
@@ -400,6 +415,12 @@ test('theme toggle switches the shell theme by click and by keyboard', async ({ 
   await toggle.click();
   expect(await readTheme(), 'click must flip to light').toBe('light');
   await expect(toggle).toHaveAccessibleName('Switch to dark theme');
+  expect(
+    await page.evaluate(() =>
+      document.querySelector('meta[name="theme-color"]')?.getAttribute('content')
+    ),
+    'the browser-chrome color must follow the theme'
+  ).toBe('#e9f1f1');
 
   // Keyboard: focus + Enter activates like any native button.
   await toggle.focus();

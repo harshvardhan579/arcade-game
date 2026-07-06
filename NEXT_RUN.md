@@ -9,9 +9,39 @@ Loop: `.claude/theme-pass-loop.md` (one phase per invocation, strict order).
 | 0     | Theme audit + design decision (analysis)  | done (`84eb4f5`)    |
 | 1     | CSS variable foundation, both token sets  | done (`81cfee1`)    |
 | 2     | Theme toggle UI + tests                   | done (`9039eb2`)    |
-| 3     | Persistence + system preference + no-FOUC | **done** (this run) |
-| 4     | Desktop/mobile polish, both themes        | next                |
-| 5     | Validation, docs, close-out               | pending             |
+| 3     | Persistence + system preference + no-FOUC | done (`fab516e`)    |
+| 4     | Desktop/mobile polish, both themes        | **done** (this run) |
+| 5     | Validation, docs, close-out               | next                |
+
+## Phase 4 (this run) — what changed
+
+**Both-theme screenshot review at all eleven pinned viewports** (4 desktop, 4 portrait,
+3 landscape) plus a light-theme game-over run (via the `?seed=12` debug param — its
+first empirical validation; the deterministic Lane Rush crash landed with `High 12`).
+Findings:
+
+- **Real regression caught and fixed (both themes):** the theme toggle widened the
+  landscape topbar actions enough to wrap Restart+toggle onto a second row at
+  667×375, and the touch overlay's 52 px topbar-clearance row let the ACTION button
+  overlap Restart/toggle — stealing their taps (overlay wins z-order). Fix: the
+  coarse-landscape overlay's first grid row is now `minmax(104px, 1fr)`.
+  **Fail-first verified** via a new assertion in the landscape playability test:
+  every touch button must be disjoint from Restart, the picker, and the toggle at
+  all three landscape sizes (pre-fix: red at 667×375 on `.restart-button`).
+- **`theme-color` meta now follows the theme** (dark `#071114` / light `#e9f1f1`),
+  set by both the inline boot script and `applyTheme`; asserted in the toggle test.
+- Everything else passed review: light theme legible at the tightest desktop
+  (1366×768) and portrait (375×667); game-over overlay reads perfectly over the dark
+  canvas inside the light shell; boost HUD, picker highs, hint copy, cards, and
+  touch controls all readable in both themes. No other fixes needed.
+
+### Phase 4 validation
+
+- Landscape regression: red pre-fix at 667×375, green post-fix at all three sizes.
+- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
+  Playwright **44 passed / 30 intentionally skipped**.
+- Screenshots (scratchpad, ephemeral): `polish-{dark,light}-*` ×22,
+  `polish-light-gameover`, `land-fixed-{dark,light}`.
 
 ## Phase 3 (this run) — what changed
 

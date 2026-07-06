@@ -727,7 +727,10 @@ h2 {
     z-index: 3;
     display: grid;
     grid-template-columns: repeat(3, minmax(48px, 62px)) 1fr minmax(84px, 100px);
-    grid-template-rows: minmax(52px, 1fr) repeat(3, minmax(44px, 50px)) minmax(8px, 1fr);
+    /* The first row clears the topbar. Since the theme toggle joined the
+       actions, they can wrap to two rows at 667px wide — 104px keeps the
+       overlaid ACTION button out of Restart/toggle tap territory. */
+    grid-template-rows: minmax(104px, 1fr) repeat(3, minmax(44px, 50px)) minmax(8px, 1fr);
     gap: 8px;
     pointer-events: none;
   }

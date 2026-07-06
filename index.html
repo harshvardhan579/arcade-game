@@ -26,6 +26,8 @@
               : 'dark';
         }
         document.documentElement.setAttribute('data-theme', theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#e9f1f1' : '#071114');
       })();
     </script>
   </head>
