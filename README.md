@@ -71,6 +71,10 @@ Mobile portrait hides the side panels and sizes the canvas from its grid row (ne
 
 The shell supports per-game aspect metadata; all five games use portrait-friendly layouts. Selecting a game stops the outgoing Phaser scene before starting the next one, shows that game's control hints, and keeps per-game high scores visible on the selector cards.
 
+## Themes
+
+The shell ships two themes driven entirely by CSS custom properties (zero assets): **dark** — the primary retro-neon arcade identity — and **light**, a "daylight cabinet" with bright chrome around game canvases that stay dark/neon for readability (the in-canvas palettes and pixel-signature tests are untouched by theming). A quiet ◐ toggle sits after Restart in the topbar (keyboard accessible, 44px on touch layouts, action-stating accessible name). First load honors `prefers-color-scheme` via an inline head script that resolves the theme before first paint (no flash); a manual choice persists in `localStorage` (`pocket-arcade:theme`) and beats the system preference; a broken/unavailable `localStorage` falls back to dark without errors. The `theme-color` meta follows the active theme. Light-theme text contrast is designed to WCAG targets (body 13.2:1, muted 5.9:1, accents ≥ 4.4:1). The Playwright suite pins `colorScheme: 'dark'` as its baseline and tests both themes explicitly.
+
 ## Zero-Asset And Legal Note
 
 The project does not load external images, audio, fonts, or sprite sheets. Visuals are drawn with Phaser Graphics primitives, and sound is generated with WebAudio oscillators after a user gesture. System font stacks only; no webfont downloads.

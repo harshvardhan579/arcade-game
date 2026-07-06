@@ -210,6 +210,13 @@ test('coarse-pointer landscape phones keep the game playable', async ({ page, vi
       `canvas must be playable-sized at ${width}x${height}`
     ).toBeGreaterThanOrEqual(160);
 
+    // The touch overlay sits above the topbar in z-order, so any overlap
+    // steals taps from Restart/the picker/the theme toggle.
+    const chrome = [];
+    for (const selector of ['.restart-button', '.mobile-game-select', '.theme-toggle']) {
+      const control = await page.locator(selector).boundingBox();
+      if (control) chrome.push({ selector, control });
+    }
     for (const button of await page.locator('.touch-button').all()) {
       const box = await button.boundingBox();
       expect(box, `every touch button must render at ${width}x${height}`).not.toBeNull();
@@ -230,6 +237,14 @@ test('coarse-pointer landscape phones keep the game playable', async ({ page, vi
         box!.y >= canvas!.y + canvas!.height - 0.5 ||
         box!.y + box!.height <= canvas!.y + 0.5;
       expect(disjoint, `button clear of the canvas at ${width}x${height}`).toBe(true);
+      for (const { selector, control } of chrome) {
+        const clear =
+          box!.x >= control.x + control.width - 0.5 ||
+          box!.x + box!.width <= control.x + 0.5 ||
+          box!.y >= control.y + control.height - 0.5 ||
+          box!.y + box!.height <= control.y + 0.5;
+        expect(clear, `button clear of ${selector} at ${width}x${height}`).toBe(true);
+      }
     }
   }
 });
@@ -387,6 +402,110 @@ test('mobile canvas and touch controls share the viewport without overlap', asyn
       ).toBeLessThanOrEqual(height + 0.5);
     }
   }
+});
+
+test('theme toggle switches the shell theme by click and by keyboard', async ({ page }) => {
+  const readTheme = () => page.evaluate(() => document.documentElement.dataset.theme ?? 'dark');
+  const toggle = page.locator('.theme-toggle');
+  await expect(toggle, 'toggle must expose an action-stating name').toHaveAccessibleName(
+    'Switch to light theme'
+  );
+  expect(await readTheme()).toBe('dark');
+
+  await toggle.click();
+  expect(await readTheme(), 'click must flip to light').toBe('light');
+  await expect(toggle).toHaveAccessibleName('Switch to dark theme');
+  expect(
+    await page.evaluate(() =>
+      document.querySelector('meta[name="theme-color"]')?.getAttribute('content')
+    ),
+    'the browser-chrome color must follow the theme'
+  ).toBe('#e9f1f1');
+
+  // Keyboard: focus + Enter activates like any native button.
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  expect(await readTheme(), 'keyboard activation must flip back to dark').toBe('dark');
+  await expect(toggle).toHaveAccessibleName('Switch to light theme');
+});
+
+test('theme follows the system preference on a first visit', async ({ page }) => {
+  // Fresh context = no stored choice; the inline head script must resolve
+  // the system preference before first paint in both directions.
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+});
+
+test('a chosen theme persists across reload and beats the system preference', async ({ page }) => {
+  await page.locator('.theme-toggle').click();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    'the choice must survive reload'
+  ).toBe('light');
+
+  // An explicit dark system preference must not override the stored choice.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    'the stored choice must beat the system preference'
+  ).toBe('light');
+  expect(await page.evaluate(() => window.localStorage.getItem('pocket-arcade:theme'))).toBe(
+    'light'
+  );
+});
+
+test('the shell boots dark and stays playable when storage is unavailable', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new Error('storage disabled');
+      }
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    'broken storage must fall back to the dark identity'
+  ).toBe('dark');
+  // The toggle still works in-session; persistence is simply best-effort.
+  await page.locator('.theme-toggle').click();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+  expect(errors).toEqual([]);
+});
+
+test('theme toggle is touch-sized and shares the Restart row on mobile', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only sizing assertions');
+  const toggle = await page.locator('.theme-toggle').boundingBox();
+  expect(toggle, 'toggle must render on mobile').not.toBeNull();
+  expect(toggle!.height, '44px touch floor').toBeGreaterThanOrEqual(44);
+  expect(toggle!.width, '44px touch floor').toBeGreaterThanOrEqual(44);
+  // The toggle must not grow the topbar: it sits beside Restart, not below it.
+  const restart = await page.getByRole('button', { name: 'Restart' }).boundingBox();
+  expect(
+    Math.abs(toggle!.y - restart!.y),
+    'toggle and Restart must share a row'
+  ).toBeLessThanOrEqual(1);
 });
 
 test('page surfaces opt out of double-tap zoom so rapid taps cannot zoom mid-game', async ({

@@ -6,6 +6,16 @@
 > grounded in the source; where a claim is inferred or uncertain it says so, and features
 > that are only _documented_ but not implemented are called out explicitly.
 >
+> **What the theme pass changed (branch `theme-pass-1`, 2026-07-06):** a dark/light
+> theme system for the shell only — `:root` tokens (dark = identity default) +
+> `[data-theme='light']` "daylight cabinet" overrides with WCAG-checked contrast; a ◐
+> toggle after Restart (keyboard accessible, zero mobile topbar height via a `1fr auto`
+> grid); persistence (`pocket-arcade:theme`, `SafeStorage` string API) + system
+> preference resolved by an inline head script before first paint; themed `theme-color`
+> meta; Playwright pinned to `colorScheme: 'dark'`. Game canvases and the cabinet
+> screen stay dark/neon in both themes; pixel signatures untouched. Playwright now
+> 44 passed / 30 skipped.
+>
 > **What the gameplay/replayability pass changed (commits `cedf11a`…`1b5e1f2`):** page-wide
 > double-tap-zoom suppression on mobile; **live run seeds** (every new run/restart/switch
 > draws a fresh seed via `src/core/RunSeeds.ts`, tests force exact seeds via
@@ -411,8 +421,13 @@ desktop + mobile projects, with per-project `test.skip` guards). The seeded spec
   overlay pixels + picker highs + select blur; pressed feedback + hold-to-repeat + single-
   shot ACTION; **no-overlap/fit at six portrait sizes** with a computed-style pin that
   `.arcade-shell` `min-height` resolves to `0px`; **coarse-pointer landscape playability**
-  at three sizes; d-pad aria-labels + reduced-motion run; **double-tap-zoom opt-out**
-  computed-style pin on every page surface.
+  at three sizes (touch buttons disjoint from the canvas **and** from
+  Restart/picker/theme-toggle); d-pad aria-labels + reduced-motion run; **double-tap-zoom
+  opt-out** computed-style pin on every page surface; **theme suite** — toggle by click
+  and keyboard with accessible-name swap + themed `theme-color` meta, system preference
+  honored both directions on first visit, chosen theme persists and beats the system,
+  broken-storage boot stays dark and error-free, mobile toggle ≥44px sharing the
+  Restart row.
 
 **Bugs now protected against:** stacked/overlapping scenes, count-based fake rendering,
 the canvas burying the d-pad, the iOS Safari toolbar covering the bottom controls, rapid

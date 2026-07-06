@@ -10,7 +10,11 @@ export default defineConfig({
   },
   use: {
     baseURL: 'http://127.0.0.1:4173',
-    trace: 'retain-on-failure'
+    trace: 'retain-on-failure',
+    // Playwright's default is 'light'; the first load honors the system
+    // preference, so pin the suite to the primary dark identity. Theme
+    // tests emulate both directions explicitly.
+    colorScheme: 'dark'
   },
   projects: [
     {

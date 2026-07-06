@@ -2,6 +2,7 @@ import type { GameDefinition } from '../core/types';
 import { hasCoarsePointer } from '../core/Viewport';
 import { createCaseStudyPanel } from './CaseStudyPanel';
 import { createGameSelector, createMobileGameSelect } from './GameSelector';
+import { createThemeToggle } from './ThemeToggle';
 import { createTouchControls } from './TouchControls';
 
 export function createArcadeShell(
@@ -28,6 +29,9 @@ export function createArcadeShell(
     <div id="game-root" class="game-root" aria-label="Game canvas"></div>
   `;
   stage.querySelector('.topbar-actions')?.prepend(createMobileGameSelect(games));
+  // After Restart in DOM order: the desktop keyboard spec pins Restart at
+  // tab position six, so the toggle must follow it, never precede it.
+  stage.querySelector('.topbar-actions')?.append(createThemeToggle());
   stage.append(createTouchControls());
   const restart = stage.querySelector<HTMLButtonElement>('.restart-button');
   restart?.addEventListener('click', () => {
