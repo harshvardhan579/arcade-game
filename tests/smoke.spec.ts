@@ -7,6 +7,7 @@ type BridgeState = {
   snakeLength?: number;
   headX?: number;
   headY?: number;
+  runSeed?: number;
 };
 
 async function bridgeState(page: import('@playwright/test').Page): Promise<BridgeState> {
@@ -44,6 +45,20 @@ test('loads shell and Neon Serpent responds to keyboard', async ({ page }) => {
   const restarted = await bridgeState(page);
   expect(restarted.isGameOver).toBe(false);
   expect(restarted.snakeLength).toBe(3);
+});
+
+test('live runs draw a fresh seed per restart so runs vary', async ({ page }) => {
+  // This spec deliberately does not force seeds: it proves the live path.
+  const first = await bridgeState(page);
+  expect(typeof first.runSeed, 'bridge must expose the run seed').toBe('number');
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(
+    (seed) => window.__ARCADE__!.getState().runSeed !== seed,
+    first.runSeed
+  );
+  const second = await bridgeState(page);
+  expect(second.runSeed, 'a live restart must draw a fresh seed').not.toBe(first.runSeed);
+  expect(second.isGameOver).toBe(false);
 });
 
 test('desktop selector can open every MVP game', async ({ page, viewport }) => {

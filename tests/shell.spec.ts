@@ -1,6 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
+  // The mobile game-over test waits on the seed-12 parked Lane Rush crash;
+  // force the historical default seeds now that live runs vary per run.
+  await page.addInitScript(() => {
+    window.__ARCADE_FIXED_SEEDS__ = {
+      'neon-serpent': 7,
+      'bounce-circuit': 11,
+      'star-courier': 9,
+      'lane-rush': 12,
+      'circuit-stack': 14
+    };
+  });
   await page.goto('/');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 });

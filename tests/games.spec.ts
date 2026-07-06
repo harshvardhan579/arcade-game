@@ -21,9 +21,39 @@ async function snapshot(page: import('@playwright/test').Page): Promise<Record<s
   return page.evaluate(() => window.__ARCADE__!.getState() as Record<string, unknown>);
 }
 
+// Live runs draw a fresh seed per run; every seeded expectation below
+// (seed-9 column-2 opener, seed-12 parked crash, seed-11 spike course, the
+// seed-14 bag, seed-7 food) stays bit-identical by forcing the historical
+// default seeds before the app boots.
+const FORCED_DEFAULT_SEEDS = {
+  'neon-serpent': 7,
+  'bounce-circuit': 11,
+  'star-courier': 9,
+  'lane-rush': 12,
+  'circuit-stack': 14
+};
+
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript((seeds) => {
+    window.__ARCADE_FIXED_SEEDS__ = seeds;
+  }, FORCED_DEFAULT_SEEDS);
   await page.goto('/');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+});
+
+test('forced seeds reproduce the identical run across restarts', async ({ page }) => {
+  await openGame(page, 'Circuit Stack', 'circuit-stack');
+  await page.waitForFunction(() => (window.__ARCADE__!.getState().tick as number) > 0);
+  const first = await snapshot(page);
+  expect(first.runSeed, 'bridge must expose the forced run seed').toBe(14);
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(
+    (tick) => (window.__ARCADE__!.getState().tick as number) < tick,
+    first.tick as number
+  );
+  const second = await snapshot(page);
+  expect(second.runSeed, 'restart must reuse the forced seed').toBe(14);
+  expect(second.nextPiece, 'the forced seed must redeal the same bag').toBe(first.nextPiece);
 });
 
 test('Bounce Circuit: auto-runs forward with working jump feel', async ({ page }) => {

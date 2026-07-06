@@ -5,6 +5,17 @@ async function waitForBridge(page: import('@playwright/test').Page): Promise<voi
 }
 
 test.beforeEach(async ({ page }) => {
+  // The real-gameplay test below waits on seed-12 Lane Rush near-misses;
+  // force the historical default seeds now that live runs vary per run.
+  await page.addInitScript(() => {
+    window.__ARCADE_FIXED_SEEDS__ = {
+      'neon-serpent': 7,
+      'bounce-circuit': 11,
+      'star-courier': 9,
+      'lane-rush': 12,
+      'circuit-stack': 14
+    };
+  });
   await page.goto('/');
   await waitForBridge(page);
   await page.evaluate(() => {
