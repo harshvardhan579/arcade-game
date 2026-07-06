@@ -8,10 +8,42 @@ Loop: `.claude/theme-pass-loop.md` (one phase per invocation, strict order).
 | ----- | ----------------------------------------- | ------------------- |
 | 0     | Theme audit + design decision (analysis)  | done (`84eb4f5`)    |
 | 1     | CSS variable foundation, both token sets  | done (`81cfee1`)    |
-| 2     | Theme toggle UI + tests                   | **done** (this run) |
-| 3     | Persistence + system preference + no-FOUC | next                |
-| 4     | Desktop/mobile polish, both themes        | pending             |
+| 2     | Theme toggle UI + tests                   | done (`9039eb2`)    |
+| 3     | Persistence + system preference + no-FOUC | **done** (this run) |
+| 4     | Desktop/mobile polish, both themes        | next                |
 | 5     | Validation, docs, close-out               | pending             |
+
+## Phase 3 (this run) — what changed
+
+- **`src/core/Storage.ts`:** `SafeStorage` gains `getString`/`setString` with the same
+  try/catch best-effort discipline as the number API. (A `Storage.test.ts` under
+  `src/` cannot exist without the boundary-banned word — the storage-unavailable path
+  is covered end-to-end instead, which also proves the whole app's behavior.)
+- **`src/ui/ThemeToggle.ts`:** `applyTheme` now persists to `pocket-arcade:theme`
+  (exported `THEME_STORAGE_KEY`). Boot-time resolution deliberately does **not** live
+  here —
+- **`index.html`:** an inline `<head>` script (zero-asset, survives the Vite build
+  verbatim — verified in `dist/index.html`, so static/Vercel deploys keep it) resolves
+  the theme before first paint: stored choice wins, else `prefers-color-scheme`, dark
+  default when neither exists. No flash by construction (attribute set before CSS
+  renders).
+- **`playwright.config.ts` (same slice, as the plan required):** `colorScheme: 'dark'`
+  pinned in shared `use` — Playwright defaults to light, and without the pin every
+  existing spec would have silently flipped to the light theme the moment system
+  preference took effect. The suite stays on the primary dark identity; theme tests
+  emulate both directions explicitly.
+- **Tests (`tests/shell.spec.ts`, +3, both projects):** system preference honored in
+  both directions on first visit (fresh contexts = clean storage); a chosen theme
+  survives reload **and beats an opposite system preference** (stored value asserted);
+  broken storage (`localStorage` getter throws via init script) still boots dark,
+  keeps the toggle working in-session, and produces zero console errors.
+
+### Phase 3 validation
+
+- Theme + storage tests: 9 passed / 1 intentionally skipped across both projects.
+- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
+  Playwright **44 passed / 30 intentionally skipped** (+6).
+- `dist/index.html` retains the inline resolver (deploy-compatibility verified).
 
 ## Phase 2 (this run) — what changed
 

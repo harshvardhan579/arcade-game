@@ -9,6 +9,25 @@
     />
     <meta name="theme-color" content="#071114" />
     <title>Pocket Arcade</title>
+    <script>
+      // Resolve the theme before first paint (no flash): a stored choice
+      // wins, otherwise the system preference; dark is the arcade default.
+      (function () {
+        var theme = null;
+        try {
+          theme = localStorage.getItem('pocket-arcade:theme');
+        } catch (error) {
+          theme = null;
+        }
+        if (theme !== 'light' && theme !== 'dark') {
+          theme =
+            window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

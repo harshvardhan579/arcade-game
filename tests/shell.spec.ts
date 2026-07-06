@@ -408,6 +408,68 @@ test('theme toggle switches the shell theme by click and by keyboard', async ({ 
   await expect(toggle).toHaveAccessibleName('Switch to light theme');
 });
 
+test('theme follows the system preference on a first visit', async ({ page }) => {
+  // Fresh context = no stored choice; the inline head script must resolve
+  // the system preference before first paint in both directions.
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
+});
+
+test('a chosen theme persists across reload and beats the system preference', async ({ page }) => {
+  await page.locator('.theme-toggle').click();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    'the choice must survive reload'
+  ).toBe('light');
+
+  // An explicit dark system preference must not override the stored choice.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    'the stored choice must beat the system preference'
+  ).toBe('light');
+  expect(await page.evaluate(() => window.localStorage.getItem('pocket-arcade:theme'))).toBe(
+    'light'
+  );
+});
+
+test('the shell boots dark and stays playable when storage is unavailable', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new Error('storage disabled');
+      }
+    });
+  });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+  expect(
+    await page.evaluate(() => document.documentElement.dataset.theme),
+    'broken storage must fall back to the dark identity'
+  ).toBe('dark');
+  // The toggle still works in-session; persistence is simply best-effort.
+  await page.locator('.theme-toggle').click();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
+  expect(errors).toEqual([]);
+});
+
 test('theme toggle is touch-sized and shares the Restart row on mobile', async ({
   page,
   viewport
