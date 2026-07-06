@@ -35,6 +35,10 @@ export class CircuitStackScene extends BaseGameScene<CircuitStackState> {
     this.lastPieceCells = state.pieceCells;
   }
 
+  protected override hudExtra(state: CircuitStackState): string {
+    return `Lv ${state.level}  Lines ${state.linesCleared}`;
+  }
+
   protected draw(state: CircuitStackState, width: number, height: number): void {
     const cell = Math.min(width / 9, height / 16);
     const ox = (width - this.logic.width * cell) / 2;

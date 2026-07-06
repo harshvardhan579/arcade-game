@@ -63,12 +63,27 @@ export function shuffledBag(rng: SeededRandom, size: number): number[] {
   return bag;
 }
 
+// Gentle gravity curve: every cleared-lines level shaves a few ticks off the
+// fall interval, floored well above frantic. Consumes no rng, so the seeded
+// 7-bag order is untouched by pacing.
+export const circuitBaseDropTicks = 24;
+export const circuitDropTicksPerLevel = 3;
+export const circuitMinDropTicks = 10;
+export const circuitLinesPerLevel = 3;
+
+export function circuitDropTicks(linesCleared: number): number {
+  const level = Math.floor(linesCleared / circuitLinesPerLevel);
+  return Math.max(circuitMinDropTicks, circuitBaseDropTicks - level * circuitDropTicksPerLevel);
+}
+
 export interface CircuitStackState extends GameSnapshot {
   occupied: number;
   pieceX: number;
   pieceY: number;
   pieceCells: ReadonlyArray<{ readonly x: number; readonly y: number }>;
   nextPiece: number;
+  linesCleared: number;
+  level: number;
 }
 
 export class CircuitStackLogic implements GameLogic<CircuitStackState> {
@@ -85,6 +100,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
   private score = 0;
   private tick = 0;
   private gameOver = false;
+  private lines = 0;
 
   constructor(seed = 14) {
     this.restart(seed);
@@ -100,6 +116,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
     this.score = 0;
     this.tick = 0;
     this.gameOver = false;
+    this.lines = 0;
     this.spawnPiece();
     return this.getState();
   }
@@ -118,7 +135,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
   step(): CircuitStackState {
     if (this.gameOver) return this.getState();
     this.tick += 1;
-    if (this.tick % 24 === 0 && !this.tryMove(0, 1)) this.lockPiece();
+    if (this.tick % circuitDropTicks(this.lines) === 0 && !this.tryMove(0, 1)) this.lockPiece();
     return this.getState();
   }
 
@@ -137,7 +154,9 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
       pieceX: this.x,
       pieceY: this.y,
       pieceCells: this.piece.map((cell) => ({ x: this.x + cell.x, y: this.y + cell.y })),
-      nextPiece: this.next
+      nextPiece: this.next,
+      linesCleared: this.lines,
+      level: Math.floor(this.lines / circuitLinesPerLevel)
     };
   }
 
@@ -186,6 +205,7 @@ export class CircuitStackLogic implements GameLogic<CircuitStackState> {
       this.grid.unshift(Array.from({ length: this.width }, () => 0));
     }
     if (cleared > 0) this.score += [0, 100, 250, 450, 700][cleared] ?? cleared * 180;
+    this.lines += cleared;
     this.spawnPiece();
   }
 

@@ -20,7 +20,18 @@ export const runnerGraceUnits = 32;
 export const runnerChunkUnits = 16;
 export const runnerCoyoteSteps = 4;
 export const runnerBufferSteps = 5;
-export const runnerJumpVelocity = 5.2;
+// First jump peaks ~2.34 units: controllable, clears spikes, reaches the
+// 1.7/2.1 platforms. The tallest 2.5 platforms and high orbs need the
+// mid-air jump (~+1.3 from the press point), which is the skill hook.
+export const runnerJumpVelocity = 4.2;
+export const runnerDoubleJumpVelocity = 3.2;
+// Orb pickup forgiveness: the y reach covers the body height plus the
+// platform-orb offset (0.8), so landing on a platform collects its orb.
+export const runnerOrbWindowX = 0.7;
+export const runnerOrbWindowY = 0.95;
+// Harder chunk archetypes (spike fence, orb bounty) unlock past this
+// distance, where the speed ramp gives enough air travel to clear a fence.
+export const runnerHardChunkAt = 96;
 export const runnerBaseSpeed = 0.22;
 export const runnerMaxSpeed = 0.42;
 
@@ -32,6 +43,7 @@ export interface BounceCircuitState extends GameSnapshot {
   playerY: number;
   velocityY: number;
   grounded: boolean;
+  airJumpUsed: boolean;
   speed: number;
   distance: number;
   orbsCollected: number;
@@ -58,6 +70,7 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
   private grounded = true;
   private coyote = 0;
   private buffer = 0;
+  private airJumpUsed = false;
   private orbsCollected = 0;
   private score = 0;
   private tick = 0;
@@ -82,6 +95,7 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
     this.grounded = true;
     this.coyote = 0;
     this.buffer = 0;
+    this.airJumpUsed = false;
     this.orbsCollected = 0;
     this.score = 0;
     this.tick = 0;
@@ -145,7 +159,11 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
     if (!this.gameOver) {
       const before = this.orbs.length;
       this.orbs = this.orbs.filter(
-        (orb) => !(Math.abs(orb.x - playerX) < 0.55 && Math.abs(orb.y - this.y) < 0.75)
+        (orb) =>
+          !(
+            Math.abs(orb.x - playerX) < runnerOrbWindowX &&
+            Math.abs(orb.y - this.y) < runnerOrbWindowY
+          )
       );
       const collected = before - this.orbs.length;
       if (collected > 0) {
@@ -168,6 +186,7 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
       playerY: round2(this.y),
       velocityY: round2(this.vy),
       grounded: this.grounded,
+      airJumpUsed: this.airJumpUsed,
       speed: round2(this.currentSpeed()),
       distance: Math.floor(this.distanceRun),
       orbsCollected: this.orbsCollected,
@@ -187,14 +206,19 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
 
   private tryJump(): void {
     if (this.grounded || this.coyote > 0) {
-      this.jump();
+      // Coyote counts as the first jump and keeps the mid-air jump in hand.
+      this.launch(runnerJumpVelocity);
+    } else if (!this.airJumpUsed) {
+      // One smaller mid-air jump; once spent, a press only buffers a landing jump.
+      this.airJumpUsed = true;
+      this.launch(runnerDoubleJumpVelocity);
     } else {
       this.buffer = runnerBufferSteps;
     }
   }
 
-  private jump(): void {
-    this.vy = runnerJumpVelocity;
+  private launch(velocity: number): void {
+    this.vy = velocity;
     this.grounded = false;
     this.coyote = 0;
   }
@@ -204,9 +228,10 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
     this.vy = 0;
     this.grounded = true;
     this.coyote = 0;
+    this.airJumpUsed = false;
     if (this.buffer > 0) {
       this.buffer = 0;
-      this.jump();
+      this.launch(runnerJumpVelocity);
     }
   }
 
@@ -233,8 +258,13 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
   }
 
   private generateChunk(cx: number): void {
-    let roll = this.rng.integer(5);
-    if (!this.lastChunkHadSpike && roll > 1) roll = this.rng.integer(2);
+    // Two harder archetypes (5: spike fence, 6: orb bounty) unlock past the
+    // gate; gating keys on the chunk position, which is stable, so the extra
+    // variety never changes how many rng draws an easy chunk consumes.
+    const variety = cx >= runnerHardChunkAt ? 7 : 5;
+    let roll = this.rng.integer(variety);
+    // Never two spikeless chunks in a row: the run must keep testing the jump.
+    if (!this.lastChunkHadSpike && roll >= 2 && roll <= 4) roll = this.rng.integer(2);
     if (roll === 0) {
       this.spikes.push({ x: cx + 4 + this.rng.integer(8) });
     } else if (roll === 1) {
@@ -250,10 +280,20 @@ export class BounceCircuitLogic implements GameLogic<BounceCircuitState> {
       const base = cx + 4 + this.rng.integer(6);
       const arc = [0.7, 1.6, 0.7];
       arc.forEach((y, i) => this.orbs.push({ x: base + i * 1.3, y }));
-    } else {
+    } else if (roll === 4) {
       this.orbs.push({ x: cx + 6 + this.rng.integer(6), y: 0.6 });
+    } else if (roll === 5) {
+      // Spike fence: clearable with a well-timed jump at post-gate speeds;
+      // the mid-air jump is the recovery tool for a late takeoff.
+      const base = cx + 4 + this.rng.integer(6);
+      this.spikes.push({ x: base }, { x: base + 1.1 }, { x: base + 2.2 });
+    } else {
+      // Orb bounty hovering over a spike: risk-priced reward on the jump arc.
+      const base = cx + 4 + this.rng.integer(7);
+      this.spikes.push({ x: base });
+      this.orbs.push({ x: base, y: 1.3 });
     }
-    this.lastChunkHadSpike = roll <= 1;
+    this.lastChunkHadSpike = roll <= 1 || roll >= 5;
   }
 
   private prunePassed(): void {

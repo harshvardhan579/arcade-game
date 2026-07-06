@@ -67,25 +67,43 @@ export class StarCourierScene extends BaseGameScene<StarCourierState> {
       this.graphics.fillRect(px - 2.5, py - 9, 5, 18);
     }
 
-    this.drawShip(toX(state.playerX), toY(11.5));
+    // Bank the nose toward the queued column so the glide reads as motion.
+    const lean = this.reducedMotion
+      ? 0
+      : Math.max(-1, Math.min(1, state.playerTargetX - state.playerX)) * 6;
+    this.drawShip(toX(state.playerX), toY(11.5), lean);
   }
 
   protected override hudExtra(state: StarCourierState): string {
     return `Wave ${state.wave}`;
   }
 
-  private drawShip(shipX: number, shipY: number): void {
+  private drawShip(shipX: number, shipY: number, lean = 0): void {
     if (!this.reducedMotion) {
       const flicker = 6 + Math.sin(this.time.now / 55) * 3;
       this.graphics.fillStyle(0xffd166, 0.85);
       this.graphics.fillRect(shipX - 4, shipY - 4, 8, flicker);
     }
     this.graphics.fillStyle(0x4dffe1, 1);
-    this.graphics.fillTriangle(shipX, shipY - 44, shipX - 22, shipY, shipX + 22, shipY);
+    this.graphics.fillTriangle(shipX + lean, shipY - 44, shipX - 22, shipY, shipX + 22, shipY);
     this.graphics.fillStyle(0x0b2a30, 1);
-    this.graphics.fillTriangle(shipX, shipY - 30, shipX - 7, shipY - 12, shipX + 7, shipY - 12);
+    this.graphics.fillTriangle(
+      shipX + lean * 0.6,
+      shipY - 30,
+      shipX - 7,
+      shipY - 12,
+      shipX + 7,
+      shipY - 12
+    );
     this.graphics.fillStyle(0xd8fff9, 1);
-    this.graphics.fillTriangle(shipX, shipY - 26, shipX - 4, shipY - 16, shipX + 4, shipY - 16);
+    this.graphics.fillTriangle(
+      shipX + lean * 0.6,
+      shipY - 26,
+      shipX - 4,
+      shipY - 16,
+      shipX + 4,
+      shipY - 16
+    );
   }
 
   private drawDrone(cx: number, cy: number): void {

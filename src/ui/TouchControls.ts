@@ -8,9 +8,11 @@ const buttons: Array<[SemanticInput, string, string]> = [
   ['DOWN', '↓', 'Move down']
 ];
 
-// Held direction buttons auto-repeat for parity with OS keyboard repeat.
-const REPEAT_DELAY_MS = 300;
-const REPEAT_INTERVAL_MS = 90;
+// Held direction buttons auto-repeat. Slightly quicker than OS keyboard
+// repeat so hold-to-strafe starts promptly (Star Courier's glide queues one
+// column per repeat); a discrete tap still emits exactly one input.
+const REPEAT_DELAY_MS = 200;
+const REPEAT_INTERVAL_MS = 70;
 
 export function createTouchControls(): HTMLElement {
   const wrap = document.createElement('section');

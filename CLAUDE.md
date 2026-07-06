@@ -34,6 +34,8 @@ window.__ARCADE__ = {
     score: number;
     isGameOver: boolean;
     tick: number;
+    highScore: number;
+    runSeed: number; // the seed this run was dealt (forced in tests)
     // plus per-game serializable fields
   }
 };
@@ -79,16 +81,18 @@ Delegate via the agents in `.claude/agents/` when the task matches:
 
 The autonomous improvement loop lives in `.claude/loop.md`; it records progress in `NEXT_RUN.md`.
 
-## Architecture Notes (updated 2026-07-05, post-playtest pass)
+## Architecture Notes (updated 2026-07-06, post gameplay-replayability pass)
 
 All debts from the initial audit are resolved; preserve these invariants:
 
+- **Run seeds live at the scene boundary:** live gameplay draws a fresh seed per run from `src/core/RunSeeds.ts` (clock + counter mixer); `BaseGameScene.startNewRun()` reseeds on scene `create()` (switching away and back starts a fresh run, not a resume), on the Restart button, and on ACTION-after-game-over (intercepted before the logic's default-seed self-restart). Tests force exact seeds via the per-game map `window.__ARCADE_FIXED_SEEDS__` (Playwright `addInitScript`; consulted on **every** restart) or a `?seed=N` param; `games/shell/highscore` specs force the historical defaults 7/11/9/12/14 while `smoke/switching/audio` deliberately run live. Any new e2e that waits on a seeded outcome must force its seed. Logic files stay entropy-free — no `Math.random`/`Date` in `*Logic.ts`, ever.
+
 - **Scene switching stops the outgoing scene:** `startGame` in `src/main.ts` tracks `currentSceneKey` and calls `game.scene.stop` before `game.scene.start`, because Phaser's `SceneManager.start` does **not** stop the running scene — without the stop, scenes stack and later scenes in the config list render on top of newly selected ones. The regression test is `tests/switching.spec.ts`.
-- **Pixel-signature contract:** `tests/switching.spec.ts` proves the selected game is actually rendered by counting canvas pixels of per-game signature colors — Lane Rush road `#0d252b` dominant (> 200k px), Bounce Circuit's full-width ground strip `#12353c`, Circuit Stack grid strokes `#31545a` @ 0.8 over the base background, Neon Serpent food magenta (bounded 50..3000), Star Courier ship cyan in the bottom-center region. Visual restyles must keep these signatures (or update the spec deliberately) and must re-run the spec; never weaken it — bridge/DOM assertions cannot catch stacked-scene bugs.
+- **Pixel-signature contract:** `tests/switching.spec.ts` proves the selected game is actually rendered by counting canvas pixels of per-game signature colors — Lane Rush's pseudo-3D road trapezoid `#0d252b` (> 80k px; re-measured at ~114k on the desktop canvas after the 3D redesign), Bounce Circuit's full-width ground strip `#12353c`, Circuit Stack grid strokes `#31545a` @ 0.8 over the base background, Neon Serpent food magenta (bounded 50..3000), Star Courier ship cyan in the bottom-center region. Visual restyles must keep these signatures (or re-measure and update the spec deliberately) and must re-run the spec; never weaken it — bridge/DOM assertions cannot catch stacked-scene bugs.
 - **RNG draw discipline:** deterministic logic tests and e2e scripts depend on the _order_ of `SeededRandom` draws (e.g. Star Courier's seed-9 column-2 opener, Lane Rush's seed-12 crash at tick ~102). Do not add rng draws casually; derive cosmetic variety from stable data instead (Lane Rush car variants use `spawnTick % 3`). If a draw must be added, probe and update the dependent tests deliberately.
 
 - **Scenes render truth:** every game's snapshot exposes real entity positions (`projectiles`/`enemies`, `traffic`, `pieceCells`, …) and scenes draw from them. Never regress to count-based synthetic layouts. Contract tests in each `*Logic.test.ts` pin positions, determinism, and snapshot detachment.
 - **High scores:** `ScoreManager.record()` persists per-game maxima, publishes `highScore` through the bridge/HUD, and dispatches `arcade-high-score` CustomEvents that `GameSelector` renders on cards. `tests/highscore.spec.ts` guards the full path including real gameplay.
 - **Audio:** `audioEngine` is a module singleton with idempotent unlock listeners; Phaser's SoundManager is disabled (`audio: { noAudio: true }`). `tests/audio.spec.ts` asserts at most one AudioContext and no listener growth across scene cycling.
 - **Effects:** shared scene-side helpers live in `src/games/effects.ts` (ESLint-allowlisted for Phaser); emitters self-destroy on scene SHUTDOWN; all decorative effects gate on `reducedMotion`.
-- **Bundle:** Phaser is split into a vendor chunk via `build.rolldownOptions.output.codeSplitting` in `vite.config.ts` (app ≈ 9 kB gzip, Phaser ≈ 319 kB gzip). The >500 kB warning refers to Phaser itself and is intentionally left visible.
+- **Bundle:** Phaser is split into a vendor chunk via `build.rolldownOptions.output.codeSplitting` in `vite.config.ts` (app ≈ 13 kB gzip after the gameplay pass, Phaser ≈ 319 kB gzip). The >500 kB warning refers to Phaser itself and is intentionally left visible.

@@ -32,9 +32,16 @@ export const courierWeaverChance = 0.35;
 export const courierDebrisWave = 2;
 export const courierDebrisIntervalTicks = 130;
 export const courierDebrisWarnTicks = 24;
+// Ship glide per step (~11.5 columns/sec at the 48 ms scene step). Presses
+// queue whole columns onto the target; the glide converges exactly onto the
+// integer column, so a settled ship is always column-aligned for firing.
+export const courierMoveStep = 0.55;
+
+const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 export interface StarCourierState extends GameSnapshot {
   playerX: number;
+  playerTargetX: number;
   projectiles: ReadonlyArray<{ readonly x: number; readonly y: number }>;
   enemies: ReadonlyArray<{ readonly x: number; readonly y: number; readonly kind: number }>;
   debris: ReadonlyArray<{ readonly x: number; readonly y: number; readonly warning: boolean }>;
@@ -48,6 +55,7 @@ export class StarCourierLogic implements GameLogic<StarCourierState> {
   readonly id = 'star-courier';
   private rng = new SeededRandom(9);
   private playerX = 5;
+  private targetX = 5;
   private projectiles: Projectile[] = Array.from({ length: 8 }, () => ({
     x: 0,
     y: 0,
@@ -75,6 +83,7 @@ export class StarCourierLogic implements GameLogic<StarCourierState> {
   restart(seed = 9): StarCourierState {
     this.rng = new SeededRandom(seed);
     this.playerX = 5;
+    this.targetX = 5;
     this.projectiles.forEach((p) => (p.active = false));
     this.enemies.forEach((e) => (e.active = false));
     this.debris.forEach((d) => (d.active = false));
@@ -90,14 +99,25 @@ export class StarCourierLogic implements GameLogic<StarCourierState> {
       this.restart();
       return;
     }
-    if (input === 'LEFT') this.playerX = Math.max(0, this.playerX - 1);
-    if (input === 'RIGHT') this.playerX = Math.min(10, this.playerX + 1);
+    // Presses queue whole columns; rapid taps stack so the ship glides the
+    // full distance in one smooth motion instead of demanding a tap per step.
+    if (input === 'LEFT') this.targetX = Math.max(0, this.targetX - 1);
+    if (input === 'RIGHT') this.targetX = Math.min(10, this.targetX + 1);
     if (input === 'ACTION') this.fire();
   }
 
   step(): StarCourierState {
     if (this.gameOver) return this.getState();
     this.tick += 1;
+    // Glide toward the queued column (pure arithmetic — no rng draws, so the
+    // seeded spawn order is untouched by movement).
+    if (this.playerX !== this.targetX) {
+      const delta = Math.max(
+        -courierMoveStep,
+        Math.min(courierMoveStep, this.targetX - this.playerX)
+      );
+      this.playerX = round2(this.playerX + delta);
+    }
     if (this.tick % Math.max(14, 34 - this.wave * 3) === 0) this.spawnEnemy();
     if (this.wave >= courierDebrisWave && this.tick % courierDebrisIntervalTicks === 0) {
       this.spawnDebris();
@@ -145,6 +165,7 @@ export class StarCourierLogic implements GameLogic<StarCourierState> {
       tick: this.tick,
       phase: this.gameOver ? 'game-over' : 'playing',
       playerX: this.playerX,
+      playerTargetX: this.targetX,
       projectiles,
       enemies,
       debris: this.debris

@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { LaneRushLogic } from './LaneRushLogic';
+import {
+  LaneRushLogic,
+  laneRushBoostCooldownTicks,
+  laneRushBoostDurationTicks,
+  laneRushBoostMultiplier,
+  laneRushDoubleTapTicks,
+  laneRushMaxSpeed
+} from './LaneRushLogic';
+
+// Survive indefinitely by clearing the (public) traffic each step.
+function stepClear(logic: LaneRushLogic, steps: number): void {
+  for (let i = 0; i < steps; i += 1) {
+    logic.traffic.length = 0;
+    logic.step();
+  }
+}
 
 describe('LaneRushLogic', () => {
   it('clamps lane changes at edges', () => {
@@ -71,6 +86,88 @@ describe('LaneRushLogic', () => {
       scored: false,
       variant: 0
     });
+  });
+
+  it('ramps speed monotonically and plateaus at the cap', () => {
+    const logic = new LaneRushLogic();
+    logic.restart(3);
+    let previous = logic.getState().speed;
+    for (let i = 0; i < 1200; i += 1) {
+      logic.traffic.length = 0;
+      logic.step();
+      const speed = logic.getState().speed;
+      expect(speed).toBeGreaterThanOrEqual(previous);
+      previous = speed;
+    }
+    expect(previous, 'long runs must plateau instead of ramping forever').toBe(laneRushMaxSpeed);
+  });
+
+  it('a double tap inside the interval arms the boost; a slow second tap does not', () => {
+    const slow = new LaneRushLogic();
+    slow.restart(3);
+    slow.handleInput('ACTION');
+    stepClear(slow, laneRushDoubleTapTicks + 2);
+    slow.handleInput('ACTION');
+    expect(slow.getState().boostTicksLeft, 'late second tap must not boost').toBe(0);
+
+    const quick = new LaneRushLogic();
+    quick.restart(3);
+    stepClear(quick, 40);
+    const before = quick.getState().speed;
+    quick.handleInput('ACTION');
+    stepClear(quick, 3);
+    quick.handleInput('ACTION');
+    expect(quick.getState().boostTicksLeft).toBe(laneRushBoostDurationTicks);
+    stepClear(quick, 1);
+    expect(quick.getState().speed, 'boost must multiply the base speed').toBeCloseTo(
+      Math.min(laneRushMaxSpeed, 0.18 + quick.getState().tick / 2400) * laneRushBoostMultiplier,
+      3
+    );
+    expect(quick.getState().speed).toBeGreaterThan(before * 1.5);
+  });
+
+  it('boost expires into a cooldown that blocks re-boost until it clears', () => {
+    const logic = new LaneRushLogic();
+    logic.restart(3);
+    logic.handleInput('ACTION');
+    stepClear(logic, 2);
+    logic.handleInput('ACTION');
+    expect(logic.getState().boostTicksLeft).toBe(laneRushBoostDurationTicks);
+    stepClear(logic, laneRushBoostDurationTicks);
+    const expired = logic.getState();
+    expect(expired.boostTicksLeft).toBe(0);
+    expect(expired.boostCooldownTicks).toBe(laneRushBoostCooldownTicks);
+    // A double tap during cooldown must not re-arm.
+    logic.handleInput('ACTION');
+    stepClear(logic, 2);
+    logic.handleInput('ACTION');
+    expect(logic.getState().boostTicksLeft, 'cooldown must block the boost').toBe(0);
+    stepClear(logic, laneRushBoostCooldownTicks);
+    expect(logic.getState().boostCooldownTicks).toBe(0);
+    logic.handleInput('ACTION');
+    stepClear(logic, 2);
+    logic.handleInput('ACTION');
+    expect(logic.getState().boostTicksLeft, 'boost must re-arm after cooldown').toBe(
+      laneRushBoostDurationTicks
+    );
+  });
+
+  it('a parked crash exposes the collision position and ACTION still restarts', () => {
+    const logic = new LaneRushLogic();
+    logic.restart(12);
+    expect(logic.getState().crashLane).toBe(-1);
+    for (let i = 0; i < 400 && !logic.getState().isGameOver; i += 1) logic.step();
+    const crashed = logic.getState();
+    expect(crashed.isGameOver).toBe(true);
+    expect(crashed.crashLane, 'the crash must happen in the parked lane').toBe(crashed.lane);
+    expect(crashed.crashY).toBeGreaterThan(8.8);
+    expect(crashed.crashY).toBeLessThan(10.2);
+    logic.handleInput('ACTION');
+    const restarted = logic.getState();
+    expect(restarted.isGameOver).toBe(false);
+    expect(restarted.score).toBe(0);
+    expect(restarted.crashLane).toBe(-1);
+    expect(restarted.boostTicksLeft).toBe(0);
   });
 
   it('awards near-miss score without registering a hit', () => {

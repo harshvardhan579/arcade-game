@@ -21,9 +21,75 @@ async function snapshot(page: import('@playwright/test').Page): Promise<Record<s
   return page.evaluate(() => window.__ARCADE__!.getState() as Record<string, unknown>);
 }
 
+// Live runs draw a fresh seed per run; every seeded expectation below
+// (seed-9 column-2 opener, seed-12 parked crash, seed-11 spike course, the
+// seed-14 bag, seed-7 food) stays bit-identical by forcing the historical
+// default seeds before the app boots.
+const FORCED_DEFAULT_SEEDS = {
+  'neon-serpent': 7,
+  'bounce-circuit': 11,
+  'star-courier': 9,
+  'lane-rush': 12,
+  'circuit-stack': 14
+};
+
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript((seeds) => {
+    window.__ARCADE_FIXED_SEEDS__ = seeds;
+  }, FORCED_DEFAULT_SEEDS);
   await page.goto('/');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
+});
+
+test('forced seeds reproduce the identical run across restarts', async ({ page }) => {
+  await openGame(page, 'Circuit Stack', 'circuit-stack');
+  // Capture atomically inside the poll: a separate snapshot round-trip can
+  // land after the first piece locks (~720 ms under parallel-worker load),
+  // by which point nextPiece has legitimately advanced to the next deal.
+  const capture = async () => {
+    const handle = await page.waitForFunction(() => {
+      const state = window.__ARCADE__!.getState();
+      return (state.tick as number) > 0
+        ? JSON.stringify({ tick: state.tick, runSeed: state.runSeed, nextPiece: state.nextPiece })
+        : false;
+    });
+    return JSON.parse((await handle.jsonValue()) as string) as {
+      tick: number;
+      runSeed: number;
+      nextPiece: number;
+    };
+  };
+  const first = await capture();
+  expect(first.runSeed, 'bridge must expose the forced run seed').toBe(14);
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(
+    (tick) => (window.__ARCADE__!.getState().tick as number) < tick,
+    first.tick
+  );
+  const second = await capture();
+  expect(second.runSeed, 'restart must reuse the forced seed').toBe(14);
+  expect(second.nextPiece, 'the forced seed must redeal the same bag').toBe(first.nextPiece);
+});
+
+test('Circuit Stack: live restarts redeal the bag from fresh seeds', async ({ page }) => {
+  await openGame(page, 'Circuit Stack', 'circuit-stack');
+  expect((await snapshot(page)).runSeed, 'this spec forces seed 14 on load').toBe(14);
+  // Drop the forced-seed map: every restart from here on is a live run
+  // (nextRunSeed consults the override at each restart, not just at boot).
+  await page.evaluate(() => {
+    delete window.__ARCADE_FIXED_SEEDS__;
+  });
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(() => window.__ARCADE__!.getState().runSeed !== 14);
+  const first = await snapshot(page);
+  await page.getByRole('button', { name: 'Restart' }).click();
+  await page.waitForFunction(
+    (seed) => window.__ARCADE__!.getState().runSeed !== seed,
+    first.runSeed
+  );
+  const second = await snapshot(page);
+  expect(second.runSeed, 'each live restart draws a fresh bag seed').not.toBe(first.runSeed);
+  expect(second.isGameOver).toBe(false);
 });
 
 test('Bounce Circuit: auto-runs forward with working jump feel', async ({ page }) => {
@@ -78,6 +144,9 @@ test('Star Courier: ACTION fires a projectile and playerX clamps at the left edg
     () => (window.__ARCADE__!.getState().projectiles as Cell[]).length > 0
   );
   for (let i = 0; i < 8; i += 1) await page.keyboard.press('ArrowLeft');
+  // Presses queue the clamped target; the ship glides there within a second.
+  expect((await snapshot(page)).playerTargetX).toBe(0);
+  await page.waitForFunction(() => window.__ARCADE__!.getState().playerX === 0);
   const state = await snapshot(page);
   expect(state.playerX).toBe(0);
   for (const projectile of state.projectiles as Cell[]) {
@@ -102,7 +171,8 @@ test('Star Courier: killing the first enemy scores and an unchecked wave ends th
     { timeout: 10_000 }
   );
   for (let i = 0; i < 3; i += 1) await page.keyboard.press('ArrowLeft');
-  expect((await snapshot(page)).playerX, 'seed 9 spawns the first enemy in column 2').toBe(2);
+  expect((await snapshot(page)).playerTargetX, 'seed 9 spawns the first enemy in column 2').toBe(2);
+  await page.waitForFunction(() => window.__ARCADE__!.getState().playerX === 2);
 
   let scored = false;
   for (let i = 0; i < 6 && !scored; i += 1) {
@@ -144,6 +214,22 @@ test('Lane Rush: lane clamps at both edges and traffic stays within world bounds
     expect([0, 1, 2]).toContain(car.lane);
     expect(car.y).toBeLessThan(12);
   }
+});
+
+test('Lane Rush: double-tap ACTION triggers the boost', async ({ page }) => {
+  await openGame(page, 'Lane Rush', 'lane-rush');
+  const before = await snapshot(page);
+  expect(before.boostTicksLeft).toBe(0);
+  await page.keyboard.press(' ');
+  await page.keyboard.press(' ');
+  // handleInput arms the boost instantly; the multiplied speed lands on the
+  // next fixed step, so wait on both together.
+  await page.waitForFunction((baseline) => {
+    const state = window.__ARCADE__!.getState();
+    return (state.boostTicksLeft as number) > 0 && (state.speed as number) > baseline * 1.4;
+  }, before.speed as number);
+  const boosted = await snapshot(page);
+  expect(boosted.boostTicksLeft as number).toBeGreaterThan(0);
 });
 
 test('Lane Rush: a parked player near-misses, then crashes, then restarts cleanly', async ({

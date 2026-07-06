@@ -23,8 +23,8 @@ const games: GameDefinition[] = [
   },
   {
     id: 'bounce-circuit',
-    controls: '↑ jump · ← → shift · Space restarts',
-    controlsTouch: '↑ jump · ← → shift · ● restarts',
+    controls: '↑ jump, again mid-air · ← → shift · Space restarts',
+    controlsTouch: '↑ jump, again mid-air · ← → shift · ● restarts',
     title: 'Bounce Circuit',
     subtitle: 'Neon skyline auto-runner',
     sceneKey: 'bounce-circuit',
@@ -43,8 +43,8 @@ const games: GameDefinition[] = [
   },
   {
     id: 'lane-rush',
-    controls: '← → change lanes',
-    controlsTouch: '← → change lanes',
+    controls: '← → change lanes · double-tap Space = boost',
+    controlsTouch: '← → change lanes · double-tap ● = boost',
     title: 'Lane Rush',
     subtitle: 'Three-lane near-miss racer',
     sceneKey: 'lane-rush',

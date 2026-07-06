@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { SeededRandom } from '../../core/types';
 import {
   CircuitStackLogic,
+  circuitBaseDropTicks,
+  circuitDropTicks,
+  circuitDropTicksPerLevel,
+  circuitLinesPerLevel,
+  circuitMinDropTicks,
   circuitPieces,
   shuffledBag,
   type CircuitStackState
@@ -45,6 +50,71 @@ describe('CircuitStackLogic', () => {
     const first = shuffledBag(new SeededRandom(5), 7);
     expect([...first].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(shuffledBag(new SeededRandom(5), 7)).toEqual(first);
+  });
+
+  it('deals different piece orders for different seeds, identically for the same seed', () => {
+    // The bag itself: distinct seeds shuffle distinct orders (live runs draw
+    // fresh seeds per Phase 1, so live restarts redeal), same seed re-deals.
+    expect(shuffledBag(new SeededRandom(21), 7)).not.toEqual(shuffledBag(new SeededRandom(9), 7));
+    expect(shuffledBag(new SeededRandom(21), 7)).toEqual(shuffledBag(new SeededRandom(21), 7));
+    // And through the whole engine: the first-two-bags spawn sequence.
+    const sequence = (seed: number) => {
+      const logic = new CircuitStackLogic(seed);
+      const spawned: number[] = [identifySpawnedPiece(logic.getState())];
+      while (spawned.length < 14) {
+        dropLockAndClear(logic);
+        spawned.push(identifySpawnedPiece(logic.getState()));
+      }
+      return spawned;
+    };
+    expect(sequence(21)).not.toEqual(sequence(9));
+    expect(sequence(21)).toEqual(sequence(21));
+  });
+
+  it('ACTION after a blocked spawn restarts with a clean board and level', () => {
+    const logic = new CircuitStackLogic(3);
+    logic.grid[12] = Array.from({ length: logic.width }, () => 1);
+    logic.lockForTest();
+    expect(logic.getState().linesCleared).toBeGreaterThanOrEqual(1);
+    logic.grid[0][3] = 1;
+    logic.grid[0][4] = 1;
+    logic.lockForTest();
+    expect(logic.getState().isGameOver).toBe(true);
+    logic.handleInput('ACTION');
+    const restarted = logic.getState();
+    expect(restarted.isGameOver).toBe(false);
+    expect(restarted.score).toBe(0);
+    expect(restarted.occupied).toBe(0);
+    expect(restarted.linesCleared).toBe(0);
+    expect(restarted.level).toBe(0);
+  });
+
+  it('drops faster as lines clear, floored above frantic', () => {
+    // The pure curve.
+    expect(circuitDropTicks(0)).toBe(circuitBaseDropTicks);
+    expect(circuitDropTicks(circuitLinesPerLevel - 1)).toBe(circuitBaseDropTicks);
+    expect(circuitDropTicks(circuitLinesPerLevel)).toBe(
+      circuitBaseDropTicks - circuitDropTicksPerLevel
+    );
+    expect(circuitDropTicks(1000)).toBe(circuitMinDropTicks);
+
+    // Through the engine: clear three rows at once (level 1) and the piece
+    // must fall on the shorter interval, not the base one.
+    const logic = new CircuitStackLogic(1);
+    for (const row of [11, 12, 13]) {
+      logic.grid[row] = Array.from({ length: logic.width }, () => 1);
+    }
+    logic.lockForTest();
+    const leveled = logic.getState();
+    expect(leveled.linesCleared).toBeGreaterThanOrEqual(circuitLinesPerLevel);
+    expect(leveled.level).toBeGreaterThanOrEqual(1);
+    const interval = circuitDropTicks(leveled.linesCleared);
+    expect(interval).toBeLessThan(circuitBaseDropTicks);
+    const startY = logic.getState().pieceY;
+    for (let i = 0; i < interval; i += 1) logic.step();
+    expect(logic.getState().pieceY, 'the piece must fall on the leveled interval').toBeGreaterThan(
+      startY
+    );
   });
 
   it('deals every piece exactly twice across the first two bags', () => {

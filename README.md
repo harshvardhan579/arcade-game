@@ -41,7 +41,7 @@ The Playwright suites go beyond smoke: every game has a deep interaction test (d
 
 Each game is split into:
 
-- A pure `*Logic.ts` engine with deterministic seeded randomness that exposes real entity positions in its state snapshot.
+- A pure `*Logic.ts` engine with deterministic seeded randomness that exposes real entity positions in its state snapshot. Live play draws a fresh run seed per run (new game, Restart, or restart-after-death) from `src/core/RunSeeds.ts`, so obstacles, enemies, traffic, and pieces vary between runs; tests force exact seeds through a documented hook (`window.__ARCADE_FIXED_SEEDS__` / `?seed=N`) and stay fully reproducible.
 - A Phaser `*Scene.ts` renderer that translates semantic input, draws every entity at its true logic position, layers procedural feedback (particles, shake, flashes via the shared `src/games/effects.ts` helper), and publishes canvas state through `window.__ARCADE__`.
 - A focused Vitest file for happy paths, edge cases, and snapshot contracts (positions in bounds, determinism, JSON-serializable and detached).
 
@@ -58,10 +58,10 @@ Shared systems live in `src/core/`:
 ## Games
 
 - Neon Serpent: grid snake with portal wrapping, a combo multiplier, seeded food and mine-styled obstacles, and a visible 17-level speed ramp — eating accelerates the step interval from 144 ms down to an 80 ms floor, surfaced as `Spd N` in the HUD.
-- Bounce Circuit: procedural auto-runner — the world scrolls at a ramping capped speed past seeded chunks of spike clusters, one-way platforms, and orb pickups under a parallax skyline; jumping has coyote time and a landing buffer, orbs score immediately, and the distance run banks into the score on death.
-- Star Courier: vertical shooter with straight-falling drones plus sinusoidally drifting weavers from wave 2, telegraphed un-shootable debris rocks that absorb shots and must be dodged, a dashed defense line, kill popups, wave banners, fixed object pools, and deterministic wave scaling.
-- Lane Rush: neon three-lane racer — near-miss scoring with `+12`/`+5` popups, speed-scaled lane dashes and roadside posts, layered car shapes whose color variants derive from the spawn tick (no extra RNG draws), and crash feedback.
-- Circuit Stack: falling-block puzzle with the full seven-piece tetromino set dealt from a seeded 7-bag, wall kicks (including the ±2 kicks the I piece needs), a ghost landing preview, a shape-accurate next-piece box, multi-row clear scoring, and spawn-blocked game-over.
+- Bounce Circuit: procedural auto-runner — the world scrolls at a ramping capped speed past seeded chunks of spike clusters, one-way platforms, and orb pickups under a parallax skyline; jumping has coyote time, a landing buffer, and one smaller mid-air double jump (the route to the tallest platforms), harder chunk archetypes (spike fences, orb bounties over spikes) unlock with distance, orbs score immediately, and the distance run banks into the score on death.
+- Star Courier: vertical shooter with straight-falling drones plus sinusoidally drifting weavers from wave 2, telegraphed un-shootable debris rocks that absorb shots and must be dodged, queued glide strafing (taps stack whole columns and the ship sweeps across at ~11 columns/sec, settling column-exact for aiming), a dashed defense line, kill popups, wave banners, fixed object pools, and deterministic wave scaling.
+- Lane Rush: pseudo-3D neon three-lane racer — horizon and road trapezoid with depth-eased lane dashes, roadside posts, and depth-scaled cars; near-miss scoring with `+12`/`+5` popups and a visible scoring band on the asphalt; a double-tap ACTION boost (duration, cooldown, HUD state, exhaust flames); a capped speed ramp; and a crash impact at the true collision lane/depth (shockwave rings, jolted cars, sparks — simplified under reduced motion). Car color variants derive from the spawn tick (no extra RNG draws).
+- Circuit Stack: falling-block puzzle with the full seven-piece tetromino set dealt from a seeded 7-bag (live runs redeal a fresh order every restart), wall kicks (including the ±2 kicks the I piece needs), a ghost landing preview, a shape-accurate next-piece box, multi-row clear scoring, a gentle gravity curve that quickens with lines cleared (level and lines in the HUD, floored well above frantic), and spawn-blocked game-over.
 
 ## Responsive Shell
 
@@ -81,6 +81,6 @@ The app itself contains no runtime AI or ML. The case-study framing is intention
 
 ## Current Limitations
 
-- Phaser ships as its own ~319 kB gzip vendor chunk (the app chunk is ~9 kB gzip); the build still warns about Phaser's size, which is inherent to the pinned engine. Per-scene lazy loading is a possible further optimization.
+- Phaser ships as its own ~319 kB gzip vendor chunk (the app chunk is ~13 kB gzip); the build still warns about Phaser's size, which is inherent to the pinned engine. Per-scene lazy loading is a possible further optimization.
 - Synthesized audio is intentionally minimal and is not asserted in headless E2E (only that audio paths do not throw and exactly one AudioContext exists).
 - Row-clear celebrations in Circuit Stack are covered by logic tests but not exercised end-to-end (setting up a full row honestly in e2e is too slow).

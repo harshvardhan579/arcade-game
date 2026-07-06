@@ -31,6 +31,13 @@ body,
   min-height: 100%;
   margin: 0;
   overscroll-behavior: none;
+  /* Rapid taps that land just beside a control (topbar, shell padding, grid
+     gaps) must never double-tap-zoom the page mid-game. A touch gesture is
+     only allowed if the touched element and its ancestors allow it, so
+     covering the root kills double-tap zoom everywhere while manipulation
+     keeps pan and pinch-zoom, preserving accessibility zoom. The per-control
+     rules below stay as defense in depth. */
+  touch-action: manipulation;
 }
 
 body {

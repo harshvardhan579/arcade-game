@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { audioEngine } from '../core/AudioEngine';
+import { nextRunSeed } from '../core/RunSeeds';
 import { ScoreManager } from '../core/ScoreManager';
 import { publishBridge, updateBridgeSnapshot } from '../core/TestBridge';
 import { hasCoarsePointer, prefersReducedMotion } from '../core/Viewport';
@@ -16,10 +17,20 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
   protected stepMs = 120;
   protected reducedMotion = false;
   protected scores!: ScoreManager;
+  protected runSeed = 0;
   private readonly audio = audioEngine;
   private readonly onInput = (event: Event) => {
     const input = (event as CustomEvent<SemanticInput>).detail;
     const before = this.logic.getState();
+    if (input === 'ACTION' && before.isGameOver) {
+      // The logic's own ACTION-restart would replay its fixed default seed;
+      // the scene owns run seeds so every new run varies (or honors the
+      // forced test seed). The logic-internal restart stays as a fallback
+      // for pure-logic use.
+      this.startNewRun();
+      this.audio.play('select');
+      return;
+    }
     this.logic.handleInput(input);
     if (input === 'ACTION') this.audio.play('select');
     const after = this.logic.getState();
@@ -27,13 +38,22 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     if (after.isGameOver && !before.isGameOver) this.audio.play('game-over');
   };
   private readonly onRestart = () => {
-    this.logic.restart();
+    this.startNewRun();
     this.audio.play('select');
   };
+
+  private startNewRun(): void {
+    this.runSeed = nextRunSeed(this.scene.key);
+    this.logic.restart(this.runSeed);
+  }
 
   create(): void {
     this.reducedMotion = prefersReducedMotion();
     this.scores = new ScoreManager(this.scene.key);
+    // A scene (re)start is a new run: switching away and back begins fresh
+    // instead of resuming the frozen old run, and live play draws a fresh
+    // seed each time (a forced test seed reproduces the exact same run).
+    this.startNewRun();
     this.audio.attachUnlockListeners();
     this.graphics = this.add.graphics();
     this.hud = this.add.text(18, 16, '', {
@@ -55,7 +75,8 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     window.addEventListener('arcade-restart', this.onRestart);
     publishBridge(this.scene.key, () => ({
       ...this.logic.getState(),
-      highScore: this.scores.highScore
+      highScore: this.scores.highScore,
+      runSeed: this.runSeed
     }));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('arcade-semantic-input', this.onInput);
@@ -77,7 +98,7 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     }
     const latest = this.logic.getState();
     this.scores.record(latest.score);
-    updateBridgeSnapshot({ ...latest, highScore: this.scores.highScore });
+    updateBridgeSnapshot({ ...latest, highScore: this.scores.highScore, runSeed: this.runSeed });
     this.renderState(latest);
   }
 

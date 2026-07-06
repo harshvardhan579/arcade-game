@@ -55,9 +55,13 @@ const games = [
     name: 'Neon Serpent',
     hint: 'Arrows steer · eating speeds up · Space restarts'
   },
-  { id: 'bounce-circuit', name: 'Bounce Circuit', hint: '↑ jump · ← → shift · Space restarts' },
+  {
+    id: 'bounce-circuit',
+    name: 'Bounce Circuit',
+    hint: '↑ jump, again mid-air · ← → shift · Space restarts'
+  },
   { id: 'star-courier', name: 'Star Courier', hint: '← → move · Space fires' },
-  { id: 'lane-rush', name: 'Lane Rush', hint: '← → change lanes' },
+  { id: 'lane-rush', name: 'Lane Rush', hint: '← → change lanes · double-tap Space = boost' },
   { id: 'circuit-stack', name: 'Circuit Stack', hint: '← → move · ↑ rotate · ↓ drop' }
 ] as const;
 
@@ -88,8 +92,11 @@ async function expectRendered(
     `circuit-stack grid must be gone while ${id} plays`
   ).toBeLessThan(500);
   if (id === 'lane-rush') {
+    // Pseudo-3D road: the #0d252b trapezoid measures ~114k px on the desktop
+    // canvas (down from the >200k flat fill); 80k keeps margin for scrolling
+    // dashes/cars while still proving the road dominates the composition.
     expect(await countColor(page, ROAD), 'lane-rush road must fill the screen').toBeGreaterThan(
-      200_000
+      80_000
     );
   } else if (id === 'bounce-circuit') {
     expect(

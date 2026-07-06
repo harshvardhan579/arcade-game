@@ -12,6 +12,7 @@ export class BounceCircuitScene extends BaseGameScene<BounceCircuitState> {
   private lastGrounded = true;
   private lastOrbs = 0;
   private lastGameOver = false;
+  private lastAirJumpUsed = false;
   private squashUntil = 0;
 
   constructor() {
@@ -25,6 +26,7 @@ export class BounceCircuitScene extends BaseGameScene<BounceCircuitState> {
     this.lastGrounded = state.grounded;
     this.lastOrbs = state.orbsCollected;
     this.lastGameOver = state.isGameOver;
+    this.lastAirJumpUsed = state.airJumpUsed;
     this.squashUntil = 0;
   }
 
@@ -135,6 +137,10 @@ export class BounceCircuitScene extends BaseGameScene<BounceCircuitState> {
         this.squashUntil = this.time.now + 130;
         this.sparks?.explode(6, toX(state.playerX), ground - 4);
       }
+      if (state.airJumpUsed && !this.lastAirJumpUsed && !state.isGameOver) {
+        // Mid-air jump kick: a small puff under the player sells the impulse.
+        this.sparks?.explode(8, toX(state.playerX), ground - state.playerY * UNIT_Y + 6);
+      }
       if (state.orbsCollected > this.lastOrbs) {
         const px = toX(state.playerX);
         const py = ground - state.playerY * UNIT_Y - 16;
@@ -149,5 +155,6 @@ export class BounceCircuitScene extends BaseGameScene<BounceCircuitState> {
     this.lastGrounded = state.grounded;
     this.lastOrbs = state.orbsCollected;
     this.lastGameOver = state.isGameOver;
+    this.lastAirJumpUsed = state.airJumpUsed;
   }
 }
