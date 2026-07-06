@@ -120,6 +120,7 @@ select {
    (.game-root and .touch-controls already opt out with touch-action: none). */
 .restart-button,
 .mobile-game-select,
+.theme-toggle,
 .game-card {
   touch-action: manipulation;
 }
@@ -258,6 +259,7 @@ h2 {
 .game-card:focus-visible,
 .touch-button:focus-visible,
 .restart-button:focus-visible,
+.theme-toggle:focus-visible,
 .mobile-game-select:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
@@ -317,6 +319,33 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Quiet by design: the picker and Restart lead the topbar hierarchy. */
+.theme-toggle {
+  min-height: 42px;
+  min-width: 42px;
+  padding: 0 12px;
+  color: var(--text);
+  background: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease-out,
+    background-color 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent-text);
+}
+
+.theme-toggle:active {
+  transform: translateY(1px);
+  background: var(--control-pressed);
 }
 
 .mobile-game-picker {
@@ -576,13 +605,18 @@ h2 {
   }
 
   .topbar-actions {
-    flex-direction: column;
+    /* Picker spans the full width; Restart and the theme toggle share the
+       second row, so the toggle adds zero topbar height (the canvas row
+       keeps every pixel it had before the toggle existed). */
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: stretch;
     gap: 8px;
   }
 
   .mobile-game-picker {
     display: grid;
+    grid-column: 1 / -1;
     gap: 3px;
     color: var(--muted);
     font-size: 0.72rem;
@@ -604,8 +638,13 @@ h2 {
   /* Apple HIG floor is 44pt; the base 42px is scoped up on touch layouts
      only so desktop chrome keeps its exact metrics. */
   .restart-button,
-  .mobile-game-select {
+  .mobile-game-select,
+  .theme-toggle {
     min-height: 44px;
+  }
+
+  .theme-toggle {
+    min-width: 44px;
   }
 }
 
@@ -652,8 +691,13 @@ h2 {
   }
 
   .restart-button,
-  .mobile-game-select {
+  .mobile-game-select,
+  .theme-toggle {
     min-height: 44px;
+  }
+
+  .theme-toggle {
+    min-width: 44px;
   }
 
   .restart-button {

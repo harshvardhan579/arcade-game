@@ -389,6 +389,42 @@ test('mobile canvas and touch controls share the viewport without overlap', asyn
   }
 });
 
+test('theme toggle switches the shell theme by click and by keyboard', async ({ page }) => {
+  const readTheme = () => page.evaluate(() => document.documentElement.dataset.theme ?? 'dark');
+  const toggle = page.locator('.theme-toggle');
+  await expect(toggle, 'toggle must expose an action-stating name').toHaveAccessibleName(
+    'Switch to light theme'
+  );
+  expect(await readTheme()).toBe('dark');
+
+  await toggle.click();
+  expect(await readTheme(), 'click must flip to light').toBe('light');
+  await expect(toggle).toHaveAccessibleName('Switch to dark theme');
+
+  // Keyboard: focus + Enter activates like any native button.
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  expect(await readTheme(), 'keyboard activation must flip back to dark').toBe('dark');
+  await expect(toggle).toHaveAccessibleName('Switch to light theme');
+});
+
+test('theme toggle is touch-sized and shares the Restart row on mobile', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only sizing assertions');
+  const toggle = await page.locator('.theme-toggle').boundingBox();
+  expect(toggle, 'toggle must render on mobile').not.toBeNull();
+  expect(toggle!.height, '44px touch floor').toBeGreaterThanOrEqual(44);
+  expect(toggle!.width, '44px touch floor').toBeGreaterThanOrEqual(44);
+  // The toggle must not grow the topbar: it sits beside Restart, not below it.
+  const restart = await page.getByRole('button', { name: 'Restart' }).boundingBox();
+  expect(
+    Math.abs(toggle!.y - restart!.y),
+    'toggle and Restart must share a row'
+  ).toBeLessThanOrEqual(1);
+});
+
 test('page surfaces opt out of double-tap zoom so rapid taps cannot zoom mid-game', async ({
   page,
   viewport

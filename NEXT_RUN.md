@@ -7,11 +7,41 @@ Loop: `.claude/theme-pass-loop.md` (one phase per invocation, strict order).
 | Phase | Scope                                     | Status              |
 | ----- | ----------------------------------------- | ------------------- |
 | 0     | Theme audit + design decision (analysis)  | done (`84eb4f5`)    |
-| 1     | CSS variable foundation, both token sets  | **done** (this run) |
-| 2     | Theme toggle UI + tests                   | next                |
-| 3     | Persistence + system preference + no-FOUC | pending             |
+| 1     | CSS variable foundation, both token sets  | done (`81cfee1`)    |
+| 2     | Theme toggle UI + tests                   | **done** (this run) |
+| 3     | Persistence + system preference + no-FOUC | next                |
 | 4     | Desktop/mobile polish, both themes        | pending             |
 | 5     | Validation, docs, close-out               | pending             |
+
+## Phase 2 (this run) — what changed
+
+- **`src/ui/ThemeToggle.ts` (new):** `createThemeToggle()` renders a text-glyph (◐)
+  button that flips `data-theme` on `<html>`; dynamic accessible name
+  ("Switch to light theme" / "Switch to dark theme") + matching `title`; blurs after
+  activation like the cards/select/Restart so gameplay keys keep flowing. Exports
+  `currentTheme`/`applyTheme` as the seam Phase 3 wraps with persistence.
+- **`src/ui/ArcadeShell.ts`:** toggle appended to `.topbar-actions` **after Restart**
+  (tab-order pin: cards ×5 → Restart at 6 → toggle at 7; the pinned test ran green
+  unmodified).
+- **`src/style.css`:** quiet control-token styling (base 42 px, hover accent border,
+  pressed state) in both themes; added to the shared focus-visible and
+  `touch-action: manipulation` groups; 44 px floors in both touch blocks; and the
+  planned portrait mitigation — `.topbar-actions` becomes `grid-template-columns:
+1fr auto` with the picker spanning both columns, so **Restart and the toggle share
+  a row and the toggle adds zero topbar height** (canvas keeps every pixel).
+- **Tests (`tests/shell.spec.ts`, +2):** toggle flips theme by click and by
+  focus+Enter with the accessible name swapping (runs on both projects); mobile-only
+  sizing pin — ≥44×44 px and **same-row-as-Restart** (|Δy| ≤ 1 px), which is the
+  regression guard for the zero-height mitigation.
+- Screenshots: dark + light topbars verified on desktop and mobile (picker full-width,
+  Restart + ◐ side by side).
+
+### Phase 2 validation
+
+- `shell + smoke` both projects: 19 passed / 13 intentionally skipped (tab-order and
+  no-overlap pins green unmodified).
+- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
+  Playwright **38 passed / 30 intentionally skipped** (+3 for the new theme tests).
 
 ## Phase 1 (this run) — what changed
 
