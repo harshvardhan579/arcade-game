@@ -55,7 +55,11 @@ const games = [
     name: 'Neon Serpent',
     hint: 'Arrows steer · eating speeds up · Space restarts'
   },
-  { id: 'bounce-circuit', name: 'Bounce Circuit', hint: '↑ jump · ← → shift · Space restarts' },
+  {
+    id: 'bounce-circuit',
+    name: 'Bounce Circuit',
+    hint: '↑ jump, again mid-air · ← → shift · Space restarts'
+  },
   { id: 'star-courier', name: 'Star Courier', hint: '← → move · Space fires' },
   { id: 'lane-rush', name: 'Lane Rush', hint: '← → change lanes' },
   { id: 'circuit-stack', name: 'Circuit Stack', hint: '← → move · ↑ rotate · ↓ drop' }

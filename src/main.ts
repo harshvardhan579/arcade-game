@@ -23,8 +23,8 @@ const games: GameDefinition[] = [
   },
   {
     id: 'bounce-circuit',
-    controls: '↑ jump · ← → shift · Space restarts',
-    controlsTouch: '↑ jump · ← → shift · ● restarts',
+    controls: '↑ jump, again mid-air · ← → shift · Space restarts',
+    controlsTouch: '↑ jump, again mid-air · ← → shift · ● restarts',
     title: 'Bounce Circuit',
     subtitle: 'Neon skyline auto-runner',
     sceneKey: 'bounce-circuit',

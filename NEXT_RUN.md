@@ -7,81 +7,92 @@ Loop: `.claude/gameplay-replayability-loop.md` (one phase per invocation, strict
 | Phase | Scope                                              | Status              |
 | ----- | -------------------------------------------------- | ------------------- |
 | 0     | Mobile rapid-tap zoom P0 (CSS/touch, no gameplay)  | done (`cedf11a`)    |
-| 1     | Runtime seed variation, deterministic tests intact | **done** (this run) |
-| 2     | Bounce Circuit: jump tuning, double jump, variety  | next                |
-| 3     | Star Courier: movement/aiming feel                 | pending             |
+| 1     | Runtime seed variation, deterministic tests intact | done (`3b8d761`)    |
+| 2     | Bounce Circuit: jump tuning, double jump, variety  | **done** (this run) |
+| 3     | Star Courier: movement/aiming feel                 | next                |
 | 4     | Lane Rush: pseudo-3D + double-tap boost            | pending             |
 | 5     | Circuit Stack: live 7-bag variation                | pending             |
 | 6     | Validation + docs close-out                        | pending             |
 
-## Phase 1 (this run) — what changed
+## Phase 2 (this run) — what changed
 
-**Live runs now vary; tests force exact seeds; logic untouched.**
+All gameplay truth in `BounceCircuitLogic.ts` (exported, tested constants); scene change
+is presentation-only; no other game touched; ACTION stays single-shot per tap (no input
+semantics changed anywhere).
 
-- **`src/core/RunSeeds.ts` (new):** `nextRunSeed(gameId)` returns a forced seed when one
-  is set, else a fresh non-zero 32-bit seed from a pure mixer (`mixSeed`, exported for
-  unit tests) over `Date.now()` + `performance.now()` + a monotonic counter (the counter
-  keeps same-millisecond restarts distinct). Forcing hooks: per-game map
-  `window.__ARCADE_FIXED_SEEDS__` (primary, set via Playwright `addInitScript`) and a
-  `?seed=N` URL param that forces every game (manual debugging; code-reviewed, not
-  e2e-covered — the map path shares the same code and is e2e-proven).
-- **`src/games/BaseGameScene.ts`:** the scene owns the run seed via `startNewRun()`
-  (draw seed → `logic.restart(seed)`), called from all three run boundaries: scene
-  `create()`, the Restart button (`arcade-restart`), and **ACTION-after-game-over**
-  (intercepted in `onInput` before delegating — the logic-internal ACTION-restart would
-  replay its fixed default seed; it remains as a pure-logic fallback). `runSeed` is
-  published through the bridge snapshot alongside `highScore`.
-- **Deliberate behavior change:** switching away from a game and back now starts a
-  fresh run instead of resuming the frozen old one (scene `create()` reseeds). This
-  also makes the switching pixel spec _more_ stable (counts always run against tick-0
-  state, never a mid-run/game-over dim overlay).
-- **`src/games/*Logic.ts`: zero changes.** No RNG draws added/reordered anywhere.
-- **Seeded e2e migrated in this same slice (forced to the historical defaults
-  7/11/9/12/14, so every pinned outcome stays bit-identical):** `games.spec.ts`,
-  `shell.spec.ts`, `highscore.spec.ts` set `__ARCADE_FIXED_SEEDS__` in `beforeEach`.
-  `smoke.spec.ts`, `switching.spec.ts`, `audio.spec.ts` stay **unforced** on purpose —
-  they prove the live path (their assertions are seed-agnostic).
-- **`src/ui/CaseStudyPanel.ts`:** test-count copy refreshed 54 → 57.
+- **Jump nerf (controllable):** `runnerJumpVelocity` 5.2 → **4.2** — peak drops from
+  ~3.68 to ~2.34 units, so one press no longer sails over everything and orbs on the
+  arc are reachable on purpose.
+- **Double jump (new):** second press while airborne = `runnerDoubleJumpVelocity = 3.2`
+  (~+1.3 from the press point; mastering both roughly equals the old single jump).
+  One per airtime, re-armed on landing; coyote press still gives the full first jump
+  and keeps the air jump in hand; a press after the air jump is spent falls back to
+  the existing landing buffer. The tallest (2.5) platforms are now **double-jump
+  content**: unreachable solo (pinned), landable with first+double (pinned).
+- **Orb collectability:** pickup box widened from 0.55/0.75 to exported
+  `runnerOrbWindowX = 0.7` / `runnerOrbWindowY = 0.95`. The y-reach now covers the
+  platform-orb offset (0.8), so landing on / running across a platform collects its
+  orb — previously it silently required a second hop.
+- **Chunk variety + fair progression:** two harder archetypes unlock at
+  `runnerHardChunkAt = 96` units (gated by stable chunk position, not rng):
+  type 5 **spike fence** (three spikes at 1.1 spacing — clearable with a timed jump at
+  post-gate speeds, double jump as recovery) and type 6 **orb bounty** (orb at y 1.3
+  over a spike — risk-priced reward on the jump arc). The "never two spikeless chunks
+  in a row" cadence rule is preserved across the wider table.
+- **Scene (`BounceCircuitScene.ts`):** spark puff on the double-jump impulse
+  (reduced-motion gated); rendering stays entity-based, ground-strip signature
+  untouched.
+- **Discoverability:** Bounce hint is now "↑ jump, again mid-air · ← → shift ·
+  Space/● restarts" (`main.ts`), with the pinned string in `tests/switching.spec.ts`
+  updated in this same slice. README game line and case-study test count (57 → 63)
+  refreshed.
 
-## New tests
+## Deliberately updated pins (old → new, why)
 
-- **Vitest (`src/core/RunSeeds.test.ts`, +3, boundary-clean):** mixer determinism;
-  non-zero unsigned 32-bit output for degenerate inputs; 500 distinct seeds across
-  consecutive counters under a frozen clock.
-- **E2e, fail-first verified (red pre-change with `runSeed: undefined`):**
-  - `games.spec.ts` "forced seeds reproduce the identical run across restarts" —
-    forced Circuit Stack reports `runSeed` 14 before and after Restart and redeals the
-    same `nextPiece`.
-  - `smoke.spec.ts` "live runs draw a fresh seed per restart so runs vary" (both
-    projects, unforced) — bridge exposes a numeric `runSeed` and Restart draws a
-    different one.
+- **`buffers a jump pressed just before landing` (vitest) rewritten:** a mid-air press
+  now consumes the double jump first, so the buffer behavior is asserted _after_ the
+  air jump is spent (third press buffers; impulse unchanged at press; auto-jump fires
+  on landing). Same contract, one step later in the input sequence.
+- **Seed-11 e2e course changed** (chunk table widened) but both Bounce e2e tests held
+  **without edits** — re-probed: unguided death banks ≥ 28 (structural: first spike
+  can't appear before the 32-unit grace) and completes in ~8.3 s against the 15 s
+  timeout.
+- No other pinned value changed; seeds 9/11/12 vitest tests were constant-based and
+  survived the retune by construction.
+
+## New tests (Bounce vitest 13 → 19)
+
+- Double jump: smaller impulse, one-per-airtime, re-armed on landing.
+- Buffer-after-double (the rewritten pin above).
+- Coyote precedence: full impulse, air jump preserved.
+- Tuning pin: solo peak in [2.2, 2.5); first+double lands on a 2.5 platform.
+- Orb reach: collects a 0.8-high orb while grounded; ignores one just past the reach.
+- Hard-chunk gate: fence and bounty both appear in a seed-11 probe run and **never
+  before 96 units** (scan-then-survive loop that prunes only kill-band spikes).
+- Course variation: seeds 21 vs 22 differ across several chunks (first-chunk-only
+  comparison was a real cross-seed coincidence — both open with a pair at [37, 38.1]).
 
 ## Validation (all green)
 
-- Fail-first: all three new e2e red against pre-change code (`runSeed` undefined).
-- Full Playwright, both projects: **33 passed / 27 intentionally skipped** (was 30/26;
-  +2 live-variation passes, +1 forced-reproducibility pass, +1 mobile skip). All
-  seeded pins (seed-9 opener, seed-12 crash, seed-11 course, seed-14 bag) held
-  without modification.
-- Full `npm run validate`: build + strict tsc, **57 Vitest**, ESLint + import boundary
-  (11 files) + Prettier, Playwright 33/27.
+- `npx vitest run src/games/bounce-circuit`: 19 passed.
+- Bounce e2e (forced seed 11) + `switching.spec.ts` (scene + hint touched): green.
+- Full `npm run validate`: build + strict tsc, **63 Vitest**, ESLint + import boundary
+  - Prettier, Playwright **33 passed / 27 intentionally skipped**.
+- Note: the import boundary caught the word "wind\*w" in two of my own comments
+  (guardrail 3 of the loop file) — reworded to "reach"/"band"; the guard works.
 
-## Notes / carry-forwards
+## Manual QA additions (next real-device pass)
 
-- Phase 6 should fold the run-seed invariant into `CLAUDE.md`'s architecture notes
-  (e2e that pins seeded outcomes must force seeds via `__ARCADE_FIXED_SEEDS__`) and
-  re-check `CURRENT_APP_STATE.md` §3/§7 (bridge now carries `runSeed`; switch-back
-  restarts fresh; replayability "fixed constants" note is stale).
-- Real-device QA from Phase 0 still outstanding (rapid-tap zoom list in git history of
-  this file, commit `cedf11a`); add "restart twice → visibly different food/traffic"
-  to that phone pass as a live-variation smoke check.
+- Bounce: one tap = short controllable hop; tap again mid-air = visible second kick
+  with spark puff; tallest platforms only reachable with the double jump; orbs collect
+  when landing on platforms; fences/bounties start appearing after ~30 s of running.
 
-## Next task (Phase 2 — start cold from the loop file)
+## Next task (Phase 3 — start cold from the loop file)
 
-Bounce Circuit tuning: lower first-jump impulse (tallest 2.5-unit platform must stay
-reachable — prove by logic test), add double jump (smaller second impulse, air-once,
-reset on land, buffer/coyote precedence pinned), widen orb pickup/placement, add
-distance-weighted chunk variety. **Chunk changes shift the seed-11 draw sequence** —
-re-probe and deliberately update Bounce vitest pins and the e2e unguided-death
-expectations in the same slice. Full detail in `.claude/gameplay-replayability-loop.md`
-Phase 2.
+Star Courier movement/aiming feel: pick the smallest coherent set from — logic glide
+toward an integer target column (fast deterministic traversal, column-precise aiming),
+scene-side visual interpolation, tighter `TouchControls` repeat delay (global input
+change: re-run pressed/repeat + tap-once specs both projects). Movement consumes no
+RNG (seed-9 spawns safe) but `games.spec.ts` pins position-after-presses (3×LEFT → x 2,
+8×LEFT → x 0) — update deliberately if semantics become target/glide. Full detail in
+`.claude/gameplay-replayability-loop.md` Phase 3.
