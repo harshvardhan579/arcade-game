@@ -1,122 +1,176 @@
 # NEXT_RUN — Global Leaderboard Pass (branch `leaderboard-pass-1`)
 
-Loop: `.claude/leaderboard-loop.md` (one phase per invocation, strict order).
-Spec: `LEADERBOARD_PLAN.md`. System map: `CURRENT_APP_STATE.md`.
+Loop: `.claude/leaderboard-loop.md`. Spec: `LEADERBOARD_PLAN.md` (marked
+IMPLEMENTED). System map: `CURRENT_APP_STATE.md`. **Pass complete — phases 0–6
+done, all green, ready to merge.**
 
 ## Phase status
 
-| Phase | Scope                                           | Status              |
-| ----- | ----------------------------------------------- | ------------------- |
-| 0     | Readiness gate + plan-pin verification          | done (`e264f6e`)    |
-| 1     | `src/leaderboard/` shared validation + Vitest   | done (`3123105`)    |
-| 2     | `api/leaderboard.ts` + tsconfig/lint/build      | done (`dcbe362`)    |
-| 3     | `LeaderboardService` client (flag-gated)        | done (`4c1e9b0`)    |
-| 4     | Name entry + submission UI (`arcade-game-over`) | done (`db4a5d8`)    |
-| 5     | Display: game-over top-10 + home `World` line   | **done** (this run) |
-| 6     | Hardening + docs + deploy checklist             | next                |
+| Phase | Scope                                           | Status           |
+| ----- | ----------------------------------------------- | ---------------- |
+| 0     | Readiness gate + plan-pin verification          | done (`e264f6e`) |
+| 1     | `src/leaderboard/` shared validation + Vitest   | done (`3123105`) |
+| 2     | `api/leaderboard.ts` + tsconfig/lint/build      | done (`dcbe362`) |
+| 3     | `LeaderboardService` client (flag-gated)        | done (`4c1e9b0`) |
+| 4     | Name entry + submission UI (`arcade-game-over`) | done (`db4a5d8`) |
+| 5     | Display: game-over top-10 + home `World` line   | done (`7eb97aa`) |
+| 6     | Hardening + docs + deploy checklist             | **done** (this)  |
 
-## Phase 5 (this run) — leaderboard display
+## Phase 6 (this run) — hardening + docs
 
-**What changed**
+**What changed:** documentation only — no source/test/behavior changes.
 
-- **`src/ui/LeaderboardPanel.ts`** — on panel open, `loadTopList(run)` calls
-  `leaderboardService.fetchTop(gameId, limit)` (limit **10** fine-pointer / **5**
-  coarse-pointer) and renders a compact `<ol>` under the submit row. States:
-  loading `…`, ranked rows, empty `No scores yet — be the first`, error
-  `Global scores unavailable`. Rank/name/score via `textContent` only. Never
-  blocks Submit/Retry/Restart/Back/ACTION. An **improved** accept re-fetches the
-  list; a non-improving accept leaves it as-is.
-- **`src/ui/HomeScreen.ts`** — the high line is now
-  `<span class="hs-local">High N</span><span class="hs-world"></span>`. When the
-  hub is shown and the flag is on, `refreshWorldScores()` calls
-  `fetchTops()` once and appends ` · World <score>` (`toLocaleString`,
-  `textContent`) to cards with a global best; omitted otherwise. Gated on
-  `data-mode==='home'`, throttled (default **60 s**, `lastTopsFetchAt` claimed
-  before await), triggered on initial home boot and `arcade-go-home` (both via
-  `requestAnimationFrame` so the shell mode is settled first). Failure is
-  silent — no fragment, no `console.error`. The live `arcade-high-score` handler
-  now updates `.hs-local` only, leaving the World fragment intact.
-- **`src/style.css`** — `.lb-list*` rows (compact, theme tokens, tabular nums);
-  `.home-card-high` pinned single-line (`nowrap`/ellipsis) so the World fragment
-  can never add card height; muted `.hs-world`.
+- `README.md` — new "Global Leaderboard (optional, flag-gated)" section (feature,
+  name entry, local vs global, Vercel/Supabase architecture, env-var names without
+  values, deploy notes) + a leaderboard entry under Current Limitations.
+- `CLAUDE.md` — architecture map updated (`src/leaderboard/`, `api/`, new core/ui
+  modules) + a "Leaderboard Invariants" block (flag gating, no browser Supabase,
+  shared server-authoritative validation, `arcade-game-over`/`arcade-run-start`
+  contracts, independent local highs, throttled home tops, `textContent`, DOM-not-
+  canvas, test rules).
+- `CURRENT_APP_STATE.md` — leaderboard pass note + counts refreshed (Vitest 154,
+  Playwright 103/33, 8 spec files) + `leaderboard`/`home` spec coverage bullets.
+- `LEADERBOARD_PLAN.md` — "IMPLEMENTED" banner: final files/architecture,
+  deliberate deviations, honest security limitations.
+- `NEXT_RUN.md` — this final summary.
 
-**Deliberately updated pins**
+## Test integrity audit (branch vs `main`)
 
-- Home now issues one `game=all` `fetchTop`… `fetchTops()` per home visit when
-  enabled (throttled). Test hook `window.__ARCADE_LB_TOPS_TTL__` overrides the
-  throttle window (ms), mirroring the `__ARCADE_FIXED_SEEDS__` pattern.
-- **Phase 3 service specs** (`leaderboard.spec.ts` tests 2 & 3) now drive the
-  service in **game mode** (`/?game=neon-serpent`) so the new home auto-fetch
-  does not inflate their exact request counts. Same assertions otherwise.
-- **Phase 4 invalid-name spec** now counts **POST** requests only (the panel
-  legitimately GETs the top list on open); the contract "an invalid name never
-  submits" is unchanged.
-- `.home-card-high` split into `.hs-local` + `.hs-world`; its combined
-  `textContent` is unchanged flag-off, so existing home high-score specs stay
-  green.
+Only **two** test files differ from `main`, both intended:
 
-**Validation** (`npm run validate` — all green)
+- `tests/leaderboard.spec.ts` — **entirely new** on this branch (created Phase 3,
+  extended 4–5). No pre-existing assertion exists to weaken.
+- `tests/home.spec.ts` — **pure additions** (+153 lines; diffstat shows no
+  deletions). Existing home assertions are byte-identical to `main`.
+- `smoke` / `games` / `switching` / `highscore` / `audio` / `shell` specs are
+  **byte-identical to `main`** — untouched, none weakened.
 
-- Targeted: `leaderboard.spec.ts` + `home.spec.ts` → desktop + mobile all pass;
-  flake pass `--repeat-each=3` on the throttle/refetch/World home specs (both
-  projects) → clean.
-- Full: build (root + api tsc) green; Vitest **154 passed** (11 files); eslint,
-  import-boundary (**16 files**), Prettier clean; Playwright **103 passed / 33
-  skipped** (both projects). `grep -ri supabase dist/` empty. Pixel-signature
-  switching specs unchanged (list + World are DOM, never drawn into canvas).
+Documented intra-branch deltas (Phase 5, not weakenings):
 
-**Manual QA checklist (real preview, `VITE_LEADERBOARD_ENABLED=1`)**
+- Phase-3 service specs (`leaderboard.spec` tests 2 & 3) now drive the service in
+  **game mode** so the new home `game=all` auto-fetch does not inflate their exact
+  request counts. Same result assertions.
+- Phase-4 invalid-name spec now counts **POST** requests only — the panel
+  legitimately GETs the top list on open; the "invalid name never submits" contract
+  is unchanged.
+- `home.spec` high-score assertions unchanged; `.home-card-high` was split into
+  `.hs-local` + `.hs-world`, and the combined `textContent` is identical flag-off.
 
-- [ ] Game over: top list loads (`…` → rows) under the submit row; empty and
-      offline states read cleanly; list never covers Restart/Back or the mobile
-      d-pad/ACTION; no page scroll; dark + light both readable.
-- [ ] Mobile shows `TOP 5`, desktop `TOP 10`; server names render literally
-      (no HTML injection).
-- [ ] Improved submit refreshes the list to show the new rank; a non-improving
-      submit leaves it.
-- [ ] Home cards show `High N · World M` for games with a global best; no World
-      fragment for games without; one line, no card-height growth, no scroll.
-- [ ] Back to home within a minute does not refetch; after a minute it can.
-- [ ] Flag off: no World fragments, no top list, zero `/api` on home and
-      game-over; home layout unchanged.
+No tests skipped, no assertions deleted, no timeouts raised to mask flakes.
 
-## Phase 6 — cold-start brief (hardening + docs + deploy)
+## Final validation results
 
-1. **Test/flake sweep.** `--repeat-each=2` on leaderboard + home + shell + smoke
-   (both projects). Confirm every plan-§9 row exists and is green; diff the
-   specs to prove no existing assertion was weakened (the Phase 5 changes to
-   `leaderboard.spec` tests 2/3 + invalid-name and the `home.spec` high-line
-   structure are the intended deltas — everything else must be untouched).
-2. **Docs.** README (feature + flag + architecture paragraph); `CLAUDE.md`
-   architecture notes (leaderboard invariants: flag gating, no keys client-side,
-   shared validation module, `arcade-game-over`/`arcade-run-start` contracts,
-   `pocket-arcade:player-name` key, home `game=all` throttle, protected hooks);
-   `CURRENT_APP_STATE.md` refresh; `LEADERBOARD_PLAN.md` marked
-   implemented-with-deviations.
-3. **Deploy checklist** (record in `NEXT_RUN.md`): push branch → Vercel preview →
-   curl matrix against the preview URL (submit / each 4xx / 7th-rapid 429 / GET
-   cache header) → browser smoke on preview (submit a real score, see it on the
-   home World line and the game-over list) → verify prod envs → merge → repeat
-   the browser smoke on production → confirm Supabase rows look sane.
-4. **Owed from Phase 0:** eyeball the Supabase RLS shield + zero-policies state
-   in the dashboard before trusting prod.
-5. Fresh full `npm run validate`; commit only if green; stop with push/PR
-   commands.
+- **Flake sweep:** `npx playwright test leaderboard home shell smoke games
+--repeat-each=2` (both projects) → **194 passed / 58 skipped**, exit 0. No
+  forced-seed restart flake, no console-cleanliness regression, throttle/refetch
+  stable.
+- **Full `npm run validate`** (fresh) → **green**:
+  - build: `tsc --noEmit` (root) + `tsc --noEmit -p api` + `vite build` OK.
+  - Vitest: **154 passed** (11 files).
+  - lint: eslint (`src tests scripts api`) + import-boundary (**16 files**) +
+    Prettier `--check .` clean.
+  - Playwright: **103 passed / 33 skipped** (desktop + mobile), incl. the
+    `switching.spec` pixel-signature regression → no pixel-signature regression.
+- **Secret grep:** `grep -riE 'supabase|service_role|SUPABASE_SERVICE_ROLE_KEY|LEADERBOARD_IP_SALT'
+dist/` → **empty**. Even `VITE_LEADERBOARD_ENABLED` compiles away flag-off.
+- **Flag-off network:** `leaderboard.spec` + `home.spec` pin **zero `/api`** on home
+  and game-over with the flag off. Flag-on specs use `page.route` mocks only.
+- **Repo hygiene:** `.env*` is git-ignored (`.gitignore:8`); no `.env` file is
+  tracked.
+
+## Deploy checklist (manual — run against a Vercel Preview, then Production)
+
+Automated so far: `.env*` ignored + untracked ✅; `dist` secret-free ✅. The rest
+require the live platforms and must be done by a human with dashboard access:
+
+**Env vars (Vercel → Settings → Environment Variables, Production + Preview):**
+
+- [ ] `SUPABASE_URL` set (server-only, not `VITE_`-prefixed)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` set + marked Sensitive (server-only)
+- [ ] `LEADERBOARD_IP_SALT` set (`openssl rand -hex 16`, Sensitive)
+- [ ] `VITE_LEADERBOARD_ENABLED = 1` (the only `VITE_` leaderboard var)
+- [ ] `.env.local` present locally only, never committed (verified ignored above)
+
+**Supabase dashboard:**
+
+- [ ] `leaderboard_scores` table exists
+- [ ] `leaderboard_submissions` table exists
+- [ ] RLS enabled (shield icon) on both, with **zero policies** (← Phase 0 residual:
+      confirm the zero-policies state visually before trusting prod)
+- [ ] `submit_score` function exists; `service_role` can execute it
+- [ ] tables clean or only deliberate test rows
+
+**Preview deployment smoke (browser):**
+
+- [ ] home loads; `World` fragments appear (or fail silently — no console error)
+- [ ] play a game, die with a positive score, enter a valid name, Submit → rank/best
+- [ ] the score appears in the game-over top list
+- [ ] returning home (after the throttle) shows it on the `World` line
+- [ ] a profanity/too-short/illegal name blocks Submit
+- [ ] mobile portrait fits with no scroll; dark + light both readable
+
+**Curl matrix (against the Preview URL or `vercel dev`):**
+
+- [ ] `GET /api/leaderboard?game=neon-serpent` → 200 + `Cache-Control` header
+- [ ] `GET /api/leaderboard?game=all` → 200 tops
+- [ ] `POST` valid score → 200 `{accepted, improved, best, rank}`
+- [ ] `POST` implausible score → 400 `implausible_score`
+- [ ] `POST` banned name → 400 `name_not_allowed`
+- [ ] 7th rapid `POST` within 60 s → 429 `rate_limited`
+- [ ] `PUT`/`DELETE` → 405 `method_not_allowed`
+- [ ] malformed body → 400 `invalid_body`
+
+## Manual QA checklist (feature behavior)
+
+- [ ] Game-over panel: lower-third overlay, doesn't cover Restart/Back/d-pad/ACTION,
+      no page scroll, both themes readable, reduced-motion calm.
+- [ ] Submit is always explicit; one submission per run-end; Retry re-arms after a
+      failure; Restart/Back/ACTION restart all still work with the panel open.
+- [ ] Saved name greets on the next game over with Edit; Edit changes the name.
+- [ ] Top list: TOP 10 desktop / TOP 5 mobile; loading `…`, empty, and unavailable
+      states read cleanly; server names render literally (no HTML injection).
+- [ ] Home cards: `High N · World M`; one line, no card-height growth, no scroll;
+      omitted for games without a global best.
+
+## Known limitations
+
+- No accounts/auth; names are not owned. Score integrity is best-effort: server
+  enforces plausibility bounds + profanity/reserved filter + salted-IP rate limit
+  (6 / 60 s), but a client posting plausible, well-formed scores is not
+  cryptographically blocked. Not an anti-cheat system.
+- Home `World` fetch is throttled ≥60 s; a brand-new global best set elsewhere can
+  lag on an already-open home hub until the window elapses.
+- The real API is verified manually (`vercel dev` / preview curl); CI never hits a
+  real backend (route mocks only).
+- Phase 0's RLS/zero-policies state was inferred from a single-batch schema run —
+  eyeball it in the dashboard before production (checklist above).
+
+## Merge recommendation
+
+**Recommend merge.** The branch is fully green (build + api tsc + Vitest 154 + lint
+
+- Playwright 103/33 + clean flake pass), `dist` is secret-free, and the feature is
+  **off by default** — merging to `main` changes nothing for the static build until
+  `VITE_LEADERBOARD_ENABLED=1` is set in the deploy env. Suggested flow: open the PR,
+  run the Preview deploy checklist above, then merge and repeat the browser smoke on
+  Production.
+
+* Push: `git push -u origin leaderboard-pass-1`
+* PR title: `Global leaderboard (flag-gated): API, submission UI, and display`
+* After merge, enable `VITE_LEADERBOARD_ENABLED=1` (Prod + Preview) and run the
+  deploy checklist.
 
 ## Prior-phase anchors
 
-- **Phase 4 (`db4a5d8`):** `BaseGameScene` emits `arcade-game-over`
-  (`GameOverDetail {gameId,score,tick,runSeed}`) once on alive→dead + a plain
-  `arcade-run-start` from `startNewRun()`. `src/ui/LeaderboardPanel.ts`
-  flag-gated overlay: name entry / saved name + Edit, live validator messages,
-  explicit Submit (one per run-end, Retry re-arms), name at
-  `pocket-arcade:player-name` on accept only, `textContent` for server data,
-  dismiss on run-start + go-home.
-- **Phase 3 (`4c1e9b0`):** `LeaderboardService` singleton, flag gate
-  `VITE_LEADERBOARD_ENABLED==='1'` OR `__ARCADE_LB_FORCE__`; `fetchTop`,
-  `fetchTops`, `submit`; 5 s abort; typed results; never throws/logs.
-- **Phase 2 (`dcbe362`):** `api/leaderboard.ts` over `serverCore.ts` (method/
-  origin guards, §4 validation order, RPC → `improved`/429, generic 502).
-- **Phase 0 (binding):** error codes 400/403/405/413/415/429/502; rate-limit
-  **6 / ip_hash / 60 s**; GET cache
-  `public, s-maxage=30, stale-while-revalidate=120`. RLS eyeball owed pre-prod.
+- **Phase 5 (`7eb97aa`):** game-over top list (`fetchTop`, TOP 10/5, loading/empty/
+  unavailable, refresh-on-improved) + home `World` fragments (throttled `fetchTops`,
+  mode-gated, silent-on-fail, `textContent`).
+- **Phase 4 (`db4a5d8`):** `arcade-game-over`/`arcade-run-start`; `LeaderboardPanel`
+  submit flow; name at `pocket-arcade:player-name` on accept.
+- **Phase 3 (`4c1e9b0`):** `LeaderboardService` (flag-gated, same-origin, typed
+  never-throwing results).
+- **Phase 2 (`dcbe362`):** `api/leaderboard.ts` over `serverCore.ts` (guards,
+  validation order, RPC → improved/429, generic 502).
+- **Phase 0/1 (`e264f6e`/`3123105`):** readiness gate + pure shared validation.
+  Error codes 400/403/405/413/415/429/502; rate-limit 6 / ip_hash / 60 s; GET cache
+  `public, s-maxage=30, stale-while-revalidate=120`.
