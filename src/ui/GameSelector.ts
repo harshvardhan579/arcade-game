@@ -2,7 +2,7 @@ import type { HighScoreEventDetail } from '../core/ScoreManager';
 import { SafeStorage } from '../core/Storage';
 import type { GameDefinition } from '../core/types';
 
-function formatHigh(score: number): string {
+export function formatHigh(score: number): string {
   return score > 0 ? `High ${score}` : 'High —';
 }
 

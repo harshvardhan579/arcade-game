@@ -42,7 +42,7 @@ test('cycling all games does not accumulate audio unlock listeners or throw', as
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
-  await page.goto('/');
+  await page.goto('/?game=neon-serpent');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
   const baseline = await page.evaluate(() => ({ ...window.__LISTENER_COUNTS__ }));
 

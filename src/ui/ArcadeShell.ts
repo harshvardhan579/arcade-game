@@ -2,8 +2,16 @@ import type { GameDefinition } from '../core/types';
 import { hasCoarsePointer } from '../core/Viewport';
 import { createCaseStudyPanel } from './CaseStudyPanel';
 import { createGameSelector, createMobileGameSelect } from './GameSelector';
+import { createHomeScreen } from './HomeScreen';
 import { createThemeToggle } from './ThemeToggle';
 import { createTouchControls } from './TouchControls';
+
+export type ShellMode = 'home' | 'game';
+
+/** The shell shows exactly one surface set per mode (CSS keys off this). */
+export function setShellMode(mode: ShellMode): void {
+  document.querySelector<HTMLElement>('.arcade-shell')?.setAttribute('data-mode', mode);
+}
 
 export function createArcadeShell(
   root: HTMLElement,
@@ -12,6 +20,7 @@ export function createArcadeShell(
   root.innerHTML = '';
   const shell = document.createElement('main');
   shell.className = 'arcade-shell';
+  shell.dataset.mode = 'home';
 
   const stage = document.createElement('section');
   stage.className = 'stage';
@@ -23,14 +32,20 @@ export function createArcadeShell(
         <p class="controls-hint" aria-label="Controls"></p>
       </div>
       <div class="topbar-actions">
+        <button class="back-button" type="button" aria-label="Back to games">‹ Games</button>
         <button class="restart-button" type="button">Restart</button>
       </div>
     </header>
     <div id="game-root" class="game-root" aria-label="Game canvas"></div>
   `;
   stage.querySelector('.topbar-actions')?.prepend(createMobileGameSelect(games));
-  // After Restart in DOM order: the desktop keyboard spec pins Restart at
-  // tab position six, so the toggle must follow it, never precede it.
+  const back = stage.querySelector<HTMLButtonElement>('.back-button');
+  back?.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('arcade-go-home'));
+    back.blur();
+  });
+  // Last in DOM order: the desktop keyboard spec pins the tab order as
+  // cards ×5 → Back → Restart → this toggle; never let it precede them.
   stage.querySelector('.topbar-actions')?.append(createThemeToggle());
   stage.append(createTouchControls());
   const restart = stage.querySelector<HTMLButtonElement>('.restart-button');
@@ -51,7 +66,7 @@ export function createArcadeShell(
     showControls((event as CustomEvent<string>).detail);
   });
 
-  shell.append(createGameSelector(games), stage, createCaseStudyPanel());
+  shell.append(createHomeScreen(games), createGameSelector(games), stage, createCaseStudyPanel());
   root.append(shell);
   return stage.querySelector<HTMLElement>('#game-root')!;
 }

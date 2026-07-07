@@ -19,13 +19,14 @@ test.beforeEach(async ({ page }) => {
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
-  await page.goto('/');
+  await page.goto('/?game=neon-serpent');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
   expect(errors).toEqual([]);
 });
 
 test('loads shell and Neon Serpent responds to keyboard', async ({ page }) => {
-  await expect(page.locator('h1')).toHaveText('Pocket Arcade');
+  // Two h1 elements exist in the DOM (home hub + game topbar); exactly one renders per mode.
+  await expect(page.locator('h1:visible')).toHaveText('Pocket Arcade');
   await expect(page.locator('.game-card')).toHaveCount(5);
   await expect(page.locator('#game-root canvas')).toBeVisible();
   expect(await page.evaluate(() => window.__ARCADE__!.activeScene)).toBe('neon-serpent');

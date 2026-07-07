@@ -129,7 +129,7 @@ test('switching renders the selected game, including back out of Circuit Stack',
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
-  await page.goto('/');
+  await page.goto('/?game=neon-serpent');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 
   for (const game of games.slice(1)) {

@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
       'circuit-stack': 14
     };
   });
-  await page.goto('/');
+  await page.goto('/?game=neon-serpent');
   await waitForBridge(page);
   await page.evaluate(() => {
     Object.keys(window.localStorage)

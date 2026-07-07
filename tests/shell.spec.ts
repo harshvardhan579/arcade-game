@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
       'circuit-stack': 14
     };
   });
-  await page.goto('/');
+  await page.goto('/?game=neon-serpent');
   await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 });
 
@@ -41,7 +41,7 @@ test('desktop fits without scrolling, hides touch controls, and brands once', as
     [1366, 768]
   ] as const) {
     await page.setViewportSize({ width, height });
-    await page.goto('/');
+    await page.goto('/?game=neon-serpent');
     await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
     await expect(page.locator('.touch-controls')).toBeHidden();
     const overflow = await page.evaluate(() => ({
@@ -63,7 +63,7 @@ test('desktop fits without scrolling, hides touch controls, and brands once', as
 test('keyboard reaches, sees, and activates the shell controls', async ({ page, viewport }) => {
   test.skip(Boolean(viewport && viewport.width < 900), 'desktop-only keyboard assertions');
   const order: string[] = [];
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 7; i += 1) {
     await page.keyboard.press('Tab');
     order.push(
       await page.evaluate(() => {
@@ -79,8 +79,14 @@ test('keyboard reaches, sees, and activates the shell controls', async ({ page, 
     'lane-rush',
     'circuit-stack'
   ]);
-  expect(order[5], 'restart must follow the cards in tab order').toContain('restart-button');
+  // Deliberate pin update (home-screen pass): Back sits between the cards
+  // and Restart in the topbar.
+  expect(order[5], 'Back must follow the cards in tab order').toContain('back-button');
+  expect(order[6], 'restart must follow Back in tab order').toContain('restart-button');
 
+  // Two hops back past Back to reach the last card (one hop would land on
+  // Back and Enter would navigate home).
+  await page.keyboard.press('Shift+Tab');
   await page.keyboard.press('Shift+Tab');
   const outline = await page.evaluate(() => {
     const style = getComputedStyle(document.activeElement as HTMLElement);
@@ -180,7 +186,7 @@ test('coarse-pointer landscape phones keep the game playable', async ({ page, vi
     [932, 430]
   ] as const) {
     await page.setViewportSize({ width, height });
-    await page.goto('/');
+    await page.goto('/?game=neon-serpent');
     await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 
     // A touch device must always have working inputs — including at 932px
@@ -213,7 +219,12 @@ test('coarse-pointer landscape phones keep the game playable', async ({ page, vi
     // The touch overlay sits above the topbar in z-order, so any overlap
     // steals taps from Restart/the picker/the theme toggle.
     const chrome = [];
-    for (const selector of ['.restart-button', '.mobile-game-select', '.theme-toggle']) {
+    for (const selector of [
+      '.restart-button',
+      '.mobile-game-select',
+      '.back-button',
+      '.topbar .theme-toggle'
+    ]) {
       const control = await page.locator(selector).boundingBox();
       if (control) chrome.push({ selector, control });
     }
@@ -346,7 +357,7 @@ test('mobile canvas and touch controls share the viewport without overlap', asyn
     [390, 664]
   ] as const) {
     await page.setViewportSize({ width, height });
-    await page.goto('/');
+    await page.goto('/?game=neon-serpent');
     await page.waitForFunction(() => Boolean(window.__ARCADE__?.getState));
 
     // Root-cause pin for the real-device Safari toolbar bug: the base
@@ -406,7 +417,7 @@ test('mobile canvas and touch controls share the viewport without overlap', asyn
 
 test('theme toggle switches the shell theme by click and by keyboard', async ({ page }) => {
   const readTheme = () => page.evaluate(() => document.documentElement.dataset.theme ?? 'dark');
-  const toggle = page.locator('.theme-toggle');
+  const toggle = page.locator('.topbar .theme-toggle');
   await expect(toggle, 'toggle must expose an action-stating name').toHaveAccessibleName(
     'Switch to light theme'
   );
@@ -444,7 +455,7 @@ test('theme follows the system preference on a first visit', async ({ page }) =>
 });
 
 test('a chosen theme persists across reload and beats the system preference', async ({ page }) => {
-  await page.locator('.theme-toggle').click();
+  await page.locator('.topbar .theme-toggle').click();
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
 
   await page.reload();
@@ -486,7 +497,7 @@ test('the shell boots dark and stays playable when storage is unavailable', asyn
     'broken storage must fall back to the dark identity'
   ).toBe('dark');
   // The toggle still works in-session; persistence is simply best-effort.
-  await page.locator('.theme-toggle').click();
+  await page.locator('.topbar .theme-toggle').click();
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('light');
   expect(errors).toEqual([]);
 });
@@ -496,7 +507,7 @@ test('theme toggle is touch-sized and shares the Restart row on mobile', async (
   viewport
 }) => {
   test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only sizing assertions');
-  const toggle = await page.locator('.theme-toggle').boundingBox();
+  const toggle = await page.locator('.topbar .theme-toggle').boundingBox();
   expect(toggle, 'toggle must render on mobile').not.toBeNull();
   expect(toggle!.height, '44px touch floor').toBeGreaterThanOrEqual(44);
   expect(toggle!.width, '44px touch floor').toBeGreaterThanOrEqual(44);
