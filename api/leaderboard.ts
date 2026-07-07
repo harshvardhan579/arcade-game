@@ -11,8 +11,8 @@ import type {
   CoreRequest,
   LeaderboardTransport,
   SubmitOutcome
-} from '../src/leaderboard/serverCore';
-import { handleLeaderboardRequest } from '../src/leaderboard/serverCore';
+} from '../src/leaderboard/serverCore.js';
+import { handleLeaderboardRequest } from '../src/leaderboard/serverCore.js';
 
 function headerValue(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {

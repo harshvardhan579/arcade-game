@@ -4,10 +4,10 @@
 // writes the CoreResponse back. Everything decision-shaped lives here, pure
 // and Node-safe, so Vitest covers every status code without a network.
 
-import { validateName } from './names';
-import { isPlausibleScore, isValidRunSeed, isValidScore, isValidTick } from './plausibility';
-import type { GameId, LeaderboardErrorCode, TopsByGame } from './types';
-import { GAME_IDS, isGameId } from './types';
+import { validateName } from './names.js';
+import { isPlausibleScore, isValidRunSeed, isValidScore, isValidTick } from './plausibility.js';
+import type { GameId, LeaderboardErrorCode, TopsByGame } from './types.js';
+import { GAME_IDS, isGameId } from './types.js';
 
 export interface TransportTopRow {
   name: string;
