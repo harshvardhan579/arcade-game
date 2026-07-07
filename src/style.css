@@ -155,6 +155,7 @@ select {
 .arcade-shell[data-mode='home'] .home-screen {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 16px;
   width: 100%;
   max-width: 880px;
@@ -185,8 +186,10 @@ select {
 
 .home-card {
   display: grid;
-  gap: 4px;
-  padding: 16px;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
   color: var(--text);
   text-align: left;
   background: var(--card-bg);
@@ -200,14 +203,34 @@ select {
     transform 0.18s ease-out;
 }
 
+.home-card-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
 .home-card strong {
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   letter-spacing: 0.01em;
 }
 
-.home-card span {
+.home-card-sub,
+.home-card-hook {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.home-card-hook {
+  font-style: italic;
+}
+
+.home-card-high {
+  margin-top: 2px;
+  color: var(--score-text);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .home-card:hover {
@@ -218,6 +241,168 @@ select {
 
 .home-card:active {
   transform: translateY(1px);
+}
+
+/* --- Procedural game emblems -------------------------------------------
+   Pure CSS mini cabinet screens: like .game-root, the tile stays literally
+   dark in both themes (the games are dark/neon); accents use the identity
+   tokens, which are theme-invariant. No images, SVG, or fonts. */
+
+.home-logo {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background-color: #071114;
+}
+
+.home-logo::before,
+.home-logo::after {
+  content: '';
+  position: absolute;
+}
+
+/* Neon Serpent: grid tile, pixel-snake with an L-bend, glowing food dot. */
+.home-logo--neon-serpent {
+  background-image:
+    repeating-linear-gradient(0deg, rgba(77, 255, 225, 0.1) 0 1px, transparent 1px 11px),
+    repeating-linear-gradient(90deg, rgba(77, 255, 225, 0.1) 0 1px, transparent 1px 11px);
+}
+
+.home-logo--neon-serpent::before {
+  top: 34px;
+  left: 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--cyan);
+  box-shadow:
+    11px 0 0 var(--cyan),
+    22px 0 0 var(--cyan),
+    22px -11px 0 var(--cyan);
+}
+
+.home-logo--neon-serpent::after {
+  top: 14px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 8px 2px rgba(255, 79, 216, 0.6);
+}
+
+/* Bounce Circuit: ground strip + orb in the tile, runner mid-jump, spike. */
+.home-logo--bounce-circuit {
+  background-image:
+    radial-gradient(circle 4px at 46px 16px, var(--yellow) 0 3px, transparent 4px),
+    linear-gradient(to top, #12353c 0 9px, transparent 9px);
+}
+
+.home-logo--bounce-circuit::before {
+  bottom: 26px;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--cyan);
+  box-shadow: 0 0 8px rgba(77, 255, 225, 0.45);
+}
+
+.home-logo--bounce-circuit::after {
+  bottom: 9px;
+  right: 14px;
+  width: 14px;
+  height: 12px;
+  background: var(--red);
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+}
+
+/* Star Courier: starfield dots, cyan ship, projectile over the nose. */
+.home-logo--star-courier {
+  background-image:
+    radial-gradient(circle 2px at 14px 14px, #1d4650 0 1.5px, transparent 2px),
+    radial-gradient(circle 2px at 46px 22px, #1d4650 0 1.5px, transparent 2px),
+    radial-gradient(circle 2px at 30px 8px, #1d4650 0 1.5px, transparent 2px),
+    radial-gradient(circle 2px at 52px 44px, #1d4650 0 1.5px, transparent 2px);
+}
+
+.home-logo--star-courier::before {
+  bottom: 10px;
+  left: 22px;
+  width: 20px;
+  height: 18px;
+  background: var(--cyan);
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+}
+
+.home-logo--star-courier::after {
+  bottom: 34px;
+  left: 30px;
+  width: 4px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--text);
+  box-shadow: 0 0 6px rgba(216, 255, 249, 0.7);
+}
+
+/* Lane Rush: horizon glow, road trapezoid, car with receding dashes. */
+.home-logo--lane-rush {
+  background-image: linear-gradient(
+    to bottom,
+    transparent 0 13px,
+    rgba(77, 255, 225, 0.5) 13px 14px,
+    transparent 14px
+  );
+}
+
+.home-logo--lane-rush::before {
+  inset: 14px 0 0 0;
+  background: #0d252b;
+  clip-path: polygon(40% 0, 60% 0, 92% 100%, 8% 100%);
+}
+
+.home-logo--lane-rush::after {
+  bottom: 8px;
+  left: 27px;
+  width: 10px;
+  height: 15px;
+  border-radius: 3px;
+  background: var(--cyan);
+  /* Receding center dashes, drawn with shrinking shadows. */
+  box-shadow:
+    0 -19px 0 -3.5px rgba(216, 255, 249, 0.55),
+    0 -28px 0 -4px rgba(216, 255, 249, 0.35);
+}
+
+/* Circuit Stack: grid strokes, magenta T piece, ghost outline below. */
+.home-logo--circuit-stack {
+  background-image:
+    repeating-linear-gradient(0deg, rgba(49, 84, 90, 0.8) 0 1px, transparent 1px 10px),
+    repeating-linear-gradient(90deg, rgba(49, 84, 90, 0.8) 0 1px, transparent 1px 10px);
+}
+
+.home-logo--circuit-stack::before {
+  top: 12px;
+  left: 17px;
+  width: 9px;
+  height: 9px;
+  background: var(--pink);
+  box-shadow:
+    10px 0 0 var(--pink),
+    20px 0 0 var(--pink),
+    10px 10px 0 var(--pink);
+}
+
+.home-logo--circuit-stack::after {
+  bottom: 9px;
+  left: 27px;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 79, 216, 0.45);
+  border-radius: 2px;
 }
 
 .back-button {

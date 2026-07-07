@@ -43,32 +43,50 @@ test.beforeEach(async ({ page }) => {
 
 test('forced seeds reproduce the identical run across restarts', async ({ page }) => {
   await openGame(page, 'Circuit Stack', 'circuit-stack');
-  // Capture atomically inside the poll: a separate snapshot round-trip can
-  // land after the first piece locks (~720 ms under parallel-worker load),
-  // by which point nextPiece has legitimately advanced to the next deal.
+  // Capture atomically inside the poll, and only compare pre-lock snapshots
+  // (occupied === 0): under full-suite parallel load a throttled tab wakes
+  // with a Phaser accumulator burst that can lock the first piece (~tick 24)
+  // before the poll lands, legitimately advancing nextPiece. Two pre-lock
+  // captures keep the equality claim exact and deterministic; a bounded
+  // restart-retry re-arms the window whenever a burst eats it.
   const capture = async () => {
     const handle = await page.waitForFunction(() => {
       const state = window.__ARCADE__!.getState();
       return (state.tick as number) > 0
-        ? JSON.stringify({ tick: state.tick, runSeed: state.runSeed, nextPiece: state.nextPiece })
+        ? JSON.stringify({
+            tick: state.tick,
+            runSeed: state.runSeed,
+            nextPiece: state.nextPiece,
+            occupied: state.occupied
+          })
         : false;
     });
     return JSON.parse((await handle.jsonValue()) as string) as {
       tick: number;
       runSeed: number;
       nextPiece: number;
+      occupied: number;
     };
+  };
+  const restartAndCapturePreLock = async () => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const before = await capture();
+      await page.getByRole('button', { name: 'Restart' }).click();
+      await page.waitForFunction(
+        (tick) => (window.__ARCADE__!.getState().tick as number) < tick,
+        before.tick
+      );
+      const snap = await capture();
+      expect(snap.runSeed, 'every restart must reuse the forced seed').toBe(14);
+      if (snap.occupied === 0) return snap;
+    }
+    throw new Error('could not capture a pre-lock snapshot in four restarts');
   };
   const first = await capture();
   expect(first.runSeed, 'bridge must expose the forced run seed').toBe(14);
-  await page.getByRole('button', { name: 'Restart' }).click();
-  await page.waitForFunction(
-    (tick) => (window.__ARCADE__!.getState().tick as number) < tick,
-    first.tick
-  );
-  const second = await capture();
-  expect(second.runSeed, 'restart must reuse the forced seed').toBe(14);
-  expect(second.nextPiece, 'the forced seed must redeal the same bag').toBe(first.nextPiece);
+  const firstPreLock = first.occupied === 0 ? first : await restartAndCapturePreLock();
+  const second = await restartAndCapturePreLock();
+  expect(second.nextPiece, 'the forced seed must redeal the same bag').toBe(firstPreLock.nextPiece);
 });
 
 test('Circuit Stack: live restarts redeal the bag from fresh seeds', async ({ page }) => {

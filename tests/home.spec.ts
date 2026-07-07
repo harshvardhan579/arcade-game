@@ -61,6 +61,62 @@ test('?game deep links enter game mode; invalid ids fall back to home', async ({
   expect(await shellMode(page)).toBe('home');
 });
 
+test('home cards carry emblems, accessible names, and live high scores', async ({ page }) => {
+  for (const name of [
+    'Neon Serpent',
+    'Bounce Circuit',
+    'Star Courier',
+    'Lane Rush',
+    'Circuit Stack'
+  ]) {
+    await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+  }
+  // Every card renders its procedural emblem box.
+  await expect(page.locator('.home-card .home-logo')).toHaveCount(5);
+
+  // Persisted highs render on load; empty state elsewhere.
+  await page.evaluate(() => window.localStorage.setItem('pocket-arcade:lane-rush:high', '4321'));
+  await page.reload();
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+  await expect(page.locator('.home-card[data-game-id="lane-rush"] .home-card-high')).toHaveText(
+    'High 4321'
+  );
+  await expect(page.locator('.home-card[data-game-id="neon-serpent"] .home-card-high')).toHaveText(
+    'High —'
+  );
+
+  // Live update: the hub subscribes to arcade-high-score like the sidebar.
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new CustomEvent('arcade-high-score', { detail: { gameId: 'neon-serpent', score: 88 } })
+    );
+  });
+  await expect(page.locator('.home-card[data-game-id="neon-serpent"] .home-card-high')).toHaveText(
+    'High 88'
+  );
+});
+
+test('keyboard tab order on home walks the toggle then the cards', async ({ page }) => {
+  const order: string[] = [];
+  for (let i = 0; i < 6; i += 1) {
+    await page.keyboard.press('Tab');
+    order.push(
+      await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return el?.dataset.gameId ?? el?.className ?? 'none';
+      })
+    );
+  }
+  expect(order[0], 'the header theme toggle is the first tab stop').toContain('theme-toggle');
+  expect(order.slice(1), 'cards follow in registry order').toEqual([
+    'neon-serpent',
+    'bounce-circuit',
+    'star-courier',
+    'lane-rush',
+    'circuit-stack'
+  ]);
+});
+
 test('the theme toggle works from the home screen', async ({ page }) => {
   const readTheme = () => page.evaluate(() => document.documentElement.dataset.theme ?? 'dark');
   const toggle = page.locator('.home-screen .theme-toggle');

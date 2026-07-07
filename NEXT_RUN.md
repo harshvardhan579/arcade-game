@@ -7,11 +7,52 @@ Loop: `.claude/home-screen-loop.md` (one phase per invocation, strict order).
 | Phase | Scope                                   | Status              |
 | ----- | --------------------------------------- | ------------------- |
 | 0     | Design audit + decisions (analysis)     | done (`33e9dec`)    |
-| 1     | Home mode architecture + spec migration | **done** (this run) |
-| 2     | Procedural logos + home cards           | next                |
-| 3     | Game-mode polish (Back)                 | pending             |
+| 1     | Home mode architecture + spec migration | done (`4ca07f8`)    |
+| 2     | Procedural logos + home cards           | **done** (this run) |
+| 3     | Game-mode polish (Back)                 | next                |
 | 4     | Tests and regression sweep              | pending             |
 | 5     | Docs and close                          | pending             |
+
+## Phase 2 (this run) — what changed
+
+- **Five procedural emblems (`.home-logo--<id>`, pure CSS, zero assets):** mini cabinet
+  screens — the tile stays literally dark in both themes (like `.game-root`) with
+  theme-invariant identity-token accents. Neon Serpent: grid + L-bend pixel snake
+  (box-shadow segments) + glowing food dot. Bounce Circuit: ground strip + amber orb
+  (background gradients) + cyan runner mid-jump + red clip-path spike. Star Courier:
+  radial-gradient starfield + clip-path ship + glowing projectile. Lane Rush: horizon
+  glow + clip-path road trapezoid + car with receding center dashes (shrinking
+  box-shadows). Circuit Stack: grid strokes + box-shadow-composed magenta T piece +
+  ghost outline. All shapes are gradients/pseudo-elements/clip-path/box-shadow; no
+  images, SVG, fonts, or glyph dependencies; nothing animates (nothing to
+  reduced-motion-gate).
+- **Home cards upgraded:** emblem (64 px, `aria-hidden`) + title + subtitle + italic
+  one-line hook (hub copy lives in `HomeScreen.ts`) + live `.home-card-high`
+  (`arcade-high-score` subscription reusing the sidebar's exported `formatHigh`;
+  `High —` empty state; amber `--score-text`, tabular numerals). Hub vertically
+  centered. The 64 px emblems fit portrait without a compact variant (~84 px cards;
+  the no-scroll fit test verifies at 375×667 and 667×375 with all cards in-viewport).
+- **Tests (`tests/home.spec.ts` +2, now 8):** five cards by accessible name + emblem
+  count; persisted highs render (`High 4321`), empty state elsewhere, and the
+  subscription live-updates on `arcade-high-score`; home keyboard tab order (toggle
+  first, then cards in registry order).
+- **Flake fix (test-only, documented):** the gameplay-pass forced-seeds e2e resurfaced
+  under the heavier 7-spec parallel load — a throttled tab wakes with a Phaser
+  accumulator burst that can lock the first piece before the atomic capture lands,
+  legitimately advancing `nextPiece`. The capture now only compares **pre-lock
+  snapshots** (`occupied === 0`) with a bounded restart-retry: the equality claim is
+  unchanged and exact, the timing noise is gone. Two consecutive full-suite runs
+  green.
+
+### Phase 2 validation
+
+- `tests/home.spec.ts`: 13 passed / 1 intentionally skipped.
+- Screenshots both themes × desktop/portrait/landscape (scratchpad `logos-*.png`):
+  every emblem reads at a glance; dark tiles on light cards carry the daylight-cabinet
+  language.
+- Full Playwright ×2 back-to-back: **57 passed / 31 intentionally skipped** both runs.
+- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
+  Playwright 57/31.
 
 ## Phase 1 (this run) — what changed
 
