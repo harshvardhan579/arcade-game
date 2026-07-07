@@ -4,7 +4,7 @@
 // ever changes, these constants are part of that change's blast radius; the
 // Vitest suite pins them.
 
-import type { GameId } from './types';
+import type { GameId } from './types.js';
 
 // Field ranges (plan §4; DB CHECKs back-stop).
 export const TICK_MAX = 1_000_000;

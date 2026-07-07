@@ -1,7 +1,7 @@
 // Name rules shared by client pre-validation and server enforcement
 // (plan §6). Pure and Node-safe: no DOM, no storage, no Phaser.
 
-import { isNameAllowedByModeration } from './bannedWords';
+import { isNameAllowedByModeration } from './bannedWords.js';
 
 export const NAME_MIN_LENGTH = 2;
 export const NAME_MAX_LENGTH = 16;
