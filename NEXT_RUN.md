@@ -1,197 +1,125 @@
-# NEXT_RUN — Home Screen Pass (branch `home-screen-pass-1`)
+# NEXT_RUN — Global Leaderboard Pass (branch `leaderboard-pass-1`)
 
-Loop: `.claude/home-screen-loop.md` (one phase per invocation, strict order).
+Loop: `.claude/leaderboard-loop.md` (one phase per invocation, strict order).
+Spec: `LEADERBOARD_PLAN.md`. System map: `CURRENT_APP_STATE.md`.
 
 ## Phase status
 
-| Phase | Scope                                   | Status              |
-| ----- | --------------------------------------- | ------------------- |
-| 0     | Design audit + decisions (analysis)     | done (`33e9dec`)    |
-| 1     | Home mode architecture + spec migration | done (`4ca07f8`)    |
-| 2     | Procedural logos + home cards           | **done** (this run) |
-| 3     | Game-mode polish (Back)                 | next                |
-| 4     | Tests and regression sweep              | pending             |
-| 5     | Docs and close                          | pending             |
+| Phase | Scope                                            | Status              |
+| ----- | ------------------------------------------------ | ------------------- |
+| 0     | Readiness gate + plan-pin verification           | **done** (this run) |
+| 1     | `src/leaderboard/` shared validation + Vitest    | next                |
+| 2     | `api/leaderboard.ts` + tsconfig/lint/build       | pending             |
+| 3     | `LeaderboardService` client (flag-gated)         | pending             |
+| 4     | Name entry + submission UI (`arcade-game-over`)  | pending             |
+| 5     | Display: game-over top-10 + home `World` line    | pending             |
+| 6     | Hardening + docs + deploy checklist              | pending             |
 
-## Phase 2 (this run) — what changed
+## Phase 0 (this run) — readiness verdict: **PROCEED**
 
-- **Five procedural emblems (`.home-logo--<id>`, pure CSS, zero assets):** mini cabinet
-  screens — the tile stays literally dark in both themes (like `.game-root`) with
-  theme-invariant identity-token accents. Neon Serpent: grid + L-bend pixel snake
-  (box-shadow segments) + glowing food dot. Bounce Circuit: ground strip + amber orb
-  (background gradients) + cyan runner mid-jump + red clip-path spike. Star Courier:
-  radial-gradient starfield + clip-path ship + glowing projectile. Lane Rush: horizon
-  glow + clip-path road trapezoid + car with receding center dashes (shrinking
-  box-shadows). Circuit Stack: grid strokes + box-shadow-composed magenta T piece +
-  ghost outline. All shapes are gradients/pseudo-elements/clip-path/box-shadow; no
-  images, SVG, fonts, or glyph dependencies; nothing animates (nothing to
-  reduced-motion-gate).
-- **Home cards upgraded:** emblem (64 px, `aria-hidden`) + title + subtitle + italic
-  one-line hook (hub copy lives in `HomeScreen.ts`) + live `.home-card-high`
-  (`arcade-high-score` subscription reusing the sidebar's exported `formatHigh`;
-  `High —` empty state; amber `--score-text`, tabular numerals). Hub vertically
-  centered. The 64 px emblems fit portrait without a compact variant (~84 px cards;
-  the no-scroll fit test verifies at 375×667 and 667×375 with all cards in-viewport).
-- **Tests (`tests/home.spec.ts` +2, now 8):** five cards by accessible name + emblem
-  count; persisted highs render (`High 4321`), empty state elsewhere, and the
-  subscription live-updates on `arcade-high-score`; home keyboard tab order (toggle
-  first, then cards in registry order).
-- **Flake fix (test-only, documented):** the gameplay-pass forced-seeds e2e resurfaced
-  under the heavier 7-spec parallel load — a throttled tab wakes with a Phaser
-  accumulator burst that can lock the first piece before the atomic capture lands,
-  legitimately advancing `nextPiece`. The capture now only compares **pre-lock
-  snapshots** (`occupied === 0`) with a bounded restart-retry: the equality claim is
-  unchanged and exact, the timing noise is gone. Two consecutive full-suite runs
-  green.
+No code changes (per phase contract). Evidence gathered live on 2026-07-07:
 
-### Phase 2 validation
+### Manual setup verification (plan §11)
 
-- `tests/home.spec.ts`: 13 passed / 1 intentionally skipped.
-- Screenshots both themes × desktop/portrait/landscape (scratchpad `logos-*.png`):
-  every emblem reads at a glance; dark tiles on light cards carry the daylight-cabinet
-  language.
-- Full Playwright ×2 back-to-back: **57 passed / 31 intentionally skipped** both runs.
-- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
-  Playwright 57/31.
+- **Supabase schema applied.** REST probes with the service key (from `.env.local`):
+  `leaderboard_scores`, `leaderboard_submissions`, and the `leaderboard_tops` view
+  all return HTTP 200.
+- **`submit_score` RPC exists and service_role can execute it.** Called it live with
+  a temporary row (`name_key=phase0check`, `ip_hash=phase0-verification-temp`):
+  returned `{"accepted": true, "improved": true, "best": 10, "rank": 1}` — correct
+  §2 response shape. Both test rows were then deleted via REST (HTTP 204) and the
+  post-cleanup state was re-queried to confirm.
+- **RLS enabled / zero policies — verified by inference, one residual manual check.**
+  This machine has no Supabase anon key, no `supabase` CLI, and no DB password, so
+  `pg_policies` cannot be queried directly. Evidence chain: the §2 script is one
+  batch; the objects created *after* its `alter table … enable row level security`
+  statements (the view, the RPC) all exist and work, so the RLS statements ran.
+  **Residual:** eyeball Table Editor shield icons + zero policies in the dashboard
+  (§11 step 3) before Phase 6's production deploy.
+- **Vercel envs.** `vercel env ls`: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `LEADERBOARD_IP_SALT` in Development+Preview+Production; `VITE_LEADERBOARD_ENABLED`
+  in **Preview+Production only** (intentional — local `npm run dev` stays flag-off).
+  Pulled the Preview env to scratchpad (then deleted): flag value is exactly `"1"`.
+- **`.env.local`** exists with the three server vars (plus Vercel's own
+  `VERCEL_OIDC_TOKEN`), no `VITE_LEADERBOARD_ENABLED` — as designed.
+  `git check-ignore` matches it via the new `.gitignore` `.env*` line; not tracked.
+  The `.gitignore` addition (`.vercel`, `.env*`) is committed with this phase —
+  the plan scheduled it for Phase 2 but it must protect secrets from now on.
+- **Existing data note:** `leaderboard_scores` holds one row from the user's own
+  dashboard test (`lane-rush / AAA / 120 / ip_hash test_hash`). Left in place —
+  not mine to delete. **Delete it before the Phase 6 production smoke** (or keep
+  deliberately). The user's matching `leaderboard_submissions` row was pruned by
+  the RPC's own 1-hour cleanup during the verification call (by design).
 
-## Phase 1 (this run) — what changed
+### Plan-pin verification against current source (no drift found)
 
-- **Mode architecture:** `data-mode="home" | "game"` on `.arcade-shell`; `main.ts` owns
-  it. Boot shows the home hub with **zero Phaser work and no canvas** — the engine is
-  constructed lazily on first selection (`scene: []` + `scene.add(key, Class,
-autoStart)`; mode flips to `game` first so `clientWidth` measures a visible stage).
-  `?game=<id>` deep-links straight to game mode (validated; invalid → home; composes
-  with `?seed=`). A home bridge stub (`activeScene: 'home'`) publishes at boot and on
-  Back so mode is always assertable. Browser history untouched.
-- **Back:** `‹ Games` (`.back-button`, accessible name "Back to games") in the topbar
-  between picker and Restart; stops the scene, nulls the key (no stacking),
-  republishes the stub, flips mode. Quiet accent styling; 44 px on touch layouts;
-  mobile portrait topbar row 2 is now `auto 1fr auto` (Back, Restart, toggle — zero
-  added height).
-- **Home hub (`src/ui/HomeScreen.ts`):** header (own `h1` + tagline + a second
-  theme-toggle instance) + five functional `.home-card` buttons dispatching
-  `arcade-select-game`. Plain by design — emblems/hooks/highs are Phase 2.
-- **Theme toggle resync:** `applyTheme` broadcasts `arcade-theme`; every toggle
-  instance resyncs its accessible name (verified e2e: toggling on home relabels the
-  game-mode instance).
-- **Spec migration (all six suites):** nine `goto('/')` sites → `/?game=neon-serpent`
-  (bit-identical in-game behavior; every seeded pin held unchanged).
-  **Deliberate pin updates:** desktop tab order is now cards ×5 → **Back** (6) →
-  Restart (7) — and the follow-up `Shift+Tab` in that test needed **two** hops so
-  Enter re-activates the last card instead of triggering Back; theme-toggle locators
-  scoped to `.topbar .theme-toggle` (two instances exist); smoke's `h1` assertion
-  scoped to `h1:visible` (one heading renders per mode); the landscape chrome
-  disjointness list gains `.back-button` (did **not** trip — three controls fit).
-- **New `tests/home.spec.ts` (6 tests):** home-first boot (five cards, zero canvas,
-  hidden Back, no errors); select → Back → re-select flow; deep links valid+invalid;
-  theme toggle from home incl. cross-instance resync; mobile home no-scroll fit at
-  375×667 + 667×375 with every card in-viewport.
+- Game IDs in `src/main.ts`: exactly the five plan IDs.
+- Storage keys: `pocket-arcade:<gameId>:high` (`ScoreManager.ts:14`),
+  `pocket-arcade:theme` — `pocket-arcade:player-name` is free.
+- Bridge: `score`/`isGameOver`/`tick` base + `highScore`/`runSeed` published by
+  `BaseGameScene` (lines 76–79). Both game-over transition sites exist (input
+  handler line 25/38, fixed-step loop line 97) for the `arcade-game-over` event.
+- Root tsconfig `include`: src/tests/configs/scripts — **no `api/`**; lint script is
+  `eslint src tests scripts && node scripts/import-boundary.mjs && prettier --check .`;
+  build is `tsc --noEmit && vite build`. Confirms Phase 2 wiring plan (own strict
+  `api/tsconfig.json`, `tsc --noEmit -p api` in build, `api` added to eslint).
+- §7 scoring derivations all match source: Neon Serpent 18×24 grid, `10×multiplier`
+  capped at 8 (`NeonSerpentLogic.ts:126–127`); Bounce Circuit `runnerMaxSpeed 0.42`,
+  chunk 16 units, `+25`/orb, max 3 orbs/chunk (the arc archetype); Star Courier
+  `+15`/kill, spawn floor `max(14, 34−wave×3)` (`StarCourierLogic.ts:121,217`);
+  Lane Rush spawn every 28 ticks, `+12` near-miss / `+5` (`LaneRushLogic.ts:108,118`);
+  Circuit Stack clears `[100,250,450,700]` only score source, `circuitMinDropTicks=10`.
+  Divisors hold: serpent 10, courier 15, stack 50; bounce/lane mixed (none).
+- Test counts: Vitest **73 passed** (matches the pin). Playwright not run this
+  phase — no code changed since the green merge of `main` (57 passed / 31 skipped);
+  Phase 1 re-runs the full validate.
 
-### Phase 1 validation
+### Decisions recorded (Phase 0 deliverable)
 
-- `tests/home.spec.ts`: 9 passed / 1 intentionally skipped, first run.
-- Full Playwright: **53 passed / 31 intentionally skipped** (was 44/30; +9/+1 home).
-- Full `npm run validate`: build + strict tsc, 73 Vitest, lint + boundary + Prettier,
-  Playwright 53/31. Screenshots: home hub (dark desktop, light mobile), game mode
-  with Back (scratchpad `home-*.png`).
+**Error codes** (shape `{ "error": { "code": "<code>" } }`):
 
-## Phase 0 — design decisions (no code changed this phase)
+| Status | Codes                                                                                                                            |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_body`, `invalid_game`, `invalid_limit`, `name_length`, `name_charset`, `name_not_allowed`, `invalid_score`, `invalid_tick`, `invalid_seed`, `implausible_score` |
+| 403    | `forbidden_origin` (Origin header present and ≠ deployment host)                                                                   |
+| 405    | `method_not_allowed` (non-GET/POST)                                                                                                |
+| 413    | `body_too_large` (POST body > 1 KB)                                                                                                |
+| 415    | `unsupported_media_type` (POST content-type ≠ application/json)                                                                    |
+| 429    | `rate_limited` (RPC verdict passthrough)                                                                                           |
+| 502    | `upstream_error` (generic; never leaks Supabase URLs/errors)                                                                       |
 
-**Risk gate: PROCEED.** The boot-flow migration is large but mechanical (18 bridge
-waits move to a `?game=` deep link with bit-identical in-game behavior), and every
-other pin has a concrete owner below.
+GET `limit`: non-integer → 400 `invalid_limit`; integer out of 1–50 → clamped
+(matches plan §4 "clamped" wording). Validation order is plan §4 exactly
+(first failure wins).
 
-### Architecture
+**Rate-limit constants** (must match the deployed SQL — verified live):
+max **6** submissions per `ip_hash` per rolling **60 s** (7th → 429); submissions
+log pruned past **1 hour** inside the RPC; client fetch timeout **5 s** abort;
+GET cache `Cache-Control: public, s-maxage=30, stale-while-revalidate=120`.
 
-- **Mode owner: `main.ts`** (it already owns `startGame`/`currentSceneKey`). Mode is a
-  `data-mode="home" | "game"` attribute on `.arcade-shell` (theme-attribute pattern);
-  a `setShellMode` helper lives in `ArcadeShell`. Home cards dispatch the existing
-  `arcade-select-game` event; a new `arcade-go-home` event drives Back. Browser
-  history untouched (deliberate — in-app Back only).
-- **Phaser is constructed lazily on first game selection** with `scene: []` +
-  `game.scene.add(key, Class, autoStart)` per game (auto-start only the requested
-  scene; adds queue safely pre-boot). Home boots with **zero Phaser work and no
-  canvas** (`#game-root canvas` count 0 is a home assertion). Mode flips to `game`
-  **before** construction so `gameRoot.clientWidth` measures a visible stage
-  (synchronous style recalc on read).
-- **Back:** `game.scene.stop(currentSceneKey)`, null the key, republish the home
-  bridge stub (`publishBridge('home', …minimal snapshot…)`), flip mode. Re-selecting
-  any game starts fresh (run-seed behavior unchanged). No scene stacking — the
-  switching spec gains a home-entry signature check in Phase 4.
-- **Deep link:** `?game=<id>` validated against the registry (invalid/absent → home);
-  composes with `?seed=N`. Static/Vercel-safe (query param, no router).
+**Panel copy** (final; `textContent` only for server data):
 
-### Home layout (no-scroll decision: home fits, no scroll anywhere)
-
-- `.home-screen` is a shell-level sibling of selector/stage/case-study; mode CSS shows
-  exactly one surface set. Desktop/landscape: responsive card grid
-  (`auto-fit minmax(~240px, 1fr)` → 2–3 columns). Portrait phones: single-column
-  compact rows (logo left ~56px, text right) — five cards + header ≈ 500 px fits
-  375×667. Landscape phones: 2 columns × 3 rows. **Home honors the no-scroll contract
-  at all pinned viewports** (tested); revisit deliberately in Phase 2 if emblems need
-  more room.
-- Home header: its own `h1` "Pocket Arcade" + tagline + a **second theme-toggle
-  instance**. Single-`h1` pin holds because role queries exclude `display: none`
-  elements (one heading rendered per mode). Two `.theme-toggle` instances require:
-  (a) `applyTheme` broadcasts an `arcade-theme` event and every toggle instance
-  resyncs its accessible name (otherwise the hidden one goes stale — real bug), and
-  (b) the existing theme specs scope their locator to the visible instance —
-  a deliberate, documented spec update in Phase 1.
-
-### Back button (game mode only)
-
-- First in `.topbar-actions` (before picker/Restart in DOM). Label `‹ Games`,
-  accessible name **"Back to games"**, class `.back-button`, quiet styling
-  (control tokens), ≥44 px on touch layouts, hidden on home via mode CSS.
-- **Deliberate tab-order pin update (Phase 1, same slice):** desktop order becomes
-  cards ×5 → **Back** (6) → Restart (7); the keyboard spec walks 7 tabs. Mobile
-  portrait topbar row 2 becomes `auto 1fr auto` (Back, Restart, toggle — three ≥44 px
-  controls fit 375 px; the same-row pin extends to Back). Landscape: the
-  disjoint-from-topbar-controls assertion is the guard; bump the 104 px overlay
-  clearance only if it trips.
-
-### Spec migration (Phase 1, same slice — assertions unchanged unless noted)
-
-- `goto('/')` → `goto('/?game=neon-serpent')` in the beforeEach of games/shell/smoke/
-  switching/highscore/audio (18 bridge waits keep resolving; in-game behavior
-  bit-identical). New home coverage lives in a new `tests/home.spec.ts` using `/`.
-- Deliberate pin updates: keyboard tab order (+Back), theme-spec toggle locators
-  scoped to the visible instance. Nothing else changes.
-- Hook separation: home cards use `.home-card` / `.home-card-high` (never
-  `.game-card` — smoke pins the sidebar count at 5).
-
-### Procedural logo recipes (Phase 2; pure CSS, theme tokens + per-game accents)
-
-| Game           | Emblem recipe (all CSS shapes/gradients/pseudo-elements)                                                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Neon Serpent   | Cyan rounded-square "grid" tile; ::before = 3-segment snake (stepped linear-gradient stripe with rounded caps), ::after = magenta food dot with glow shadow                     |
-| Bounce Circuit | Ground strip (border-bottom) + cyan rounded runner square mid-jump; ::before = amber orb (circle + glow), ::after = red spike (CSS triangle via clip-path/borders)              |
-| Star Courier   | Cyan triangle ship (clip-path) bottom-center; ::before = white projectile bar above the nose; ::after = starfield dots (multi-position box-shadow)                              |
-| Lane Rush      | Road trapezoid (clip-path polygon, `#0d252b`-token fill) with center dash (dashed border gradient); ::before = cyan car rounded-rect low, ::after = amber boost flame triangles |
-| Circuit Stack  | Grid tile backdrop (repeating-linear-gradient strokes); ::before = magenta T/S tetromino (two stacked offset rects via box-shadow), ::after = ghost outline square below        |
-
-All emblems sit in a fixed-ratio `.home-logo` box, colors via tokens (`--cyan`,
-`--pink`, `--yellow`, `--red`, card surfaces) so both themes work; glows via
-box-shadow only; no images/SVG/fonts; decorative motion (if any) reduced-motion-gated.
-
-### Acceptance criteria
-
-1. First load (`/`) shows home: five cards, header, working theme toggle, **no canvas,
-   no Phaser boot**, `activeScene: 'home'`.
-2. Selecting a card enters game mode: correct scene publishes and ticks; sidebar/
-   picker/Restart/toggle/touch controls all work exactly as today.
-3. Back returns home: scene stopped (no stacking), bridge stub restored; re-selecting
-   the same or another game starts a fresh run.
-4. `?game=<id>` deep-links to game mode (invalid → home); `?seed=` still composes.
-5. Home readable in both themes, fits without scroll at all eleven pinned viewports,
-   keyboard-operable with visible focus; high scores on cards live-update (Phase 2).
-6. All suites green with the migration; pixel signatures prove home-entered games
-   render; full `npm run validate` + flake pass green at close.
+- Heading: `GLOBAL LEADERBOARD`; list heading `TOP 10` (`TOP 5` short canvases).
+- Name input: placeholder `YOUR NAME`, helper `2–16 letters, numbers, spaces, - or _`.
+- Validation messages: `Use 2–16 characters` / `Letters, numbers, spaces, - and _
+  only` / `That name isn't allowed`.
+- Buttons: `Submit score`, `Retry`, `Edit`.
+- States: `Submitting…` → `Ranked #N worldwide` (improved) / `Best for <NAME> is
+  <M>` (not improved) / `Couldn't reach the leaderboard` + Retry (failure) /
+  `Too many submissions — try again in a minute` (429).
+- List states: loading row `…`; empty `No scores yet — be the first`; error
+  `Global scores unavailable`.
+- Home card fragment: `World <score>` appended to the existing high line
+  (`High 777 · World 12,340`); absent on error/disabled.
 
 ## Next task (Phase 1 — start cold from the loop file)
 
-Implement the mode architecture + Back + deep link + home bridge stub + minimal
-functional home cards (plain buttons; logos/highs are Phase 2), the `arcade-theme`
-resync broadcast, mode CSS, and the full spec migration with the two deliberate pin
-updates. New `tests/home.spec.ts`: home-first boot, select, Back, re-select. Full
-validate.
+Build `src/leaderboard/`: `types.ts` (single game-ID const → allowlist,
+request/response shapes incl. the error-code union above), `names.ts`
+(trim/collapse → 2–16 chars → charset `A–Za–z0–9 _-`), `bannedWords.ts` (curated
+list, leet map `0→o 1→i 3→e 4→a 5→s 7→t 8→b @→a $→s`, substring vs whole-word
+tiers, reserved names), `plausibility.ts` (§7 table verbatim — constants
+re-verified this run, cite the source lines above). Pure modules only (no DOM /
+fetch / Phaser / storage; import-boundary scans these test files — keep banned
+words out of comments too). Full Vitest boundary coverage per plan §9, then
+`npm run validate`.

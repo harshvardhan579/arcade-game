@@ -197,9 +197,10 @@ revoke execute on function
 
 Rules: anything `VITE_`-prefixed is compiled into the public bundle — only the boolean
 flag ever gets that prefix. Local dev of the real API uses `vercel dev` +
-`vercel env pull .env.local`; `.env*` must be added to `.gitignore` (Phase 2, it is
-missing today). A post-build grep for `SUPABASE` in `dist/` is part of the Phase 2
-validation.
+`vercel env pull .env.local`; `.env*` must be added to `.gitignore` (planned for
+Phase 2 — **deviation: landed in Phase 0**, because `.env.local` already existed on
+disk and had to be protected before any commits). A post-build grep for `SUPABASE`
+in `dist/` is part of the Phase 2 validation.
 
 ## 4. Vercel API contracts
 
