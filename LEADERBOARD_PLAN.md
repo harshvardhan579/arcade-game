@@ -8,6 +8,38 @@
 > `src/core/RunSeeds.ts`, `src/games/*/*Logic.ts`, `src/main.ts`, `src/ui/*`,
 > `tests/*`, `tsconfig.json`, `scripts/import-boundary.mjs`).
 
+## Implementation status — IMPLEMENTED (branch `leaderboard-pass-1`, 2026-07-07)
+
+This plan is **implemented** across phases 0–6 (commits `e264f6e` → phase 6). The
+feature ships flag-gated (off by default). Final architecture as built:
+
+- **Client:** `src/core/LeaderboardService.ts` (same-origin `/api/leaderboard` only,
+  flag-gated, 5 s abort, typed never-throwing results); `src/ui/LeaderboardPanel.ts`
+  (game-over submit panel + top-10/5 list, DOM overlay in `.game-root`);
+  `src/ui/HomeScreen.ts` (`World` fragments, one throttled `fetchTops()` per home visit).
+- **Shared (pure):** `src/leaderboard/` — `types`, `names`, `bannedWords`,
+  `plausibility`, `serverCore` — imported by both client and API.
+- **Server:** `api/leaderboard.ts` (thin adapter over `serverCore.ts`) +
+  `api/tsconfig.json`; Node `fetch` → Supabase PostgREST + `submit_score` RPC.
+- **Scene boundary:** `BaseGameScene` emits `arcade-game-over`
+  (`GameOverDetail {gameId,score,tick,runSeed}`, `core/types.ts`) + `arcade-run-start`.
+- **Storage:** player name at `pocket-arcade:player-name`; local highs unchanged.
+
+**Deviations from the original plan (all deliberate, documented in `NEXT_RUN.md`):**
+
+- Game-over list limit is **10 fine-pointer / 5 coarse-pointer** (via `hasCoarsePointer`)
+  rather than a canvas-height measurement — simpler and deterministic in tests.
+- Home tops throttle uses a module-scoped timestamp with a test-only override hook
+  `window.__ARCADE_LB_TOPS_TTL__` (mirrors `__ARCADE_FIXED_SEEDS__`).
+- Two Phase-3 service specs now run in game mode and the Phase-4 invalid-name spec
+  counts POST-only, because the panel/home now legitimately issue GET fetches on
+  open/home — no assertion was weakened (see `NEXT_RUN.md` test-integrity audit).
+
+**Security limitations (honest):** no accounts/auth; server enforces plausibility
+bounds + profanity/reserved filter + salted-IP rate limit (6 / 60 s), but a client
+submitting plausible, well-formed scores is not cryptographically blocked. Client
+validation is UX only; the server (§7) re-validates everything. See §8.
+
 ## 0. Repo reality check (what exists today)
 
 - Pure static Vite deploy: **no `api/` directory, no `vercel.json`, no backend, no
@@ -197,9 +229,10 @@ revoke execute on function
 
 Rules: anything `VITE_`-prefixed is compiled into the public bundle — only the boolean
 flag ever gets that prefix. Local dev of the real API uses `vercel dev` +
-`vercel env pull .env.local`; `.env*` must be added to `.gitignore` (Phase 2, it is
-missing today). A post-build grep for `SUPABASE` in `dist/` is part of the Phase 2
-validation.
+`vercel env pull .env.local`; `.env*` must be added to `.gitignore` (planned for
+Phase 2 — **deviation: landed in Phase 0**, because `.env.local` already existed on
+disk and had to be protected before any commits). A post-build grep for `SUPABASE`
+in `dist/` is part of the Phase 2 validation.
 
 ## 4. Vercel API contracts
 

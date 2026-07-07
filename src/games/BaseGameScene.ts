@@ -4,7 +4,7 @@ import { nextRunSeed } from '../core/RunSeeds';
 import { ScoreManager } from '../core/ScoreManager';
 import { publishBridge, updateBridgeSnapshot } from '../core/TestBridge';
 import { hasCoarsePointer, prefersReducedMotion } from '../core/Viewport';
-import type { GameLogic, GameSnapshot, SemanticInput } from '../core/types';
+import type { GameLogic, GameOverDetail, GameSnapshot, SemanticInput } from '../core/types';
 
 export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.Scene {
   protected abstract logic: GameLogic<TState>;
@@ -35,7 +35,10 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
     if (input === 'ACTION') this.audio.play('select');
     const after = this.logic.getState();
     if (after.score > before.score) this.audio.play('score');
-    if (after.isGameOver && !before.isGameOver) this.audio.play('game-over');
+    if (after.isGameOver && !before.isGameOver) {
+      this.audio.play('game-over');
+      this.dispatchGameOver(after);
+    }
   };
   private readonly onRestart = () => {
     this.startNewRun();
@@ -45,6 +48,22 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
   private startNewRun(): void {
     this.runSeed = nextRunSeed(this.scene.key);
     this.logic.restart(this.runSeed);
+    // A new run began (scene (re)start, Restart, or ACTION-after-death): the
+    // shell leaderboard panel dismisses itself on this signal.
+    window.dispatchEvent(new Event('arcade-run-start'));
+  }
+
+  // Fired exactly once per run, on the alive→dead transition detected above
+  // (input-driven death) or in the fixed-step loop (self-inflicted death).
+  // The `!before.isGameOver` guards ensure it never repeats once dead.
+  private dispatchGameOver(state: TState): void {
+    const detail: GameOverDetail = {
+      gameId: this.scene.key,
+      score: state.score,
+      tick: state.tick,
+      runSeed: this.runSeed
+    };
+    window.dispatchEvent(new CustomEvent<GameOverDetail>('arcade-game-over', { detail }));
   }
 
   create(): void {
@@ -94,7 +113,10 @@ export abstract class BaseGameScene<TState extends GameSnapshot> extends Phaser.
       const before = this.logic.getState();
       const next = this.logic.step();
       if (next.score > before.score) this.audio.play('score');
-      if (next.isGameOver && !before.isGameOver) this.audio.play('hit');
+      if (next.isGameOver && !before.isGameOver) {
+        this.audio.play('hit');
+        this.dispatchGameOver(next);
+      }
     }
     const latest = this.logic.getState();
     this.scores.record(latest.score);

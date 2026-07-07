@@ -152,3 +152,156 @@ test('home fits without scroll on phone portrait and landscape', async ({ page, 
     }
   }
 });
+
+// --- Phase 5: home-card World score fragments ----------------------------
+
+const TOPS_BODY = {
+  tops: {
+    'neon-serpent': { name: 'AAA', score: 12340 },
+    'bounce-circuit': null,
+    'star-courier': { name: 'ZZ', score: 5 },
+    'lane-rush': { name: 'BBB', score: 999 },
+    'circuit-stack': null
+  }
+};
+
+async function forceLeaderboard(
+  page: import('@playwright/test').Page,
+  ttlMs?: number
+): Promise<void> {
+  await page.addInitScript((ttl) => {
+    window.__ARCADE_LB_FORCE__ = true;
+    if (typeof ttl === 'number') window.__ARCADE_LB_TOPS_TTL__ = ttl;
+  }, ttlMs);
+}
+
+test('flag off: home shows no World fragment and makes no /api request', async ({ page }) => {
+  const apiRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+  await page.waitForTimeout(150); // let any deferred refresh run (it must not).
+
+  expect(await page.locator('.hs-world:not(:empty)').count()).toBe(0);
+  for (const high of await page.locator('.home-card-high').all()) {
+    await expect(high).not.toContainText('World');
+  }
+  expect(apiRequests).toEqual([]);
+});
+
+test('flag on: home fetches world tops once and renders World fragments', async ({ page }) => {
+  let allRequests = 0;
+  await forceLeaderboard(page);
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    if (new URL(route.request().url()).searchParams.get('game') === 'all') allRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(TOPS_BODY)
+    });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+
+  await expect(
+    page.locator('.home-card[data-game-id="neon-serpent"] .home-card-high')
+  ).toContainText('World 12,340');
+  await expect(page.locator('.home-card[data-game-id="lane-rush"] .home-card-high')).toContainText(
+    'World 999'
+  );
+  // A game with no global score gets no fragment.
+  await expect(
+    page.locator('.home-card[data-game-id="bounce-circuit"] .home-card-high')
+  ).not.toContainText('World');
+  // Exactly one game=all fetch for the whole hub.
+  expect(allRequests).toBe(1);
+});
+
+test('flag on: returning to home within the throttle does not refetch', async ({ page }) => {
+  let allRequests = 0;
+  await forceLeaderboard(page); // default 60s throttle.
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    if (new URL(route.request().url()).searchParams.get('game') === 'all') allRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(TOPS_BODY)
+    });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+  await expect(
+    page.locator('.home-card[data-game-id="neon-serpent"] .home-card-high')
+  ).toContainText('World 12,340');
+  expect(allRequests).toBe(1);
+
+  // Enter a game and Back — SPA navigation keeps the throttle state.
+  await page.locator('.home-card[data-game-id="lane-rush"]').click();
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'lane-rush');
+  await page.getByRole('button', { name: 'Back to games' }).click();
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+  await page.waitForTimeout(150); // allow the deferred refresh to run (throttled).
+  expect(allRequests).toBe(1);
+});
+
+test('flag on: home refetches world tops after the throttle window', async ({ page }) => {
+  let allRequests = 0;
+  await forceLeaderboard(page, 400); // short throttle for the test.
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    if (new URL(route.request().url()).searchParams.get('game') === 'all') allRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(TOPS_BODY)
+    });
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+  await expect(
+    page.locator('.home-card[data-game-id="neon-serpent"] .home-card-high')
+  ).toContainText('World 12,340');
+  expect(allRequests).toBe(1);
+
+  await page.locator('.home-card[data-game-id="lane-rush"]').click();
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'lane-rush');
+  await page.waitForTimeout(500); // exceed the 400ms throttle.
+  await page.getByRole('button', { name: 'Back to games' }).click();
+  await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+  await expect.poll(() => allRequests).toBe(2);
+});
+
+test('flag on: home stays scroll-free with World fragments on mobile', async ({
+  page,
+  viewport
+}) => {
+  test.skip(Boolean(viewport && viewport.width >= 900), 'mobile-only layout assertions');
+  await forceLeaderboard(page);
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(TOPS_BODY)
+    });
+  });
+  for (const [width, height] of [
+    [375, 667],
+    [667, 375]
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await page.waitForFunction(() => window.__ARCADE__?.activeScene === 'home');
+    await expect(
+      page.locator('.home-card[data-game-id="neon-serpent"] .home-card-high')
+    ).toContainText('World 12,340');
+    const overflow = await page.evaluate(() => ({
+      vertical: document.documentElement.scrollHeight - window.innerHeight,
+      horizontal: document.documentElement.scrollWidth - window.innerWidth
+    }));
+    expect(overflow.vertical, `home must not scroll at ${width}x${height}`).toBeLessThanOrEqual(0);
+    expect(overflow.horizontal, `no horizontal scroll at ${width}x${height}`).toBeLessThanOrEqual(
+      0
+    );
+  }
+});

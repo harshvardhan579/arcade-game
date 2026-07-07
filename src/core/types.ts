@@ -31,6 +31,19 @@ export interface Point {
   y: number;
 }
 
+/**
+ * Detail of the `arcade-game-over` window event a scene dispatches once per
+ * run on the alive→dead transition (never per frame after death). The shell
+ * leaderboard controller reads it; kept DOM-free here so logic files can
+ * share the contract without breaching the import boundary.
+ */
+export interface GameOverDetail {
+  gameId: string;
+  score: number;
+  tick: number;
+  runSeed: number;
+}
+
 export interface GameDefinition {
   id: string;
   title: string;

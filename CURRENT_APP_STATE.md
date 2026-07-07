@@ -25,6 +25,17 @@
 > **pseudo-3D racer** with a speed cap, double-tap boost, visible near-miss band, and a
 > true-position crash impact; Circuit Stack's verified live 7-bag redeal + a gentle
 > **gravity/level curve**. Vitest 54 → **73**; Playwright 35 passed / 29 skipped.
+>
+> **What the leaderboard pass changed (branch `leaderboard-pass-1`, 2026-07-07, commits
+> `e264f6e`…phase 6):** an **optional, flag-gated global leaderboard** — a Vercel function
+> (`api/leaderboard.ts`) → Supabase Postgres (service-role, server-only) behind pure shared
+> validation in `src/leaderboard/`; a client `LeaderboardService` (same-origin `/api` only,
+> typed never-throwing results); a game-over `LeaderboardPanel` (name entry + explicit
+> submit + top-10/5 list, DOM overlay in `.game-root`); and home-card `World <score>`
+> fragments. `BaseGameScene` now emits `arcade-game-over` + `arcade-run-start`. **Off by
+> default** (`VITE_LEADERBOARD_ENABLED` unset) → zero `/api`, no leaderboard DOM, local high
+> scores/gameplay/seeds untouched. Vitest 73 → **154** (11 files); Playwright **103 passed /
+> 33 skipped** (8 spec files, desktop + mobile).
 
 ---
 
@@ -40,9 +51,9 @@ constraints**: every pixel is drawn procedurally at runtime (no images, sprite s
 fonts are ever loaded), every sound is synthesized with WebAudio, and each game is split
 into a **pure, deterministic, framework-free logic engine** and a separate **Phaser
 renderer**, with an automated import-boundary guard that fails the build if the two mix.
-That separation is what lets the project be validated the way real software is: 73 Vitest
-logic/contract tests plus Playwright end-to-end suites that read actual canvas pixels to
-prove the right game is on screen. Category-wise it is a **portfolio artifact / mini-arcade
+That separation is what lets the project be validated the way real software is: 154 Vitest
+logic/contract tests (including the pure leaderboard validation modules) plus Playwright
+end-to-end suites that read actual canvas pixels to prove the right game is on screen. Category-wise it is a **portfolio artifact / mini-arcade
 collection** — deliberately built to demonstrate frontend architecture, pure game-logic
 design, mobile UX, and an AI-assisted spec-to-tested-code workflow, rather than to ship as
 a commercial game.
@@ -381,21 +392,30 @@ manipulation` on tappables. aria-labels on all five buttons.
 
 ## 7. Current test coverage
 
-**Vitest (73 cases, colocated `*.test.ts`):** per-game logic + contract tests — input
+**Vitest (154 cases, colocated `*.test.ts`):** per-game logic + contract tests — input
 clamping, scoring rules, determinism (identical snapshots for identical seeds), entity
 positions in bounds and advancing correctly, and **detached JSON-serializable snapshots**
 (mutating the returned array doesn't mutate internal state) — plus, since the gameplay
 pass: double-jump/coyote/buffer mechanics and 2.5-platform reachability, hard-chunk
 gating and cross-seed course variation (Bounce), glide rate/exact settle and kill
 feasibility (Star), boost timing/cooldown, speed cap, and crash exposure (Lane), gravity
-curve and cross-seed bag variation (Circuit), and the pure seed mixer. Counts: Neon
-Serpent 12, Bounce Circuit 19, Star Courier 15, Circuit Stack 14, Lane Rush 10,
-RunSeeds 3.
+curve and cross-seed bag variation (Circuit), and the pure seed mixer. Game/seed counts:
+Neon Serpent 12, Bounce Circuit 19, Star Courier 15, Circuit Stack 14, Lane Rush 10,
+RunSeeds 3. **Leaderboard pass adds the pure `src/leaderboard/` suites** — name/charset/
+length + profanity (leet-folding, substring-vs-whole-word tiers, reserved names) +
+per-game plausibility bounds (derivation-pinned against the `*Logic.ts` scoring source),
+the request/response type guards, the API `serverCore` (every status code, validation
+order, `improved` semantics via an injected fake transport), and the client
+`LeaderboardService` (injected fetch/timeout; disabled/offline/http/invalid results) —
+for **154 total across 11 files**.
 
-**Playwright (6 spec files; last full run 35 passed / 29 intentionally skipped across the
-desktop + mobile projects, with per-project `test.skip` guards). The seeded specs
+**Playwright (8 spec files; last full run 103 passed / 33 intentionally skipped across the
+desktop + mobile projects, with per-project `test.skip` guards; a `--repeat-each=2` flake
+pass on the leaderboard/home/shell/smoke/games specs was clean). The seeded specs
 (`games`/`shell`/`highscore`) force the historical default seeds 7/11/9/12/14 via
-`window.__ARCADE_FIXED_SEEDS__`; `smoke`/`switching`/`audio` deliberately run live:**
+`window.__ARCADE_FIXED_SEEDS__`; `smoke`/`switching`/`audio` deliberately run live;
+leaderboard specs force the flag via `window.__ARCADE_LB_FORCE__` and mock all network
+with `page.route` (never a real backend):**
 
 - **`smoke.spec.ts`** — shell loads with no `console.error`, keyboard drives Neon Serpent,
   desktop selector opens all five, mobile d-pad exists and moves the snake, and **live
@@ -428,6 +448,23 @@ desktop + mobile projects, with per-project `test.skip` guards). The seeded spec
   honored both directions on first visit, chosen theme persists and beats the system,
   broken-storage boot stays dark and error-free, mobile toggle ≥44px sharing the
   Restart row.
+- **`leaderboard.spec.ts`** — the flag-gated global leaderboard: **flag-off makes zero
+  `/api` requests and renders no leaderboard DOM** in both game and home modes; the client
+  service parses top/tops/submit and resolves typed failures through mocked routes; a
+  **real** Bounce Circuit game-over emits exactly one `arcade-game-over` and shows the
+  panel while the local high score still persists; submit flow (exact payload shape,
+  improved rank/best, unimproved best, name persistence + reload + Edit); invalid-name
+  blocks Submit (zero POSTs); 429/offline states + Retry resend (no console-clean assert —
+  Chromium HTTP-error caveat); Restart/Back/ACTION dismiss; keyboard focus + no
+  gameplay-key leak while typing; the top-score list (fetch, ranked rows, `textContent`
+  safety, TOP 5 mobile / TOP 10 desktop, empty + unavailable states, refresh on improved);
+  no-scroll with the panel open.
+- **`home.spec.ts`** (extended) — home hub boot/nav/deep-link/theme/keyboard-order plus the
+  **`World` fragments**: flag-off shows no fragment and makes no `/api`; flag-on fetches
+  `game=all` once and renders `World <score>` (omitted for games with no global best);
+  returning to home within the throttle does not refetch, and refetches after the window
+  (test-tunable via `__ARCADE_LB_TOPS_TTL__`); the mobile no-scroll home-fit still holds
+  with fragments present.
 
 **Bugs now protected against:** stacked/overlapping scenes, count-based fake rendering,
 the canvas burying the d-pad, the iOS Safari toolbar covering the bottom controls, rapid
