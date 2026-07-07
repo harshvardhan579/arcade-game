@@ -9,112 +9,105 @@ Spec: `LEADERBOARD_PLAN.md`. System map: `CURRENT_APP_STATE.md`.
 | ----- | ----------------------------------------------- | ------------------- |
 | 0     | Readiness gate + plan-pin verification          | done (`e264f6e`)    |
 | 1     | `src/leaderboard/` shared validation + Vitest   | done (`3123105`)    |
-| 2     | `api/leaderboard.ts` + tsconfig/lint/build      | **done** (this run) |
-| 3     | `LeaderboardService` client (flag-gated)        | next                |
-| 4     | Name entry + submission UI (`arcade-game-over`) | pending             |
+| 2     | `api/leaderboard.ts` + tsconfig/lint/build      | done (`dcbe362`)    |
+| 3     | `LeaderboardService` client (flag-gated)        | **done** (this run) |
+| 4     | Name entry + submission UI (`arcade-game-over`) | next                |
 | 5     | Display: game-over top-10 + home `World` line   | pending             |
 | 6     | Hardening + docs + deploy checklist             | pending             |
 
-## Phase 2 (this run) — Vercel API
+## Phase 3 (this run) — client service
 
-- **`src/leaderboard/serverCore.ts`** — the testable core. Takes a plain
-  `CoreRequest` (method, Origin/Host, content type/length, parsed body +
-  invalid-JSON flag, query, precomputed `ipHash`) plus an injected
-  `LeaderboardTransport`; returns `{ status, body, headers? }`. Owns every
-  decision: 405 method guard, 403 origin guard (absent Origin passes; present
-  must match Host), GET single (`entries` ranked, limit default 10 /
-  non-integer → `invalid_limit` / integers clamped 1–50) and GET `all`
-  (all five keys, `null` fills), POST guards (415 → 413 at 1 KB → 400
-  `invalid_body`), the §4 field order via the Phase 1 shared modules, RPC
-  outcome mapping (`rate_limited` → 429; unknown rejection or malformed
-  outcome → 502), and a catch-all generic 502 so upstream detail never
-  reaches a client.
-- **`api/leaderboard.ts`** — glue-only Vercel adapter: env checks (missing →
-  502, fail-safe), `sha256(ip + LEADERBOARD_IP_SALT)` from first
-  `x-forwarded-for` hop (`node:crypto`, adapter-side so the core stays
-  platform-pure), try/catch around Vercel's lazy body parse → the core's
-  invalid-JSON flag, and the real transport: Node 22 `fetch` → PostgREST
-  (`leaderboard_scores`, `leaderboard_tops`) + RPC `submit_score`, service
-  key from env, non-OK upstream → throw without reading the body.
-- **Wiring (trap 4):** strict `api/tsconfig.json` (node types, no DOM,
-  includes `../src/leaderboard` sans tests); build =
-  `tsc --noEmit && tsc --noEmit -p api && vite build`; lint =
-  `eslint src tests scripts api && …`. New devDependency: `@vercel/node`
-  (types for the handler signature) — the only addition, per plan.
-- **Tests:** +24 in `serverCore.test.ts` (pure fake transport; boundary-safe):
-  every status code and error code from the Phase 0 table, §4 validation
-  order pins, limit clamping via transport spy, canonical
-  name/nameKey/ipHash passthrough, `improved: false`, malformed-outcome 502.
+- **`src/core/LeaderboardService.ts`** — module singleton (the `audioEngine`
+  pattern) built by `createLeaderboardService(deps)` with injected
+  `isEnabled`/`fetchFn`/`timeoutMs` so unit tests stay pure and
+  boundary-safe. Flag gate: `import.meta.env.VITE_LEADERBOARD_ENABLED ===
+'1'` OR the test-only override `__ARCADE_LB_FORCE__` (declared on the
+  global Window type in this file; set only via Playwright `addInitScript`,
+  mirroring `__ARCADE_FIXED_SEEDS__`).
+- **API surface (plan §5):** `isEnabled()`, `fetchTop(gameId, limit=10)`,
+  `fetchTops()`, `submit(entry)`. Same-origin by construction — every request
+  uses the rooted path `/api/leaderboard`, never an absolute URL.
+- **Behavior:** disabled → `{ ok: false, reason: 'disabled' }` with zero
+  network; 5 s `AbortController` timeout (override for tests); never throws,
+  never logs. Typed results: fetch rejection/abort → `'offline'`; non-2xx →
+  `'http'` with `status` + parsed error `code` (so Phase 4 can show 429 copy);
+  non-JSON or shape-mismatched 200 → `'invalid'`. Response parsing is strict
+  per shape (`TopResponse`, `TopsByGame` null-filled over the five IDs,
+  `SubmitResponse`).
+- **Deliberately not built:** no session cache (plan §5 assigns the ≥60 s
+  home refetch throttle to the Phase 5 controller — the service stays
+  stateless), no UI, no `BaseGameScene`/`arcade-game-over` change.
+- **Tests:** +16 Vitest in `src/core/LeaderboardService.test.ts` (injected
+  fake fetch; the singleton itself proven disabled with a stubbed global) and
+  the new `tests/leaderboard.spec.ts` (3 specs × both projects): flag-off
+  counts `/api/**` requests (**0**) + no leaderboard DOM + console-clean in
+  game and home modes; flag-forced spec drives the real module in the browser
+  via the Vite dev-server module graph (string-form dynamic import keeps tsc
+  out of it) against `page.route` mocks and asserts all three methods parse;
+  an error-path spec (mocked 429 + aborted GET) asserts typed failures — no
+  console assertion there (headless caveat, trap 2).
 
-### Phase 2 validation
+### Phase 3 validation
 
-- Vitest **138 passed** (10 files; 73 pre-pass + 41 Phase 1 + 24 new).
-- `npm run build` green with the api typecheck; **dist secret grep clean**:
-  `grep -ri supabase dist/`, `grep -ri SERVICE_ROLE dist/`,
-  `grep -ri LEADERBOARD_IP_SALT dist/` all empty (api/ and serverCore are
-  never bundled — Vite only follows imports from `src/main.ts`).
-- Full `npm run validate`: build, 138 Vitest, eslint (now incl. `api`) +
-  boundary (15 files) + Prettier, Playwright **57 passed / 31 skipped** —
-  pins unchanged.
-- **Real-API smoke via `vercel dev --listen 3111`** (CLI pulls the
-  Development env vars automatically; curl matrix all as designed):
-  - GET `?game=lane-rush` → 200 `{game, entries:[]}`;
-    `cache-control: public, s-maxage=30, stale-while-revalidate=120` present.
-  - GET `?game=all` → 200 all-null tops (table was empty — see data note).
-  - GET `?game=bogus` → 400 `invalid_game`; `?limit=abc` → 400 `invalid_limit`.
-  - DELETE → 405. Cross-origin POST (`Origin: https://evil.example`) → 403.
-  - POST valid (star-courier 30 @ tick 50) → 200
-    `{accepted:true, improved:true, best:30, rank:1}`; GET then returned the
-    ranked row. Resubmits → `improved:false`. **7th rapid submit → 429**
-    `rate_limited`.
-  - POST implausible (lane-rush 45 000 @ tick 100) → 400 `implausible_score`;
-    leet-banned name → 400 `name_not_allowed`; malformed JSON → 400
-    `invalid_body`; `text/plain` → 415.
-  - Cleanup: smoke score row + its `leaderboard_submissions` rows deleted via
-    REST (204s), both tables re-queried **empty**.
-- **Data note:** the user's old dashboard test row (`lane-rush / AAA / 120`)
-  is gone — they deleted it themselves. Phase 0's "delete before Phase 6"
-  item is resolved; both tables are empty as of this run.
+- Targeted: `npx vitest run src/core/LeaderboardService` → **16 passed**;
+  `tests/leaderboard.spec.ts` → **6 passed** (desktop + mobile).
+- Full `npm run validate`: build (root + api tsc) green; Vitest **154
+  passed** (11 files); eslint + boundary (16 files) + Prettier clean;
+  Playwright **63 passed / 31 skipped** (57 + 6 new; all pins unchanged).
+- **Dist grep:** `supabase` / `SERVICE_ROLE` / `LEADERBOARD_IP_SALT` absent;
+  even the literal `VITE_LEADERBOARD_ENABLED` is compiled away (Vite
+  statically replaces the absent env with `undefined`). Flag-off dev builds
+  ship no leaderboard traffic and no secret names.
+
+## Phase 2 record (`dcbe362`)
+
+`api/leaderboard.ts` (glue: env fail-safe, sha256 ip hash from
+`x-forwarded-for`, Vercel lazy-body-parse flag, PostgREST/RPC transport on
+Node fetch that throws without reading upstream bodies) over
+`src/leaderboard/serverCore.ts` (all decisions: method/origin guards, GET
+single+all with limit clamping + CDN cache header, 415/413/400 POST guards,
+§4 validation order, RPC outcome mapping incl. 429, generic 502). Strict
+`api/tsconfig.json`; build/lint wired; `@vercel/node` types only new dep.
++24 core tests. Real-API smoke via `vercel dev` verified the full curl
+matrix (valid submit, each 4xx, improved:false, 7th-rapid 429, cache
+header); smoke rows cleaned up; **both Supabase tables empty** (the user
+deleted their own old test row — Phase 0's cleanup item is resolved).
 
 ## Phase 1 record (`3123105`)
 
 Pure shared modules in `src/leaderboard/` + 41 tests: `types.ts` (GAME_IDS
-allowlist, error-code union, §4 shapes), `names.ts` (canonicalize →
-length → charset → moderation; lowercase `nameKey`), `bannedWords.ts`
-(leet-folding normalization, severe-substring vs mild-exact tiers, reserved
-names), `plausibility.ts` (§7 bounds/divisors/caps + range guards, cited to
-sources). Derivation sync pins import `runnerMaxSpeed`, `runnerChunkUnits`,
-`circuitMinDropTicks` so logic-constant drift fails the suite.
+allowlist, error-code union, §4 shapes), `names.ts` (canonicalize → length →
+charset → moderation; lowercase `nameKey`), `bannedWords.ts` (leet-folding
+normalization, severe-substring vs mild-exact tiers, reserved names),
+`plausibility.ts` (§7 bounds/divisors/caps + range guards). Derivation sync
+pins import exported logic constants so gameplay drift fails the suite.
 
 ## Phase 0 record — readiness verdict: PROCEED (`e264f6e`)
 
-- Supabase §2 schema verified live over REST; `submit_score` executed via
-  service role; Vercel envs confirmed (`VITE_LEADERBOARD_ENABLED`=`"1"` in
-  Preview+Production only; local dev flag-off; `.env.local` git-ignored).
-- **RLS/zero-policies residual:** inferred from the single-batch §2 run (not
-  directly queryable from this machine). Eyeball the dashboard shield icons +
-  zero policies before Phase 6 prod.
-- All plan pins re-verified against source, zero drift.
+Supabase §2 schema verified live (tables, view, RPC via service role);
+Vercel envs confirmed (`VITE_LEADERBOARD_ENABLED`=`"1"` Preview+Production
+only; `.env.local` git-ignored). **RLS/zero-policies residual:** inferred
+from the single-batch §2 run — eyeball the dashboard shield icons + zero
+policies before Phase 6 prod. All plan pins re-verified, zero drift.
 
-### Decisions (Phase 0, binding for later phases)
+### Decisions (Phase 0, binding)
 
-**Error codes** (shape `{ "error": { "code": "<code>" } }`) — all now
-implemented and unit-tested in `serverCore.ts`:
+**Error codes** (shape `{ "error": { "code": "<code>" } }`) — implemented in
+`serverCore.ts`, parsed by the client service:
 
 | Status | Codes                                                                                                                                                                    |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 400    | `invalid_body`, `invalid_game`, `invalid_limit`, `name_length`, `name_charset`, `name_not_allowed`, `invalid_score`, `invalid_tick`, `invalid_seed`, `implausible_score` |
-| 403    | `forbidden_origin` (Origin header present and ≠ deployment host)                                                                                                         |
+| 403    | `forbidden_origin` (Origin present and ≠ deployment host)                                                                                                                |
 | 405    | `method_not_allowed` (non-GET/POST)                                                                                                                                      |
 | 413    | `body_too_large` (POST body > 1 KB)                                                                                                                                      |
 | 415    | `unsupported_media_type` (POST content-type ≠ application/json)                                                                                                          |
 | 429    | `rate_limited` (RPC verdict passthrough)                                                                                                                                 |
 | 502    | `upstream_error` (generic; never leaks Supabase URLs/errors)                                                                                                             |
 
-**Rate-limit constants** (verified live again this run): max **6** per
-`ip_hash` per rolling **60 s** (7th → 429); log pruned past **1 hour** in the
-RPC; client fetch timeout **5 s** abort (Phase 3); GET cache
-`Cache-Control: public, s-maxage=30, stale-while-revalidate=120`.
+**Rate-limit constants:** max **6** per `ip_hash` per rolling **60 s** (7th →
+429); log pruned past **1 hour** in the RPC; client timeout **5 s** abort;
+GET cache `Cache-Control: public, s-maxage=30, stale-while-revalidate=120`.
 
 **Panel copy** (final; `textContent` only for server data):
 
@@ -131,19 +124,27 @@ only` / `That name isn't allowed`.
 - Home card fragment: `World <score>` appended to the existing high line
   (`High 777 · World 12,340`); absent on error/disabled.
 
-## Next task (Phase 3 — start cold from the loop file)
+## Next task (Phase 4 — start cold from the loop file)
 
-`src/core/LeaderboardService.ts` module singleton (the `audioEngine`
-pattern): flag gating on `import.meta.env.VITE_LEADERBOARD_ENABLED === '1'`
-or the test override `window.__ARCADE_LB_FORCE__` (set via `addInitScript`,
-mirroring `__ARCADE_FIXED_SEEDS__`); `isEnabled()`, `fetchTop(gameId,
-limit)`, `fetchTops()`, `submit(entry)` against same-origin
-`/api/leaderboard` only; 5 s `AbortController` timeout; never throws, never
-logs — typed results `{ ok: true, … } | { ok: false, reason: 'offline' |
-'http' | 'invalid' | 'disabled' }`; `disabled` short-circuits without
-touching the network. New `tests/leaderboard.spec.ts` starts here: flag-off
-spec counts `/api/**` requests (must be **0**) and asserts no leaderboard
-DOM; a flag-forced spec with `page.route` mocks proves fetch + parse.
-Remember trap 2 (Chromium logs failed HTTP as console errors — error-path
-specs must not assert console cleanliness) and run both Playwright projects.
-Full validate.
+Name entry + submission UI. `BaseGameScene` dispatches **one**
+`arcade-game-over` CustomEvent (`{ gameId, score, tick, runSeed }`) on the
+alive→dead transition only — both existing detection sites already compute
+it (input handler ~line 25/38, fixed-step loop ~line 97); do not add state
+to logic (trap 9). Shell-side controller + `src/ui/LeaderboardPanel.ts`:
+submit row with name input (first run) or saved name + `Edit`; live messages
+from the shared validator; explicit `Submit score` (never auto-submit; at
+most one submission per run-end event); `Submitting…` → rank/best copy →
+failed + `Retry` (copy table above); name persisted at
+`pocket-arcade:player-name` via `SafeStorage` **on success only**. Panel is
+an absolutely positioned DOM overlay inside `.game-root` (no layout shift,
+trap 6), theme tokens both themes, keyboard-operable with focus-visible
+rings, ≥44 px touch targets, `touch-action: manipulation`; the input joins
+`InputManager`'s focused-control exemption and blurs on submit (trap 7);
+ACTION-restart and the Restart button must work with the panel open; panel
+removed on restart/scene-switch/Back; render server data via `textContent`
+only (trap 8). e2e in `tests/leaderboard.spec.ts`: mocked-200 submit flow
+(name persists, rank renders), invalid-name blocks Submit (0 requests),
+429/offline paths (no console assertions, trap 2),
+restart-works-with-panel-open, `pocket-arcade:<id>:high` keys unchanged.
+Tab-order pins move only deliberately, same slice, commit message says so
+(trap 10). Both Playwright projects; full validate.
