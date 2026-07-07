@@ -235,6 +235,17 @@ select {
   font-size: 0.78rem;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
+  /* The World fragment joins this existing line — keep it single-line so it
+     can never add card height (guards the home no-scroll geometry). */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The global "World" best joins the local high on the same line; muted so the
+   local score stays primary. */
+.hs-world {
+  color: var(--muted);
 }
 
 .home-card:hover {
@@ -894,6 +905,73 @@ h2 {
 .lb-edit:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Top-score list: compact rows that fit the panel's lower-third budget (top 10
+   desktop / top 5 coarse) without page scroll. Server names/scores are set via
+   textContent; theme-token colors work in both themes. */
+.lb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.lb-list-heading {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lb-list-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lb-list-rows[hidden] {
+  display: none;
+}
+
+.lb-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-rank {
+  flex: 0 0 auto;
+  min-width: 2.2em;
+  color: var(--muted);
+}
+
+.lb-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-row-score {
+  flex: 0 0 auto;
+  color: var(--score-text);
+  font-weight: 700;
+}
+
+.lb-list-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .touch-controls {

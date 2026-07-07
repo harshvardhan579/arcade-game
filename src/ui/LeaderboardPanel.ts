@@ -15,9 +15,10 @@
 import { leaderboardService, type LeaderboardFailure } from '../core/LeaderboardService';
 import { SafeStorage } from '../core/Storage';
 import type { GameOverDetail } from '../core/types';
+import { hasCoarsePointer } from '../core/Viewport';
 import { validateName, type NameErrorCode } from '../leaderboard/names';
 import { isGameId } from '../leaderboard/types';
-import type { GameId, SubmitRequest, SubmitResponse } from '../leaderboard/types';
+import type { GameId, LeaderboardEntry, SubmitRequest, SubmitResponse } from '../leaderboard/types';
 
 // Persisted display name; reused across runs and games (plan §4).
 const PLAYER_NAME_KEY = 'pocket-arcade:player-name';
@@ -28,6 +29,14 @@ const VALIDATION_MESSAGES: Readonly<Record<NameErrorCode, string>> = {
   name_charset: 'Letters, numbers, spaces, - and _ only',
   name_not_allowed: "That name isn't allowed"
 };
+
+// Top-list copy (Phase 0 decisions). Fewer rows on coarse-pointer/short
+// canvases so the panel never needs to scroll or overrun the cabinet screen.
+const TOP_LIMIT_DESKTOP = 10;
+const TOP_LIMIT_COARSE = 5;
+const LIST_LOADING = '…';
+const LIST_EMPTY = 'No scores yet — be the first';
+const LIST_UNAVAILABLE = 'Global scores unavailable';
 
 type MessageTone = 'muted' | 'error' | 'success';
 
@@ -158,7 +167,19 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
   retryButton.textContent = 'Retry';
   retryButton.hidden = true;
 
-  panel.append(heading, form, message, retryButton);
+  // Top-score list: heading + either rows or a single status line.
+  const list = document.createElement('div');
+  list.className = 'lb-list';
+  const listHeading = document.createElement('p');
+  listHeading.className = 'lb-list-heading';
+  const listRows = document.createElement('ol');
+  listRows.className = 'lb-list-rows';
+  listRows.hidden = true;
+  const listStatus = document.createElement('p');
+  listStatus.className = 'lb-list-status';
+  list.append(listHeading, listRows, listStatus);
+
+  panel.append(heading, form, message, retryButton, list);
   gameRoot.append(panel);
 
   // --- Panel state -------------------------------------------------------
@@ -214,6 +235,54 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
     return editing ? nameInput.value : (savedName.textContent ?? '');
   }
 
+  function setListStatus(text: string): void {
+    listRows.replaceChildren();
+    listRows.hidden = true;
+    listStatus.hidden = false;
+    listStatus.textContent = text;
+  }
+
+  function renderRows(entries: LeaderboardEntry[]): void {
+    listStatus.hidden = true;
+    listRows.hidden = false;
+    listRows.replaceChildren();
+    for (const entry of entries) {
+      const row = document.createElement('li');
+      row.className = 'lb-row';
+      const rank = document.createElement('span');
+      rank.className = 'lb-rank';
+      rank.textContent = `#${entry.rank}`;
+      const name = document.createElement('span');
+      name.className = 'lb-row-name';
+      name.textContent = entry.name; // textContent: server data, never innerHTML.
+      const score = document.createElement('span');
+      score.className = 'lb-row-score';
+      score.textContent = String(entry.score);
+      row.append(rank, name, score);
+      listRows.append(row);
+    }
+  }
+
+  // Independent of the submit flow: fetching/rendering the list never blocks
+  // Submit, Retry, Restart, Back, or ACTION restart.
+  async function loadTopList(run: ActiveRun): Promise<void> {
+    const limit = hasCoarsePointer() ? TOP_LIMIT_COARSE : TOP_LIMIT_DESKTOP;
+    listHeading.textContent = `TOP ${limit}`;
+    setListStatus(LIST_LOADING);
+    const result = await leaderboardService.fetchTop(run.gameId, limit);
+    if (activeRun !== run) return; // Dismissed/replaced while awaiting.
+    if (!result.ok) {
+      setListStatus(LIST_UNAVAILABLE);
+      return;
+    }
+    const entries = result.data.entries.slice(0, limit);
+    if (entries.length === 0) {
+      setListStatus(LIST_EMPTY);
+      return;
+    }
+    renderRows(entries);
+  }
+
   function open(run: ActiveRun): void {
     activeRun = run;
     inFlight = false;
@@ -229,6 +298,7 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
       applyEntryMode('');
     }
     panel.classList.add('is-open');
+    void loadTopList(run);
   }
 
   function close(): void {
@@ -280,6 +350,9 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
       // Persist the name only on a confirmed accept (plan §4).
       storage.setString(PLAYER_NAME_KEY, name);
       showSuccess(name, result.data);
+      // An improved score changed the standings — refresh so the player sees
+      // their new rank. A non-improving accept leaves the list as-is.
+      if (result.data.improved) void loadTopList(run);
     } else {
       showFailure(result);
     }

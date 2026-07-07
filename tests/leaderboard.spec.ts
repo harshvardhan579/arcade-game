@@ -71,12 +71,15 @@ test('flag-forced service fetches and parses through mocked /api routes', async 
     });
   });
 
-  await page.goto('/');
+  // Game mode: the home hub auto-fetches tops (Phase 5), so drive the service
+  // in game mode to keep this spec's request count about these three calls
+  // only. The home cards still exist in the DOM here.
+  await page.goto('/?game=neon-serpent');
   await expect(page.locator('.home-card')).toHaveCount(5);
 
-  // No UI consumes the service yet; import the real module through the Vite
-  // dev server and exercise all three methods in the browser. The string
-  // form keeps the root-relative dynamic import out of tsc's module graph.
+  // Import the real module through the Vite dev server and exercise all three
+  // methods in the browser. The string form keeps the root-relative dynamic
+  // import out of tsc's module graph.
   const results = (await page.evaluate(`
     import('/src/core/LeaderboardService.ts').then(async (mod) => {
       const service = mod.leaderboardService;
@@ -121,7 +124,9 @@ test('flag-forced service resolves typed failures from mocked errors without thr
     await route.abort('connectionrefused');
   });
 
-  await page.goto('/');
+  // Game mode (see the happy-path spec): avoids the home tops auto-fetch so
+  // only the two service calls below hit the mocked routes.
+  await page.goto('/?game=neon-serpent');
   await expect(page.locator('.home-card')).toHaveCount(5);
 
   const results = (await page.evaluate(`
@@ -440,14 +445,22 @@ test('an offline failure shows a retry state and Retry sends another request', a
   expect(posts, 'Retry must resend after a failure').toBe(2);
 });
 
-test('an invalid name blocks Submit and sends zero requests', async ({ page }) => {
+test('an invalid name blocks Submit and sends no submit request', async ({ page }) => {
   await forceLeaderboard(page);
-  const apiRequests: string[] = [];
+  // Count POSTs only: the panel legitimately GETs the top list on open (Phase
+  // 5); the contract here is that an invalid name never *submits*.
+  const submitPosts: string[] = [];
   page.on('request', (request) => {
-    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+    if (request.method() === 'POST' && new URL(request.url()).pathname.startsWith('/api/')) {
+      submitPosts.push(request.url());
+    }
   });
   await page.route(/\/api\/leaderboard/, async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ game: 'neon-serpent', entries: [] })
+    });
   });
 
   await bootNeon(page);
@@ -468,7 +481,7 @@ test('an invalid name blocks Submit and sends zero requests', async ({ page }) =
   await expect(submit).toBeDisabled();
   await expect(page.locator('.lb-message')).toContainText("isn't allowed");
 
-  expect(apiRequests).toEqual([]);
+  expect(submitPosts).toEqual([]);
 });
 
 test('a zero score neither shows the panel nor submits', async ({ page }) => {
@@ -570,4 +583,121 @@ test('the open panel keeps the mobile layout scroll-free', async ({ page, viewpo
   }));
   expect(overflow.vertical, 'no vertical scroll with the panel open').toBeLessThanOrEqual(0);
   expect(overflow.horizontal, 'no horizontal scroll with the panel open').toBeLessThanOrEqual(0);
+});
+
+// --- Phase 5: game-over top-score list -----------------------------------
+
+// Ten entries; one name carries markup to prove textContent rendering.
+function makeEntries(count: number): Array<Record<string, unknown>> {
+  const entries = [];
+  for (let i = 0; i < count; i += 1) {
+    entries.push({
+      rank: i + 1,
+      name: i === 0 ? '<img src=x>' : `PLAYER${i + 1}`,
+      score: 2000 - i * 100,
+      createdAt: '2026-07-07T00:00:00Z'
+    });
+  }
+  return entries;
+}
+
+test('the game-over panel fetches the current game and renders ranked rows safely', async ({
+  page,
+  viewport
+}) => {
+  await forceLeaderboard(page);
+  const topRequests: string[] = [];
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    const request = route.request();
+    if (request.method() === 'GET') topRequests.push(request.url());
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ game: 'neon-serpent', entries: makeEntries(10) })
+    });
+  });
+
+  await bootNeon(page);
+  await dispatchGameOver(page);
+  await expect(page.locator('.leaderboard-panel.is-open')).toBeVisible();
+
+  // Coarse-pointer (mobile) shows top 5; fine-pointer (desktop) shows top 10.
+  const expected = viewport && viewport.width < 900 ? 5 : 10;
+  await expect(page.locator('.lb-list-heading')).toHaveText(`TOP ${expected}`);
+  await expect(page.locator('.lb-row')).toHaveCount(expected);
+
+  // The list fetched this game's board.
+  expect(topRequests.length).toBeGreaterThanOrEqual(1);
+  expect(topRequests[0]).toContain('game=neon-serpent');
+
+  // Rank / name / score render; the markup name is inert text, not HTML.
+  const first = page.locator('.lb-row').first();
+  await expect(first.locator('.lb-rank')).toHaveText('#1');
+  await expect(first.locator('.lb-row-name')).toHaveText('<img src=x>');
+  await expect(first.locator('.lb-row-score')).toHaveText('2000');
+  expect(await page.locator('.lb-row-name img').count()).toBe(0);
+});
+
+test('the game-over panel shows a clean empty state', async ({ page }) => {
+  await forceLeaderboard(page);
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ game: 'neon-serpent', entries: [] })
+    });
+  });
+
+  await bootNeon(page);
+  await dispatchGameOver(page);
+  await expect(page.locator('.lb-list-status')).toContainText('No scores yet');
+  await expect(page.locator('.lb-row')).toHaveCount(0);
+});
+
+test('the game-over list shows an unavailable state on error without throwing', async ({
+  page
+}) => {
+  // Error path (aborted GET): Chromium logs a console error (trap 2), so no
+  // console-cleanliness assertion here.
+  await forceLeaderboard(page);
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    await route.abort('connectionrefused');
+  });
+
+  await bootNeon(page);
+  await dispatchGameOver(page);
+  await expect(page.locator('.lb-list-status')).toContainText('Global scores unavailable');
+});
+
+test('an improved submission refreshes the top list', async ({ page }) => {
+  await forceLeaderboard(page);
+  let getCount = 0;
+  await page.route(/\/api\/leaderboard/, async (route) => {
+    const request = route.request();
+    if (request.method() === 'POST') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accepted: true, improved: true, best: 1280, rank: 1 })
+      });
+      return;
+    }
+    getCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ game: 'neon-serpent', entries: makeEntries(3) })
+    });
+  });
+
+  await bootNeon(page);
+  await dispatchGameOver(page);
+  await expect(page.locator('.lb-row')).toHaveCount(3);
+  const afterOpen = getCount;
+
+  await page.locator('.lb-name').fill('TESTER');
+  await page.locator('.lb-submit').click();
+  await expect(page.locator('.lb-message')).toContainText('Ranked #1');
+  // The improved accept triggered a fresh list fetch.
+  await expect.poll(() => getCount).toBeGreaterThan(afterOpen);
 });

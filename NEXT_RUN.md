@@ -11,116 +11,112 @@ Spec: `LEADERBOARD_PLAN.md`. System map: `CURRENT_APP_STATE.md`.
 | 1     | `src/leaderboard/` shared validation + Vitest   | done (`3123105`)    |
 | 2     | `api/leaderboard.ts` + tsconfig/lint/build      | done (`dcbe362`)    |
 | 3     | `LeaderboardService` client (flag-gated)        | done (`4c1e9b0`)    |
-| 4     | Name entry + submission UI (`arcade-game-over`) | **done** (this run) |
-| 5     | Display: game-over top-10 + home `World` line   | next                |
-| 6     | Hardening + docs + deploy checklist             | pending             |
+| 4     | Name entry + submission UI (`arcade-game-over`) | done (`db4a5d8`)    |
+| 5     | Display: game-over top-10 + home `World` line   | **done** (this run) |
+| 6     | Hardening + docs + deploy checklist             | next                |
 
-## Phase 4 (this run) — name entry + submission panel
+## Phase 5 (this run) — leaderboard display
 
 **What changed**
 
-- **`src/core/types.ts`** — added the DOM-free `GameOverDetail` contract
-  (`{ gameId, score, tick, runSeed }`) shared by the scene and the shell.
-- **`src/games/BaseGameScene.ts`** — dispatches **one** `arcade-game-over`
-  CustomEvent on the alive→dead transition at both existing detection sites
-  (input handler + fixed-step loop; each already guarded by
-  `!before.isGameOver`, so it never repeats per frame). `startNewRun()` now
-  dispatches a plain `arcade-run-start` event (scene (re)start, Restart,
-  ACTION-after-death) that the panel uses to dismiss. No logic/scoring change.
-- **`src/ui/LeaderboardPanel.ts`** (new) — flag-gated DOM overlay. Mounts (and
-  creates DOM) only when `leaderboardService.isEnabled()`, so flag-off builds
-  carry zero leaderboard markup. Shows on `arcade-game-over` when enabled and
-  `score > 0`; name input (first run) or saved name + `Edit`; live shared
-  validator messages; explicit `Submit score` (never auto-submits; at most one
-  submission per run-end, `Retry` re-arms after a failure);
-  submitting/improved/not-improved/429/offline/rejected states; persists the
-  name at `pocket-arcade:player-name` (SafeStorage) **on accept only**; server
-  data via `textContent`. Dismisses on `arcade-run-start` + `arcade-go-home`.
-- **`src/main.ts`** — `mountLeaderboardPanel(gameRoot)` after shell creation.
-- **`src/style.css`** — `.leaderboard-panel` overlay (absolute inside
-  `.game-root`, `z-index 3` above the scanline pseudo; theme-token driven both
-  themes; ≥44px targets; `touch-action: manipulation`; focus-visible rings) +
-  new `--danger-text` token (both themes) for error/reject copy. Reduced-motion
-  handled by the existing global block.
-- **`tests/leaderboard.spec.ts`** — +12 Phase 4 e2e (both projects).
+- **`src/ui/LeaderboardPanel.ts`** — on panel open, `loadTopList(run)` calls
+  `leaderboardService.fetchTop(gameId, limit)` (limit **10** fine-pointer / **5**
+  coarse-pointer) and renders a compact `<ol>` under the submit row. States:
+  loading `…`, ranked rows, empty `No scores yet — be the first`, error
+  `Global scores unavailable`. Rank/name/score via `textContent` only. Never
+  blocks Submit/Retry/Restart/Back/ACTION. An **improved** accept re-fetches the
+  list; a non-improving accept leaves it as-is.
+- **`src/ui/HomeScreen.ts`** — the high line is now
+  `<span class="hs-local">High N</span><span class="hs-world"></span>`. When the
+  hub is shown and the flag is on, `refreshWorldScores()` calls
+  `fetchTops()` once and appends ` · World <score>` (`toLocaleString`,
+  `textContent`) to cards with a global best; omitted otherwise. Gated on
+  `data-mode==='home'`, throttled (default **60 s**, `lastTopsFetchAt` claimed
+  before await), triggered on initial home boot and `arcade-go-home` (both via
+  `requestAnimationFrame` so the shell mode is settled first). Failure is
+  silent — no fragment, no `console.error`. The live `arcade-high-score` handler
+  now updates `.hs-local` only, leaving the World fragment intact.
+- **`src/style.css`** — `.lb-list*` rows (compact, theme tokens, tabular nums);
+  `.home-card-high` pinned single-line (`nowrap`/ellipsis) so the World fragment
+  can never add card height; muted `.hs-world`.
 
 **Deliberately updated pins**
 
-- New window-event contract from `BaseGameScene`: `arcade-game-over`
-  (`GameOverDetail`) + `arcade-run-start`.
-- New storage key `pocket-arcade:player-name` (SafeStorage string). Local
-  high-score keys (`pocket-arcade:<id>:high`) untouched.
-- **Tab order pin NOT moved:** the panel's focusables live in `.game-root`
-  (after Back/Restart/toggle in DOM) and exist only when flag-on **and**
-  game-over, so the desktop keyboard spec (7 tab stops, panel hidden) is
-  unaffected — `tests/shell.spec.ts` unchanged and green.
+- Home now issues one `game=all` `fetchTop`… `fetchTops()` per home visit when
+  enabled (throttled). Test hook `window.__ARCADE_LB_TOPS_TTL__` overrides the
+  throttle window (ms), mirroring the `__ARCADE_FIXED_SEEDS__` pattern.
+- **Phase 3 service specs** (`leaderboard.spec.ts` tests 2 & 3) now drive the
+  service in **game mode** (`/?game=neon-serpent`) so the new home auto-fetch
+  does not inflate their exact request counts. Same assertions otherwise.
+- **Phase 4 invalid-name spec** now counts **POST** requests only (the panel
+  legitimately GETs the top list on open); the contract "an invalid name never
+  submits" is unchanged.
+- `.home-card-high` split into `.hs-local` + `.hs-world`; its combined
+  `textContent` is unchanged flag-off, so existing home high-score specs stay
+  green.
 
 **Validation** (`npm run validate` — all green)
 
-- Targeted: `tests/leaderboard.spec.ts` → 14 passed desktop / 15 passed mobile
-  (1 mobile-only skip on desktop).
-- Full: build (root + api tsc) green; Vitest **154 passed** (11 files);
-  eslint, import-boundary (**16 files**), and Prettier clean; Playwright
-  **86 passed / 32 skipped** (both projects). `grep -ri supabase dist/` empty.
-- Test host trick: Neon Serpent (portal snake) never auto-dies with no input,
-  so it is the stable host for synthetic `arcade-game-over` dispatches (no
-  background game-over disrupts the panel); Bounce Circuit auto-dies (~7s,
-  score>0), exercising the real scene→event→panel path plus the one-event,
-  local-high-score, and ACTION-restart-dismiss assertions. All network mocked
-  via `page.route`.
+- Targeted: `leaderboard.spec.ts` + `home.spec.ts` → desktop + mobile all pass;
+  flake pass `--repeat-each=3` on the throttle/refetch/World home specs (both
+  projects) → clean.
+- Full: build (root + api tsc) green; Vitest **154 passed** (11 files); eslint,
+  import-boundary (**16 files**), Prettier clean; Playwright **103 passed / 33
+  skipped** (both projects). `grep -ri supabase dist/` empty. Pixel-signature
+  switching specs unchanged (list + World are DOM, never drawn into canvas).
 
 **Manual QA checklist (real preview, `VITE_LEADERBOARD_ENABLED=1`)**
 
-- [ ] Game over with score>0 shows the panel in the lower third; center
-      "GAME OVER / Press Space" text stays visible.
-- [ ] Dark and light themes both readable (panel fill + text + error red).
-- [ ] First run shows the input; after a successful submit the next game over
-      greets the saved name with `Edit`; `Edit` changes it.
-- [ ] Submit → `Submitting…` → `Ranked #N worldwide · Best M` (improved) or
-      `Best for <name> is M` (not improved).
-- [ ] 429 → cooldown copy + `Retry`; offline → retry copy + `Retry` resends.
-- [ ] Restart button, Space (ACTION), and Back each clear the panel.
-- [ ] Mobile portrait: panel fits, no page scroll, does not cover the d-pad /
-      ACTION; targets ≥44px; typing in the name field never moves the game.
-- [ ] Reduced motion: no panel animation churn.
+- [ ] Game over: top list loads (`…` → rows) under the submit row; empty and
+      offline states read cleanly; list never covers Restart/Back or the mobile
+      d-pad/ACTION; no page scroll; dark + light both readable.
+- [ ] Mobile shows `TOP 5`, desktop `TOP 10`; server names render literally
+      (no HTML injection).
+- [ ] Improved submit refreshes the list to show the new rank; a non-improving
+      submit leaves it.
+- [ ] Home cards show `High N · World M` for games with a global best; no World
+      fragment for games without; one line, no card-height growth, no scroll.
+- [ ] Back to home within a minute does not refetch; after a minute it can.
+- [ ] Flag off: no World fragments, no top list, zero `/api` on home and
+      game-over; home layout unchanged.
 
-## Phase 5 — cold-start brief (leaderboard display)
+## Phase 6 — cold-start brief (hardening + docs + deploy)
 
-Extend the **existing** `src/ui/LeaderboardPanel.ts` and touch home cards.
-
-1. **Game-over top list.** On panel open (after `open(run)`), call
-   `leaderboardService.fetchTop(run.gameId)` and render a top-10 list (top-5 on
-   short canvases) below the submit row: `…` loading row, quiet
-   `Global scores unavailable` on failure, `No scores yet — be the first` when
-   empty. **`textContent` only** for names/scores. Refresh the list after a
-   successful submit so the player sees their new rank.
-2. **Home `World` fragment.** In `src/ui/HomeScreen.ts`, one `fetchTops()` per
-   home entry with a ≥60s refetch throttle (the service is stateless — throttle
-   in the controller). Append `World <score>` to the existing
-   `.home-card-high` line (`High 777 · World 12,340`) — **zero added card
-   height**; absent on error/disabled. Guard: flag-off home must still make
-   **zero `/api`** (leaderboard.spec test 1 pins this) and add no height (the
-   375×667 / 667×375 home-fit test in `home.spec.ts` pins it).
-3. **Copy (Phase 0, binding):** list heading `TOP 10` / `TOP 5`; loading `…`;
-   empty `No scores yet — be the first`; error `Global scores unavailable`;
-   home fragment `World <score>`.
-4. **e2e:** mocked tops render on home cards; home-fit still green; game-over
-   top list renders + loading + error states. Full validate both projects +
-   screenshots (both themes × desktop/portrait). Pixel signatures unaffected
-   (list is DOM, never drawn into the canvas).
+1. **Test/flake sweep.** `--repeat-each=2` on leaderboard + home + shell + smoke
+   (both projects). Confirm every plan-§9 row exists and is green; diff the
+   specs to prove no existing assertion was weakened (the Phase 5 changes to
+   `leaderboard.spec` tests 2/3 + invalid-name and the `home.spec` high-line
+   structure are the intended deltas — everything else must be untouched).
+2. **Docs.** README (feature + flag + architecture paragraph); `CLAUDE.md`
+   architecture notes (leaderboard invariants: flag gating, no keys client-side,
+   shared validation module, `arcade-game-over`/`arcade-run-start` contracts,
+   `pocket-arcade:player-name` key, home `game=all` throttle, protected hooks);
+   `CURRENT_APP_STATE.md` refresh; `LEADERBOARD_PLAN.md` marked
+   implemented-with-deviations.
+3. **Deploy checklist** (record in `NEXT_RUN.md`): push branch → Vercel preview →
+   curl matrix against the preview URL (submit / each 4xx / 7th-rapid 429 / GET
+   cache header) → browser smoke on preview (submit a real score, see it on the
+   home World line and the game-over list) → verify prod envs → merge → repeat
+   the browser smoke on production → confirm Supabase rows look sane.
+4. **Owed from Phase 0:** eyeball the Supabase RLS shield + zero-policies state
+   in the dashboard before trusting prod.
+5. Fresh full `npm run validate`; commit only if green; stop with push/PR
+   commands.
 
 ## Prior-phase anchors
 
-- **Phase 3 (`4c1e9b0`):** `src/core/LeaderboardService.ts` singleton
-  (`createLeaderboardService(deps)`), flag gate
+- **Phase 4 (`db4a5d8`):** `BaseGameScene` emits `arcade-game-over`
+  (`GameOverDetail {gameId,score,tick,runSeed}`) once on alive→dead + a plain
+  `arcade-run-start` from `startNewRun()`. `src/ui/LeaderboardPanel.ts`
+  flag-gated overlay: name entry / saved name + Edit, live validator messages,
+  explicit Submit (one per run-end, Retry re-arms), name at
+  `pocket-arcade:player-name` on accept only, `textContent` for server data,
+  dismiss on run-start + go-home.
+- **Phase 3 (`4c1e9b0`):** `LeaderboardService` singleton, flag gate
   `VITE_LEADERBOARD_ENABLED==='1'` OR `__ARCADE_LB_FORCE__`; `fetchTop`,
-  `fetchTops`, `submit`; 5s abort; typed results
-  (`disabled` / `offline` / `http` + status + code / `invalid`); never
-  throws/logs.
-- **Phase 2 (`dcbe362`):** `api/leaderboard.ts` over
-  `src/leaderboard/serverCore.ts` (method/origin guards, §4 validation order,
-  RPC → `improved`/429 mapping, generic 502). Error-code→status table below.
-- **Phase 0 decisions (binding):** error codes 400/403/405/413/415/429/502;
-  rate-limit **6 / ip_hash / 60s** (7th→429); GET cache
-  `public, s-maxage=30, stale-while-revalidate=120`. RLS/zero-policies eyeball
-  still owed before Phase 6 prod.
+  `fetchTops`, `submit`; 5 s abort; typed results; never throws/logs.
+- **Phase 2 (`dcbe362`):** `api/leaderboard.ts` over `serverCore.ts` (method/
+  origin guards, §4 validation order, RPC → `improved`/429, generic 502).
+- **Phase 0 (binding):** error codes 400/403/405/413/415/429/502; rate-limit
+  **6 / ip_hash / 60 s**; GET cache
+  `public, s-maxage=30, stale-while-revalidate=120`. RLS eyeball owed pre-prod.
