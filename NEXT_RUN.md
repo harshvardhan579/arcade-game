@@ -10,141 +10,117 @@ Spec: `LEADERBOARD_PLAN.md`. System map: `CURRENT_APP_STATE.md`.
 | 0     | Readiness gate + plan-pin verification          | done (`e264f6e`)    |
 | 1     | `src/leaderboard/` shared validation + Vitest   | done (`3123105`)    |
 | 2     | `api/leaderboard.ts` + tsconfig/lint/build      | done (`dcbe362`)    |
-| 3     | `LeaderboardService` client (flag-gated)        | **done** (this run) |
-| 4     | Name entry + submission UI (`arcade-game-over`) | next                |
-| 5     | Display: game-over top-10 + home `World` line   | pending             |
+| 3     | `LeaderboardService` client (flag-gated)        | done (`4c1e9b0`)    |
+| 4     | Name entry + submission UI (`arcade-game-over`) | **done** (this run) |
+| 5     | Display: game-over top-10 + home `World` line   | next                |
 | 6     | Hardening + docs + deploy checklist             | pending             |
 
-## Phase 3 (this run) — client service
+## Phase 4 (this run) — name entry + submission panel
 
-- **`src/core/LeaderboardService.ts`** — module singleton (the `audioEngine`
-  pattern) built by `createLeaderboardService(deps)` with injected
-  `isEnabled`/`fetchFn`/`timeoutMs` so unit tests stay pure and
-  boundary-safe. Flag gate: `import.meta.env.VITE_LEADERBOARD_ENABLED ===
-'1'` OR the test-only override `__ARCADE_LB_FORCE__` (declared on the
-  global Window type in this file; set only via Playwright `addInitScript`,
-  mirroring `__ARCADE_FIXED_SEEDS__`).
-- **API surface (plan §5):** `isEnabled()`, `fetchTop(gameId, limit=10)`,
-  `fetchTops()`, `submit(entry)`. Same-origin by construction — every request
-  uses the rooted path `/api/leaderboard`, never an absolute URL.
-- **Behavior:** disabled → `{ ok: false, reason: 'disabled' }` with zero
-  network; 5 s `AbortController` timeout (override for tests); never throws,
-  never logs. Typed results: fetch rejection/abort → `'offline'`; non-2xx →
-  `'http'` with `status` + parsed error `code` (so Phase 4 can show 429 copy);
-  non-JSON or shape-mismatched 200 → `'invalid'`. Response parsing is strict
-  per shape (`TopResponse`, `TopsByGame` null-filled over the five IDs,
-  `SubmitResponse`).
-- **Deliberately not built:** no session cache (plan §5 assigns the ≥60 s
-  home refetch throttle to the Phase 5 controller — the service stays
-  stateless), no UI, no `BaseGameScene`/`arcade-game-over` change.
-- **Tests:** +16 Vitest in `src/core/LeaderboardService.test.ts` (injected
-  fake fetch; the singleton itself proven disabled with a stubbed global) and
-  the new `tests/leaderboard.spec.ts` (3 specs × both projects): flag-off
-  counts `/api/**` requests (**0**) + no leaderboard DOM + console-clean in
-  game and home modes; flag-forced spec drives the real module in the browser
-  via the Vite dev-server module graph (string-form dynamic import keeps tsc
-  out of it) against `page.route` mocks and asserts all three methods parse;
-  an error-path spec (mocked 429 + aborted GET) asserts typed failures — no
-  console assertion there (headless caveat, trap 2).
+**What changed**
 
-### Phase 3 validation
+- **`src/core/types.ts`** — added the DOM-free `GameOverDetail` contract
+  (`{ gameId, score, tick, runSeed }`) shared by the scene and the shell.
+- **`src/games/BaseGameScene.ts`** — dispatches **one** `arcade-game-over`
+  CustomEvent on the alive→dead transition at both existing detection sites
+  (input handler + fixed-step loop; each already guarded by
+  `!before.isGameOver`, so it never repeats per frame). `startNewRun()` now
+  dispatches a plain `arcade-run-start` event (scene (re)start, Restart,
+  ACTION-after-death) that the panel uses to dismiss. No logic/scoring change.
+- **`src/ui/LeaderboardPanel.ts`** (new) — flag-gated DOM overlay. Mounts (and
+  creates DOM) only when `leaderboardService.isEnabled()`, so flag-off builds
+  carry zero leaderboard markup. Shows on `arcade-game-over` when enabled and
+  `score > 0`; name input (first run) or saved name + `Edit`; live shared
+  validator messages; explicit `Submit score` (never auto-submits; at most one
+  submission per run-end, `Retry` re-arms after a failure);
+  submitting/improved/not-improved/429/offline/rejected states; persists the
+  name at `pocket-arcade:player-name` (SafeStorage) **on accept only**; server
+  data via `textContent`. Dismisses on `arcade-run-start` + `arcade-go-home`.
+- **`src/main.ts`** — `mountLeaderboardPanel(gameRoot)` after shell creation.
+- **`src/style.css`** — `.leaderboard-panel` overlay (absolute inside
+  `.game-root`, `z-index 3` above the scanline pseudo; theme-token driven both
+  themes; ≥44px targets; `touch-action: manipulation`; focus-visible rings) +
+  new `--danger-text` token (both themes) for error/reject copy. Reduced-motion
+  handled by the existing global block.
+- **`tests/leaderboard.spec.ts`** — +12 Phase 4 e2e (both projects).
 
-- Targeted: `npx vitest run src/core/LeaderboardService` → **16 passed**;
-  `tests/leaderboard.spec.ts` → **6 passed** (desktop + mobile).
-- Full `npm run validate`: build (root + api tsc) green; Vitest **154
-  passed** (11 files); eslint + boundary (16 files) + Prettier clean;
-  Playwright **63 passed / 31 skipped** (57 + 6 new; all pins unchanged).
-- **Dist grep:** `supabase` / `SERVICE_ROLE` / `LEADERBOARD_IP_SALT` absent;
-  even the literal `VITE_LEADERBOARD_ENABLED` is compiled away (Vite
-  statically replaces the absent env with `undefined`). Flag-off dev builds
-  ship no leaderboard traffic and no secret names.
+**Deliberately updated pins**
 
-## Phase 2 record (`dcbe362`)
+- New window-event contract from `BaseGameScene`: `arcade-game-over`
+  (`GameOverDetail`) + `arcade-run-start`.
+- New storage key `pocket-arcade:player-name` (SafeStorage string). Local
+  high-score keys (`pocket-arcade:<id>:high`) untouched.
+- **Tab order pin NOT moved:** the panel's focusables live in `.game-root`
+  (after Back/Restart/toggle in DOM) and exist only when flag-on **and**
+  game-over, so the desktop keyboard spec (7 tab stops, panel hidden) is
+  unaffected — `tests/shell.spec.ts` unchanged and green.
 
-`api/leaderboard.ts` (glue: env fail-safe, sha256 ip hash from
-`x-forwarded-for`, Vercel lazy-body-parse flag, PostgREST/RPC transport on
-Node fetch that throws without reading upstream bodies) over
-`src/leaderboard/serverCore.ts` (all decisions: method/origin guards, GET
-single+all with limit clamping + CDN cache header, 415/413/400 POST guards,
-§4 validation order, RPC outcome mapping incl. 429, generic 502). Strict
-`api/tsconfig.json`; build/lint wired; `@vercel/node` types only new dep.
-+24 core tests. Real-API smoke via `vercel dev` verified the full curl
-matrix (valid submit, each 4xx, improved:false, 7th-rapid 429, cache
-header); smoke rows cleaned up; **both Supabase tables empty** (the user
-deleted their own old test row — Phase 0's cleanup item is resolved).
+**Validation** (`npm run validate` — all green)
 
-## Phase 1 record (`3123105`)
+- Targeted: `tests/leaderboard.spec.ts` → 14 passed desktop / 15 passed mobile
+  (1 mobile-only skip on desktop).
+- Full: build (root + api tsc) green; Vitest **154 passed** (11 files);
+  eslint, import-boundary (**16 files**), and Prettier clean; Playwright
+  **86 passed / 32 skipped** (both projects). `grep -ri supabase dist/` empty.
+- Test host trick: Neon Serpent (portal snake) never auto-dies with no input,
+  so it is the stable host for synthetic `arcade-game-over` dispatches (no
+  background game-over disrupts the panel); Bounce Circuit auto-dies (~7s,
+  score>0), exercising the real scene→event→panel path plus the one-event,
+  local-high-score, and ACTION-restart-dismiss assertions. All network mocked
+  via `page.route`.
 
-Pure shared modules in `src/leaderboard/` + 41 tests: `types.ts` (GAME_IDS
-allowlist, error-code union, §4 shapes), `names.ts` (canonicalize → length →
-charset → moderation; lowercase `nameKey`), `bannedWords.ts` (leet-folding
-normalization, severe-substring vs mild-exact tiers, reserved names),
-`plausibility.ts` (§7 bounds/divisors/caps + range guards). Derivation sync
-pins import exported logic constants so gameplay drift fails the suite.
+**Manual QA checklist (real preview, `VITE_LEADERBOARD_ENABLED=1`)**
 
-## Phase 0 record — readiness verdict: PROCEED (`e264f6e`)
+- [ ] Game over with score>0 shows the panel in the lower third; center
+      "GAME OVER / Press Space" text stays visible.
+- [ ] Dark and light themes both readable (panel fill + text + error red).
+- [ ] First run shows the input; after a successful submit the next game over
+      greets the saved name with `Edit`; `Edit` changes it.
+- [ ] Submit → `Submitting…` → `Ranked #N worldwide · Best M` (improved) or
+      `Best for <name> is M` (not improved).
+- [ ] 429 → cooldown copy + `Retry`; offline → retry copy + `Retry` resends.
+- [ ] Restart button, Space (ACTION), and Back each clear the panel.
+- [ ] Mobile portrait: panel fits, no page scroll, does not cover the d-pad /
+      ACTION; targets ≥44px; typing in the name field never moves the game.
+- [ ] Reduced motion: no panel animation churn.
 
-Supabase §2 schema verified live (tables, view, RPC via service role);
-Vercel envs confirmed (`VITE_LEADERBOARD_ENABLED`=`"1"` Preview+Production
-only; `.env.local` git-ignored). **RLS/zero-policies residual:** inferred
-from the single-batch §2 run — eyeball the dashboard shield icons + zero
-policies before Phase 6 prod. All plan pins re-verified, zero drift.
+## Phase 5 — cold-start brief (leaderboard display)
 
-### Decisions (Phase 0, binding)
+Extend the **existing** `src/ui/LeaderboardPanel.ts` and touch home cards.
 
-**Error codes** (shape `{ "error": { "code": "<code>" } }`) — implemented in
-`serverCore.ts`, parsed by the client service:
+1. **Game-over top list.** On panel open (after `open(run)`), call
+   `leaderboardService.fetchTop(run.gameId)` and render a top-10 list (top-5 on
+   short canvases) below the submit row: `…` loading row, quiet
+   `Global scores unavailable` on failure, `No scores yet — be the first` when
+   empty. **`textContent` only** for names/scores. Refresh the list after a
+   successful submit so the player sees their new rank.
+2. **Home `World` fragment.** In `src/ui/HomeScreen.ts`, one `fetchTops()` per
+   home entry with a ≥60s refetch throttle (the service is stateless — throttle
+   in the controller). Append `World <score>` to the existing
+   `.home-card-high` line (`High 777 · World 12,340`) — **zero added card
+   height**; absent on error/disabled. Guard: flag-off home must still make
+   **zero `/api`** (leaderboard.spec test 1 pins this) and add no height (the
+   375×667 / 667×375 home-fit test in `home.spec.ts` pins it).
+3. **Copy (Phase 0, binding):** list heading `TOP 10` / `TOP 5`; loading `…`;
+   empty `No scores yet — be the first`; error `Global scores unavailable`;
+   home fragment `World <score>`.
+4. **e2e:** mocked tops render on home cards; home-fit still green; game-over
+   top list renders + loading + error states. Full validate both projects +
+   screenshots (both themes × desktop/portrait). Pixel signatures unaffected
+   (list is DOM, never drawn into the canvas).
 
-| Status | Codes                                                                                                                                                                    |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 400    | `invalid_body`, `invalid_game`, `invalid_limit`, `name_length`, `name_charset`, `name_not_allowed`, `invalid_score`, `invalid_tick`, `invalid_seed`, `implausible_score` |
-| 403    | `forbidden_origin` (Origin present and ≠ deployment host)                                                                                                                |
-| 405    | `method_not_allowed` (non-GET/POST)                                                                                                                                      |
-| 413    | `body_too_large` (POST body > 1 KB)                                                                                                                                      |
-| 415    | `unsupported_media_type` (POST content-type ≠ application/json)                                                                                                          |
-| 429    | `rate_limited` (RPC verdict passthrough)                                                                                                                                 |
-| 502    | `upstream_error` (generic; never leaks Supabase URLs/errors)                                                                                                             |
+## Prior-phase anchors
 
-**Rate-limit constants:** max **6** per `ip_hash` per rolling **60 s** (7th →
-429); log pruned past **1 hour** in the RPC; client timeout **5 s** abort;
-GET cache `Cache-Control: public, s-maxage=30, stale-while-revalidate=120`.
-
-**Panel copy** (final; `textContent` only for server data):
-
-- Heading: `GLOBAL LEADERBOARD`; list heading `TOP 10` (`TOP 5` short canvases).
-- Name input: placeholder `YOUR NAME`, helper `2–16 letters, numbers, spaces, - or _`.
-- Validation messages: `Use 2–16 characters` / `Letters, numbers, spaces, - and _
-only` / `That name isn't allowed`.
-- Buttons: `Submit score`, `Retry`, `Edit`.
-- States: `Submitting…` → `Ranked #N worldwide` (improved) / `Best for <NAME> is
-<M>` (not improved) / `Couldn't reach the leaderboard` + Retry (failure) /
-  `Too many submissions — try again in a minute` (429).
-- List states: loading row `…`; empty `No scores yet — be the first`; error
-  `Global scores unavailable`.
-- Home card fragment: `World <score>` appended to the existing high line
-  (`High 777 · World 12,340`); absent on error/disabled.
-
-## Next task (Phase 4 — start cold from the loop file)
-
-Name entry + submission UI. `BaseGameScene` dispatches **one**
-`arcade-game-over` CustomEvent (`{ gameId, score, tick, runSeed }`) on the
-alive→dead transition only — both existing detection sites already compute
-it (input handler ~line 25/38, fixed-step loop ~line 97); do not add state
-to logic (trap 9). Shell-side controller + `src/ui/LeaderboardPanel.ts`:
-submit row with name input (first run) or saved name + `Edit`; live messages
-from the shared validator; explicit `Submit score` (never auto-submit; at
-most one submission per run-end event); `Submitting…` → rank/best copy →
-failed + `Retry` (copy table above); name persisted at
-`pocket-arcade:player-name` via `SafeStorage` **on success only**. Panel is
-an absolutely positioned DOM overlay inside `.game-root` (no layout shift,
-trap 6), theme tokens both themes, keyboard-operable with focus-visible
-rings, ≥44 px touch targets, `touch-action: manipulation`; the input joins
-`InputManager`'s focused-control exemption and blurs on submit (trap 7);
-ACTION-restart and the Restart button must work with the panel open; panel
-removed on restart/scene-switch/Back; render server data via `textContent`
-only (trap 8). e2e in `tests/leaderboard.spec.ts`: mocked-200 submit flow
-(name persists, rank renders), invalid-name blocks Submit (0 requests),
-429/offline paths (no console assertions, trap 2),
-restart-works-with-panel-open, `pocket-arcade:<id>:high` keys unchanged.
-Tab-order pins move only deliberately, same slice, commit message says so
-(trap 10). Both Playwright projects; full validate.
+- **Phase 3 (`4c1e9b0`):** `src/core/LeaderboardService.ts` singleton
+  (`createLeaderboardService(deps)`), flag gate
+  `VITE_LEADERBOARD_ENABLED==='1'` OR `__ARCADE_LB_FORCE__`; `fetchTop`,
+  `fetchTops`, `submit`; 5s abort; typed results
+  (`disabled` / `offline` / `http` + status + code / `invalid`); never
+  throws/logs.
+- **Phase 2 (`dcbe362`):** `api/leaderboard.ts` over
+  `src/leaderboard/serverCore.ts` (method/origin guards, §4 validation order,
+  RPC → `improved`/429 mapping, generic 502). Error-code→status table below.
+- **Phase 0 decisions (binding):** error codes 400/403/405/413/415/429/502;
+  rate-limit **6 / ip_hash / 60s** (7th→429); GET cache
+  `public, s-maxage=30, stale-while-revalidate=120`. RLS/zero-policies eyeball
+  still owed before Phase 6 prod.

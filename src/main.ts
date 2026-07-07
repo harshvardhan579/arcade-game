@@ -10,6 +10,7 @@ import { StarCourierScene } from './games/star-courier/StarCourierScene';
 import './style.css';
 import { createArcadeShell, setShellMode } from './ui/ArcadeShell';
 import { markSelectedGame } from './ui/GameSelector';
+import { mountLeaderboardPanel } from './ui/LeaderboardPanel';
 
 const games: GameDefinition[] = [
   {
@@ -76,6 +77,9 @@ const root = document.querySelector<HTMLElement>('#app');
 if (!root) throw new Error('Missing #app root');
 
 const gameRoot = createArcadeShell(root, games);
+// Flag-gated: mounts a DOM leaderboard panel inside the cabinet screen only
+// when the feature is enabled (no-op and no markup otherwise).
+mountLeaderboardPanel(gameRoot);
 const input = new InputManager();
 input.connect();
 
