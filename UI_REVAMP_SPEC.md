@@ -180,6 +180,13 @@ systematization of values that already exist.
   their glow as `inset` shadows or on a non-clipped parent/pseudo-element.
   Never chamfer: `.game-root`, `.touch-button`, `.home-card`/`.game-card`
   (compact-card rule), form inputs.
+  **Phase 1 implementation note (deviation, accepted):** `clip-path` also clips
+  the element's own 1px border stroke along the two cut diagonals. The
+  border-following pseudo-element workaround was rejected because
+  `.selector`/`.case-study` are scroll containers — an absolutely positioned
+  fill pseudo scrolls away with the content. The unstroked 10px diagonals are
+  visually negligible in both themes (verified in the Phase 1 screenshots)
+  and read as a lit cut edge.
 
 ---
 

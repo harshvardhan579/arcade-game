@@ -42,6 +42,36 @@
   --stage-glow: rgba(77, 255, 225, 0.13);
   --scrollbar-thumb: #1f4a53;
   --game-aspect: 0.75;
+  /* --- Revamp tokens (UI_REVAMP_SPEC.md §2) -----------------------------
+     Existing token values above are frozen; the revamp layers these on top.
+     Scale/motion/type tokens are theme-invariant; surface/edge tokens get
+     light overrides below. --action-hi/lo are identity fills (theme-
+     invariant, consumed in Phase 3). */
+  --panel-2: #102830;
+  --bezel: #0c1d23;
+  --edge-hi: rgba(216, 255, 249, 0.07);
+  --edge-lo: rgba(2, 8, 10, 0.55);
+  --trim: rgba(77, 255, 225, 0.28);
+  --glow-pink: rgba(255, 79, 216, 0.25);
+  --glow-amber: rgba(255, 209, 102, 0.18);
+  --vignette: rgba(2, 8, 10, 0.5);
+  --floor-glow: rgba(255, 79, 216, 0.05);
+  --action-hi: #ff6ee0;
+  --action-lo: #d63bb4;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --chamfer: 10px;
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
   color: var(--text);
   background: var(--bg);
   font-family:
@@ -86,6 +116,15 @@
   --restart-glow: rgba(11, 42, 48, 0.2);
   --stage-glow: rgba(11, 42, 48, 0.2);
   --scrollbar-thumb: #9dbfc5;
+  --panel-2: #ffffff;
+  --bezel: #d7e4e6;
+  --edge-hi: rgba(11, 42, 48, 0.08);
+  --edge-lo: rgba(11, 42, 48, 0.18);
+  --trim: rgba(11, 110, 95, 0.35);
+  --glow-pink: rgba(179, 38, 30, 0.15);
+  --glow-amber: rgba(138, 90, 0, 0.15);
+  --vignette: rgba(11, 42, 48, 0.12);
+  --floor-glow: rgba(11, 110, 95, 0.04);
 }
 
 * {
@@ -108,8 +147,13 @@ body,
 }
 
 body {
+  /* The "room" layer (spec §1): static vignette + a faint magenta floor
+     glow under the existing crown glow. All layers are cheap gradients —
+     no filters, nothing animated. */
   background:
+    radial-gradient(ellipse 140% 100% at 50% 38%, transparent 55%, var(--vignette) 100%),
     radial-gradient(circle at 50% 0%, var(--bg-glow), transparent 32rem),
+    radial-gradient(ellipse 90% 40% at 50% 106%, var(--floor-glow), transparent 70%),
     linear-gradient(180deg, var(--bg-grad-a) 0%, var(--bg-grad-b) 100%);
 }
 
@@ -198,13 +242,13 @@ select {
   text-align: left;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   cursor: pointer;
   transition:
-    border-color 0.18s ease-out,
-    background-color 0.18s ease-out,
-    box-shadow 0.18s ease-out,
-    transform 0.18s ease-out;
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 .home-card-body {
@@ -232,6 +276,9 @@ select {
 .home-card-high {
   margin-top: 2px;
   color: var(--score-text);
+  /* Scoreboard type (spec §3): the same mono stack the canvas HUD uses. */
+  font-family: var(--font-mono);
+  font-weight: 700;
   font-size: 0.78rem;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -426,17 +473,25 @@ select {
   color: var(--accent-text);
   background: var(--quiet-fill);
   border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   font-weight: 700;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
   transition:
-    border-color 0.15s ease-out,
-    background-color 0.15s ease-out,
-    transform 0.15s ease-out;
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 .back-button:hover {
   border-color: var(--accent-text);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo),
+    0 0 12px var(--card-glow);
 }
 
 .back-button:active {
@@ -446,7 +501,23 @@ select {
 .panel {
   border: 1px solid var(--line);
   background: var(--panel-fill);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
+  /* Cabinet sheet-metal (spec §4): two chamfered corners + machined edge
+     light. clip-path removes the 1px border stroke along the two short
+     diagonals (accepted trade-off, spec §4) and would clip outer glows —
+     panels therefore carry inset edges only. Inset shadows sit on the box,
+     so they stay put when .selector/.case-study scroll. */
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--chamfer)) 0,
+    100% var(--chamfer),
+    100% 100%,
+    var(--chamfer) 100%,
+    0 calc(100% - var(--chamfer))
+  );
+  box-shadow:
+    inset 0 1px 0 var(--trim),
+    inset 0 -1px 0 var(--edge-lo);
 }
 
 .selector,
@@ -514,13 +585,13 @@ h2 {
   text-align: left;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   cursor: pointer;
   transition:
-    border-color 0.18s ease-out,
-    background-color 0.18s ease-out,
-    box-shadow 0.18s ease-out,
-    transform 0.18s ease-out;
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 .game-card strong {
@@ -562,6 +633,8 @@ h2 {
 
 .game-card .card-high {
   color: var(--score-text);
+  font-family: var(--font-mono);
+  font-weight: 700;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
 }
@@ -614,17 +687,25 @@ h2 {
   color: var(--on-accent);
   background: var(--cyan);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   font-weight: 800;
   cursor: pointer;
+  /* On-accent bevel: literal white/dark edges because --edge-hi/lo are
+     tuned for dark panel fills, not the identity-cyan face. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(2, 8, 10, 0.28);
   transition:
-    filter 0.15s ease-out,
-    transform 0.15s ease-out,
-    box-shadow 0.15s ease-out;
+    filter var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 
 .restart-button:hover {
-  box-shadow: 0 0 18px var(--restart-glow);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(2, 8, 10, 0.28),
+    0 0 18px var(--restart-glow);
 }
 
 .topbar-actions {
@@ -641,18 +722,26 @@ h2 {
   color: var(--text);
   background: var(--control-bg);
   border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   font-size: 1.15rem;
   line-height: 1;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
   transition:
-    border-color 0.15s ease-out,
-    background-color 0.15s ease-out,
-    transform 0.15s ease-out;
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 .theme-toggle:hover {
   border-color: var(--accent-text);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo),
+    0 0 12px var(--card-glow);
 }
 
 .theme-toggle:active {
@@ -671,9 +760,12 @@ h2 {
   color: var(--text);
   background: var(--control-bg);
   border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   cursor: pointer;
-  transition: border-color 0.15s ease-out;
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
+  transition: border-color var(--dur-2) var(--ease-out);
 }
 
 .game-root {
@@ -689,7 +781,12 @@ h2 {
   /* The cabinet screen stays literally dark in both themes — the games'
      neon canvases need it; only the outer glow follows the theme. */
   background: #071114;
+  /* Bezel ring (spec §7): a 4px cabinet-trim band + 1px rim drawn with
+     spread shadows so the client box (and therefore the canvas size and
+     the pixel-signature thresholds) is untouched. */
   box-shadow:
+    0 0 0 4px var(--bezel),
+    0 0 0 5px var(--line),
     0 0 26px var(--stage-glow),
     inset 0 0 46px rgba(0, 0, 0, 0.45);
   touch-action: none;
@@ -990,13 +1087,13 @@ h2 {
   color: var(--text);
   background: var(--control-bg);
   border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   font-size: 1.35rem;
   font-weight: 800;
   transition:
-    background-color 0.12s ease-out,
-    transform 0.12s ease-out,
-    box-shadow 0.12s ease-out;
+    background-color var(--dur-1) var(--ease-out),
+    transform var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-1) var(--ease-out);
 }
 
 .touch-up {
@@ -1079,6 +1176,25 @@ h2 {
 
   .stage {
     grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  /* Marquee hierarchy (desktop only — mobile topbar height is pinned by the
+     landscape disjointness tests): a hairline under the topbar and a short
+     neon rule under the wordmark. The ::after is empty content on the h1,
+     so the accessible name and heading count are untouched. */
+  .topbar {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .topbar h1::after {
+    content: '';
+    display: block;
+    width: 72px;
+    height: 2px;
+    margin-top: 6px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
   }
 
   .touch-controls {
@@ -1173,6 +1289,10 @@ h2 {
     color: var(--accent-text);
     background: var(--quiet-fill);
     border: 1px solid var(--control-border);
+    /* Quiet on mobile: swap the on-accent bevel for the quiet-button one. */
+    box-shadow:
+      inset 0 1px 0 var(--edge-hi),
+      inset 0 -1px 0 var(--edge-lo);
   }
 
   .topbar-actions {
@@ -1277,6 +1397,9 @@ h2 {
     color: var(--accent-text);
     background: var(--quiet-fill);
     border: 1px solid var(--control-border);
+    box-shadow:
+      inset 0 1px 0 var(--edge-hi),
+      inset 0 -1px 0 var(--edge-lo);
   }
 
   .stage {
