@@ -1,176 +1,80 @@
-# NEXT_RUN — Global Leaderboard Pass (branch `leaderboard-pass-1`)
+# NEXT_RUN — UI Revamp Pass (branch `ui-revamp-pass-1`)
 
-Loop: `.claude/leaderboard-loop.md`. Spec: `LEADERBOARD_PLAN.md` (marked
-IMPLEMENTED). System map: `CURRENT_APP_STATE.md`. **Pass complete — phases 0–6
-done, all green, ready to merge.**
+Loop: `.claude/ui-revamp-loop.md`. Spec: `UI_REVAMP_SPEC.md` (Phase 0
+deliverable — the design contract for Phases 1–5). System map:
+`CURRENT_APP_STATE.md`. Prior pass (leaderboard, phases 0–6) is merged and
+archived in git history.
 
 ## Phase status
 
-| Phase | Scope                                           | Status           |
-| ----- | ----------------------------------------------- | ---------------- |
-| 0     | Readiness gate + plan-pin verification          | done (`e264f6e`) |
-| 1     | `src/leaderboard/` shared validation + Vitest   | done (`3123105`) |
-| 2     | `api/leaderboard.ts` + tsconfig/lint/build      | done (`dcbe362`) |
-| 3     | `LeaderboardService` client (flag-gated)        | done (`4c1e9b0`) |
-| 4     | Name entry + submission UI (`arcade-game-over`) | done (`db4a5d8`) |
-| 5     | Display: game-over top-10 + home `World` line   | done (`7eb97aa`) |
-| 6     | Hardening + docs + deploy checklist             | **done** (this)  |
+| Phase | Scope                                            | Status              |
+| ----- | ------------------------------------------------ | ------------------- |
+| 0     | UI audit + design spec (no implementation)       | **done** (this run) |
+| 1     | Design tokens + base shell polish                | next                |
+| 2     | Home screen revamp                               | pending             |
+| 3     | Game mode shell revamp (topbar, controls, bezel) | pending             |
+| 4     | Game-over + leaderboard panel revamp             | pending             |
+| 5     | Motion and polish                                | pending             |
+| 6     | Cross-viewport validation + docs                 | pending             |
 
-## Phase 6 (this run) — hardening + docs
+## Phase 0 (this run) — audit + spec
 
-**What changed:** documentation only — no source/test/behavior changes.
+**What changed:** documentation only — zero `src/` changes, zero test changes.
 
-- `README.md` — new "Global Leaderboard (optional, flag-gated)" section (feature,
-  name entry, local vs global, Vercel/Supabase architecture, env-var names without
-  values, deploy notes) + a leaderboard entry under Current Limitations.
-- `CLAUDE.md` — architecture map updated (`src/leaderboard/`, `api/`, new core/ui
-  modules) + a "Leaderboard Invariants" block (flag gating, no browser Supabase,
-  shared server-authoritative validation, `arcade-game-over`/`arcade-run-start`
-  contracts, independent local highs, throttled home tops, `textContent`, DOM-not-
-  canvas, test rules).
-- `CURRENT_APP_STATE.md` — leaderboard pass note + counts refreshed (Vitest 154,
-  Playwright 103/33, 8 spec files) + `leaderboard`/`home` spec coverage bullets.
-- `LEADERBOARD_PLAN.md` — "IMPLEMENTED" banner: final files/architecture,
-  deliberate deviations, honest security limitations.
-- `NEXT_RUN.md` — this final summary.
+- `UI_REVAMP_SPEC.md` (new): full audit verdict (**PROCEED**), visual language,
+  color-token plan (no existing token values change; new decorative/scale
+  tokens), typography/spacing/chamfer systems, panel/card/button state specs,
+  motion rules, per-viewport layout specs, leaderboard-panel state matrix,
+  computed WCAG contrast table (all pairs ≥4.38:1, text ≥5.37:1), test impact
+  map (**zero planned pin updates**), fragile-pin list beyond the loop traps,
+  and the must-not-change consolidation.
+- Before-screenshots captured (12): `output/ui-revamp/before/*.png` —
+  desktop/mobile/landscape × dark/light × home/game/game-over-with-forced-panel
+  (leaderboard forced via `__ARCADE_LB_FORCE__` + route mocks against the local
+  dev server; no real API touched). Untracked evidence, referenced not
+  committed. Screenshot script: session scratchpad (rebuildable from the spec).
 
-## Test integrity audit (branch vs `main`)
+**Key audit findings feeding Phases 1–5:** desktop home is a floating island;
+light theme currently reads generic-SaaS (anti-goal); mobile topbar spends ~1/6
+of the viewport; ACTION button is a raw magenta slab; leaderboard panel opens
+with error-toned helper text before any typing and its placeholder clips
+narrow; sidebar cards reserve dead space (`min-height: 2.6em`); case-study
+copy is stale ("73 tests" → actual 154) and unpinned by tests (safe to fix in
+Phase 3).
 
-Only **two** test files differ from `main`, both intended:
+**Commands + results:**
 
-- `tests/leaderboard.spec.ts` — **entirely new** on this branch (created Phase 3,
-  extended 4–5). No pre-existing assertion exists to weaken.
-- `tests/home.spec.ts` — **pure additions** (+153 lines; diffstat shows no
-  deletions). Existing home assertions are byte-identical to `main`.
-- `smoke` / `games` / `switching` / `highscore` / `audio` / `shell` specs are
-  **byte-identical to `main`** — untouched, none weakened.
+- Dev server on :4199 + Playwright screenshot script → 12/12 captured.
+- WCAG contrast computation for every current + proposed text pair → table in
+  spec §11, all pass.
+- `npx prettier --check` on new/changed docs → clean. No build/test run needed
+  (no source changes; repo state identical to `main` + docs).
 
-Documented intra-branch deltas (Phase 5, not weakenings):
+## Next task (Phase 1) — start cold here
 
-- Phase-3 service specs (`leaderboard.spec` tests 2 & 3) now drive the service in
-  **game mode** so the new home `game=all` auto-fetch does not inflate their exact
-  request counts. Same result assertions.
-- Phase-4 invalid-name spec now counts **POST** requests only — the panel
-  legitimately GETs the top list on open; the "invalid name never submits" contract
-  is unchanged.
-- `home.spec` high-score assertions unchanged; `.home-card-high` was split into
-  `.hs-local` + `.hs-world`, and the combined `textContent` is identical flag-off.
+Implement **design tokens + base shell polish** per `UI_REVAMP_SPEC.md` §2–§5,
+§7 (base parts only):
 
-No tests skipped, no assertions deleted, no timeouts raised to mask flakes.
+1. In `src/style.css`: add the new token block (spacing/radius/chamfer/motion/
+   mono-font/decorative tokens, dark + light) and fold existing literal glows/
+   durations into them with **zero visual delta** first, then apply: page
+   vignette, panel bevel + chamfer (`.panel`, NOT `.game-root`/cards), topbar
+   button treatments, score lines → `--font-mono`.
+2. Do not touch: `--bg` hexes, `touch-action` anywhere, focus-ring rule,
+   `.game-root` client-box geometry, any selector/copy (spec §13/§14 lists).
+3. Verify: `npx playwright test shell home smoke --project=desktop
+--project=mobile`, then full `npm run validate`; screenshot after-states into
+   `output/ui-revamp/phase1/` (both themes); commit only if green; update this
+   file.
 
-## Final validation results
+## Known constraints carried forward
 
-- **Flake sweep:** `npx playwright test leaderboard home shell smoke games
---repeat-each=2` (both projects) → **194 passed / 58 skipped**, exit 0. No
-  forced-seed restart flake, no console-cleanliness regression, throttle/refetch
-  stable.
-- **Full `npm run validate`** (fresh) → **green**:
-  - build: `tsc --noEmit` (root) + `tsc --noEmit -p api` + `vite build` OK.
-  - Vitest: **154 passed** (11 files).
-  - lint: eslint (`src tests scripts api`) + import-boundary (**16 files**) +
-    Prettier `--check .` clean.
-  - Playwright: **103 passed / 33 skipped** (desktop + mobile), incl. the
-    `switching.spec` pixel-signature regression → no pixel-signature regression.
-- **Secret grep:** `grep -riE 'supabase|service_role|SUPABASE_SERVICE_ROLE_KEY|LEADERBOARD_IP_SALT'
-dist/` → **empty**. Even `VITE_LEADERBOARD_ENABLED` compiles away flag-off.
-- **Flag-off network:** `leaderboard.spec` + `home.spec` pin **zero `/api`** on home
-  and game-over with the flag off. Flag-on specs use `page.route` mocks only.
-- **Repo hygiene:** `.env*` is git-ignored (`.gitignore:8`); no `.env` file is
-  tracked.
-
-## Deploy checklist (manual — run against a Vercel Preview, then Production)
-
-Automated so far: `.env*` ignored + untracked ✅; `dist` secret-free ✅. The rest
-require the live platforms and must be done by a human with dashboard access:
-
-**Env vars (Vercel → Settings → Environment Variables, Production + Preview):**
-
-- [ ] `SUPABASE_URL` set (server-only, not `VITE_`-prefixed)
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` set + marked Sensitive (server-only)
-- [ ] `LEADERBOARD_IP_SALT` set (`openssl rand -hex 16`, Sensitive)
-- [ ] `VITE_LEADERBOARD_ENABLED = 1` (the only `VITE_` leaderboard var)
-- [ ] `.env.local` present locally only, never committed (verified ignored above)
-
-**Supabase dashboard:**
-
-- [ ] `leaderboard_scores` table exists
-- [ ] `leaderboard_submissions` table exists
-- [ ] RLS enabled (shield icon) on both, with **zero policies** (← Phase 0 residual:
-      confirm the zero-policies state visually before trusting prod)
-- [ ] `submit_score` function exists; `service_role` can execute it
-- [ ] tables clean or only deliberate test rows
-
-**Preview deployment smoke (browser):**
-
-- [ ] home loads; `World` fragments appear (or fail silently — no console error)
-- [ ] play a game, die with a positive score, enter a valid name, Submit → rank/best
-- [ ] the score appears in the game-over top list
-- [ ] returning home (after the throttle) shows it on the `World` line
-- [ ] a profanity/too-short/illegal name blocks Submit
-- [ ] mobile portrait fits with no scroll; dark + light both readable
-
-**Curl matrix (against the Preview URL or `vercel dev`):**
-
-- [ ] `GET /api/leaderboard?game=neon-serpent` → 200 + `Cache-Control` header
-- [ ] `GET /api/leaderboard?game=all` → 200 tops
-- [ ] `POST` valid score → 200 `{accepted, improved, best, rank}`
-- [ ] `POST` implausible score → 400 `implausible_score`
-- [ ] `POST` banned name → 400 `name_not_allowed`
-- [ ] 7th rapid `POST` within 60 s → 429 `rate_limited`
-- [ ] `PUT`/`DELETE` → 405 `method_not_allowed`
-- [ ] malformed body → 400 `invalid_body`
-
-## Manual QA checklist (feature behavior)
-
-- [ ] Game-over panel: lower-third overlay, doesn't cover Restart/Back/d-pad/ACTION,
-      no page scroll, both themes readable, reduced-motion calm.
-- [ ] Submit is always explicit; one submission per run-end; Retry re-arms after a
-      failure; Restart/Back/ACTION restart all still work with the panel open.
-- [ ] Saved name greets on the next game over with Edit; Edit changes the name.
-- [ ] Top list: TOP 10 desktop / TOP 5 mobile; loading `…`, empty, and unavailable
-      states read cleanly; server names render literally (no HTML injection).
-- [ ] Home cards: `High N · World M`; one line, no card-height growth, no scroll;
-      omitted for games without a global best.
-
-## Known limitations
-
-- No accounts/auth; names are not owned. Score integrity is best-effort: server
-  enforces plausibility bounds + profanity/reserved filter + salted-IP rate limit
-  (6 / 60 s), but a client posting plausible, well-formed scores is not
-  cryptographically blocked. Not an anti-cheat system.
-- Home `World` fetch is throttled ≥60 s; a brand-new global best set elsewhere can
-  lag on an already-open home hub until the window elapses.
-- The real API is verified manually (`vercel dev` / preview curl); CI never hits a
-  real backend (route mocks only).
-- Phase 0's RLS/zero-policies state was inferred from a single-batch schema run —
-  eyeball it in the dashboard before production (checklist above).
-
-## Merge recommendation
-
-**Recommend merge.** The branch is fully green (build + api tsc + Vitest 154 + lint
-
-- Playwright 103/33 + clean flake pass), `dist` is secret-free, and the feature is
-  **off by default** — merging to `main` changes nothing for the static build until
-  `VITE_LEADERBOARD_ENABLED=1` is set in the deploy env. Suggested flow: open the PR,
-  run the Preview deploy checklist above, then merge and repeat the browser smoke on
-  Production.
-
-* Push: `git push -u origin leaderboard-pass-1`
-* PR title: `Global leaderboard (flag-gated): API, submission UI, and display`
-* After merge, enable `VITE_LEADERBOARD_ENABLED=1` (Prod + Preview) and run the
-  deploy checklist.
-
-## Prior-phase anchors
-
-- **Phase 5 (`7eb97aa`):** game-over top list (`fetchTop`, TOP 10/5, loading/empty/
-  unavailable, refresh-on-improved) + home `World` fragments (throttled `fetchTops`,
-  mode-gated, silent-on-fail, `textContent`).
-- **Phase 4 (`db4a5d8`):** `arcade-game-over`/`arcade-run-start`; `LeaderboardPanel`
-  submit flow; name at `pocket-arcade:player-name` on accept.
-- **Phase 3 (`4c1e9b0`):** `LeaderboardService` (flag-gated, same-origin, typed
-  never-throwing results).
-- **Phase 2 (`dcbe362`):** `api/leaderboard.ts` over `serverCore.ts` (guards,
-  validation order, RPC → improved/429, generic 502).
-- **Phase 0/1 (`e264f6e`/`3123105`):** readiness gate + pure shared validation.
-  Error codes 400/403/405/413/415/429/502; rate-limit 6 / ip_hash / 60 s; GET cache
-  `public, s-maxage=30, stale-while-revalidate=120`.
+- Zero planned test-pin updates all pass; if a bezel treatment shifts the
+  canvas client box, revert to a box-neutral technique — never touch
+  `switching.spec` thresholds.
+- Chamfered elements carry glows as inset shadows or on a parent (clip-path
+  clips outer shadows).
+- Landscape 667×375 disjointness is tight: mobile topbar work must be
+  height-neutral or smaller.
+- The optional `LeaderboardPanel.ts` helper-tone micro-tweak (spec §10) is
+  Phase 4, ≤5-line budget, skip if it grows.
