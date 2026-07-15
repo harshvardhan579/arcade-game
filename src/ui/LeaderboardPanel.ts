@@ -114,6 +114,21 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
   heading.className = 'lb-heading';
   heading.textContent = 'GLOBAL LEADERBOARD';
 
+  // Run-result readout (revamp Phase 4, presentation only): the score this
+  // panel is offering to submit, plus the persisted local best — both values
+  // the panel already holds or reads from SafeStorage. textContent only; no
+  // behavior, network, or state-machine involvement.
+  const runRow = document.createElement('div');
+  runRow.className = 'lb-run';
+  const runLabel = document.createElement('span');
+  runLabel.className = 'lb-run-label';
+  runLabel.textContent = 'Run score';
+  const runScore = document.createElement('span');
+  runScore.className = 'lb-run-score';
+  const runMeta = document.createElement('span');
+  runMeta.className = 'lb-run-meta';
+  runRow.append(runLabel, runScore, runMeta);
+
   const form = document.createElement('form');
   form.className = 'lb-form';
   // No action/method: this posts through the service, never a native submit.
@@ -179,7 +194,7 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
   listStatus.className = 'lb-list-status';
   list.append(listHeading, listRows, listStatus);
 
-  panel.append(heading, form, message, retryButton, list);
+  panel.append(heading, runRow, form, message, retryButton, list);
   gameRoot.append(panel);
 
   // --- Panel state -------------------------------------------------------
@@ -208,6 +223,10 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
     nameInput.hidden = false;
     nameInput.value = prefill;
     validateInput();
+    // Presentation only: an untouched empty field shows the length rule as
+    // guidance, not as an error the player hasn't made yet. Submit stays
+    // disabled; the first input event re-runs validateInput as before.
+    if (nameInput.value === '') message.dataset.tone = 'muted';
   }
 
   function applySavedMode(name: string): void {
@@ -289,6 +308,11 @@ export function mountLeaderboardPanel(gameRoot: HTMLElement): void {
     lastAttemptName = null;
     retryButton.hidden = true;
     showForm(true);
+
+    // Score-terminal readout. The local high was already recorded by
+    // ScoreManager during the run, so the stored value includes this score.
+    runScore.textContent = String(run.score);
+    runMeta.textContent = `Local best ${storage.getNumber(`pocket-arcade:${run.gameId}:high`, run.score)}`;
 
     const stored = storage.getString(PLAYER_NAME_KEY, '');
     const storedValidation = validateName(stored);

@@ -918,12 +918,27 @@ h2 {
   left: 8px;
   display: none;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-fill);
-  box-shadow: 0 0 20px rgba(2, 8, 10, 0.45);
+  border-radius: var(--radius-2);
+  /* Score terminal (spec §10): raised cabinet surface + top sheen, chamfered
+     like the shell panels. clip-path clips outer shadows, so depth comes
+     from the trim/edge insets (and the unstroked cut diagonals are the
+     accepted spec §4 trade-off). */
+  background-color: var(--panel-2);
+  background-image: linear-gradient(180deg, var(--edge-hi), transparent 36%);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--chamfer)) 0,
+    100% var(--chamfer),
+    100% 100%,
+    var(--chamfer) 100%,
+    0 calc(100% - var(--chamfer))
+  );
+  box-shadow:
+    inset 0 1px 0 var(--trim),
+    inset 0 -1px 0 var(--edge-lo);
   touch-action: manipulation;
 }
 
@@ -933,11 +948,48 @@ h2 {
 
 .lb-heading {
   margin: 0;
+  padding-bottom: 6px;
   color: var(--accent-text);
+  border-bottom: 1px solid var(--trim);
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* Run-result readout: the biggest number on the terminal. */
+.lb-run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+}
+
+.lb-run-label {
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lb-run-score {
+  color: var(--score-text);
+  font-family: var(--font-mono);
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 14px var(--glow-amber);
+}
+
+.lb-run-meta {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
 }
 
 .lb-form {
@@ -964,14 +1016,25 @@ h2 {
   color: var(--text);
   background: var(--control-bg);
   border: 1px solid var(--control-border);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
   font: inherit;
+  /* Terminal entry: mono, slightly smaller so YOUR NAME never clips on
+     narrow panels (audit §0.5). */
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
   letter-spacing: 0.06em;
   touch-action: manipulation;
 }
 
 .lb-name::placeholder {
   color: var(--muted);
+  /* Placeholder-only shrink: on the narrow portrait panel the input gets
+     ~100px, and YOUR NAME at the full input size clipped (audit §0.5).
+     Typed text keeps the full 0.9rem. */
+  font-size: 0.78rem;
   letter-spacing: 0.08em;
 }
 
@@ -1000,6 +1063,7 @@ h2 {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
+  font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-overflow: ellipsis;
@@ -1011,15 +1075,15 @@ h2 {
 .lb-edit {
   min-height: 44px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
   transition:
-    filter 0.15s ease-out,
-    border-color 0.15s ease-out,
-    background-color 0.15s ease-out,
-    transform 0.15s ease-out;
+    filter var(--dur-2) var(--ease-out),
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 .lb-submit {
@@ -1027,6 +1091,10 @@ h2 {
   color: var(--on-accent);
   background: var(--cyan);
   border: 0;
+  /* Same on-accent bevel as the desktop Restart button. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(2, 8, 10, 0.28);
 }
 
 .lb-submit:hover:not(:disabled) {
@@ -1047,6 +1115,9 @@ h2 {
   color: var(--accent-text);
   background: var(--quiet-fill);
   border: 1px solid var(--control-border);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
 }
 
 .lb-edit {
@@ -1076,12 +1147,19 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+/* Status ticks: state is carried by a colored edge as well as the text, so
+   error/success read at a glance without relying on color alone (the tick is
+   a shape cue) or touching the aria-live text. */
 .lb-message[data-tone='error'] {
   color: var(--danger-text);
+  border-left: 2px solid var(--danger-text);
+  padding-left: 8px;
 }
 
 .lb-message[data-tone='success'] {
   color: var(--accent-text);
+  border-left: 2px solid var(--accent-text);
+  padding-left: 8px;
   font-weight: 700;
 }
 
@@ -1104,6 +1182,9 @@ h2 {
 }
 
 .lb-list-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   color: var(--muted);
   font-size: 0.66rem;
@@ -1112,10 +1193,19 @@ h2 {
   text-transform: uppercase;
 }
 
+/* Terminal separator rules either side of TOP N (empty content — the
+   accessible text is untouched). */
+.lb-list-heading::before,
+.lb-list-heading::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--card-border);
+}
+
 .lb-list-rows {
   display: flex;
   flex-direction: column;
-  gap: 1px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1129,15 +1219,30 @@ h2 {
   display: flex;
   gap: 8px;
   align-items: baseline;
+  padding: 3px 0 3px 8px;
   font-size: 0.8rem;
   line-height: 1.35;
   font-variant-numeric: tabular-nums;
+}
+
+.lb-row + .lb-row {
+  border-top: 1px solid var(--card-border);
+}
+
+/* The reigning score gets a quiet amber edge tick. */
+.lb-row:first-child {
+  box-shadow: inset 2px 0 0 rgba(255, 209, 102, 0.55);
+}
+
+.lb-row:first-child .lb-rank {
+  color: var(--score-text);
 }
 
 .lb-rank {
   flex: 0 0 auto;
   min-width: 2.2em;
   color: var(--muted);
+  font-family: var(--font-mono);
 }
 
 .lb-row-name {
@@ -1151,13 +1256,22 @@ h2 {
 .lb-row-score {
   flex: 0 0 auto;
   color: var(--score-text);
+  font-family: var(--font-mono);
   font-weight: 700;
 }
 
+/* Loading/empty/unavailable read as an intentional empty terminal slot,
+   not a stray line of text. */
 .lb-list-status {
   margin: 0;
+  padding: 10px 8px;
   color: var(--muted);
-  font-size: 0.78rem;
+  border: 1px dashed var(--card-border);
+  border-radius: var(--radius-1);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-align: center;
 }
 
 .touch-controls {

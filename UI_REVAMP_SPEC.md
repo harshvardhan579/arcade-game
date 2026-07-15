@@ -340,6 +340,18 @@ Panel remains: absolutely positioned inside `.game-root`, z-index 3, no layout
 height, both themes, ≥44px targets, `aria-live` message, TOP 5 coarse / TOP 10
 fine.
 
+**Phase 4 implementation notes (deviations, accepted):** per explicit user
+direction ("stronger hierarchy: final score, local high…"), the panel gained
+an additive run-result readout — `.lb-run` (`.lb-run-label` RUN SCORE /
+`.lb-run-score` big amber mono / `.lb-run-meta` "Local best N" from
+SafeStorage) — populated in `open()` via `textContent` only; no behavior,
+network, or state-machine involvement, and no existing selector/copy pin
+touched. The helper-tone micro-tweak shipped (muted tone on an untouched
+empty field; text unchanged). The placeholder-clipping fix is a
+placeholder-only `font-size: 0.78rem` (typed text keeps 0.9rem mono).
+Status/message states carry a colored left-edge tick (shape + color, not
+color alone); list states render as dashed terminal slots.
+
 ---
 
 ## 11. Accessibility rules
