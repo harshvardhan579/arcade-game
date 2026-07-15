@@ -355,6 +355,13 @@ select {
   box-shadow:
     inset 0 0 12px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(216, 255, 249, 0.06);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+/* The emblem perks up with its card (home hub only — the sidebar copies
+   carry a base scale transform and no hover). */
+.home-card:hover .home-logo {
+  transform: translateY(-1px) scale(1.04);
 }
 
 .home-logo--neon-serpent {
@@ -634,6 +641,9 @@ h2 {
 }
 
 .game-card {
+  /* Anchor for the ::before selected-state bar. No z-index: this must not
+     open a stacking context. */
+  position: relative;
   width: 100%;
   display: grid;
   /* Emblem rail + text stack, mirroring the home cards. */
@@ -695,6 +705,26 @@ h2 {
   box-shadow:
     inset 3px 0 0 var(--cyan),
     0 0 16px var(--card-glow);
+}
+
+.game-card:hover {
+  transform: translateY(-1px);
+}
+
+/* Selected-game energy: a breathing overlay on the static inset bar.
+   Opacity-only (compositor-friendly, bounding box untouched); explicitly
+   disabled under reduced motion. */
+.game-card.is-active::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 1px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--cyan);
+  pointer-events: none;
+  animation: bar-breathe 2.6s ease-in-out infinite alternate;
 }
 
 .game-card.is-active {
@@ -822,7 +852,19 @@ h2 {
     border-color var(--dur-2) var(--ease-out),
     background-color var(--dur-2) var(--ease-out),
     box-shadow var(--dur-2) var(--ease-out),
-    transform var(--dur-1) var(--ease-out);
+    transform var(--dur-3) var(--ease-out);
+}
+
+/* Tactile theme flip: the ◐ glyph rotates with the theme (paint-only —
+   theme CSS may not touch layout/touch-action/focus rings, and this
+   doesn't). The :active override keeps the press nudge working in the
+   rotated frame (translate flips with the rotation). */
+:root[data-theme='light'] .theme-toggle {
+  transform: rotate(180deg);
+}
+
+:root[data-theme='light'] .theme-toggle:active {
+  transform: rotate(180deg) translateY(-1px);
 }
 
 .theme-toggle:hover {
@@ -888,13 +930,18 @@ h2 {
   z-index: 2;
   pointer-events: none;
   border-radius: inherit;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(2, 8, 10, 0.14) 0,
-    rgba(2, 8, 10, 0.14) 1px,
-    transparent 1px,
-    transparent 3px
-  );
+  /* Scanlines + one static diagonal glass glare (cabinet glass). Both are
+     cheap gradients; the glare alpha is deliberately near-subliminal and
+     the canvas underneath is untouched (pixel reads use getImageData). */
+  background:
+    linear-gradient(115deg, transparent 42%, rgba(216, 255, 249, 0.03) 47%, transparent 54%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(2, 8, 10, 0.14) 0,
+      rgba(2, 8, 10, 0.14) 1px,
+      transparent 1px,
+      transparent 3px
+    );
 }
 
 .game-root canvas {
@@ -944,6 +991,9 @@ h2 {
 
 .leaderboard-panel.is-open {
   display: flex;
+  /* One-shot reveal; keyframes fire on the display flip, so every open
+     (including re-opens after dismissal) plays it. */
+  animation: lb-reveal var(--dur-3) var(--ease-out);
 }
 
 .lb-heading {
@@ -982,6 +1032,8 @@ h2 {
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 14px var(--glow-amber);
+  /* Terminal power-on: the score pops once as the panel reveals. */
+  animation: score-pop var(--dur-3) var(--ease-out);
 }
 
 .lb-run-meta {
@@ -1342,7 +1394,9 @@ h2 {
    is driven by this class from TouchControls. */
 .touch-button.is-pressed {
   background: var(--control-pressed);
-  transform: translateY(1px);
+  /* Key-cap squish: sink + a hair of scale. Transform-only, so the tap
+     target and every bounding-box pin are untouched. */
+  transform: translateY(1px) scale(0.985);
   box-shadow:
     inset 0 1px 0 var(--edge-hi),
     inset 0 -1px 0 var(--edge-lo),
@@ -1373,6 +1427,35 @@ h2 {
   margin-bottom: 0;
 }
 
+/* --- Motion layer (Phase 5, spec §6) -----------------------------------
+   One-shot state-change animations plus one infinite selected-state
+   breathe. Opacity/transform only (compositor-friendly); no delays; every
+   keyframe is from-only so the resting state is the CSS resting state —
+   the zeroed-duration reduced-motion block degrades each to an instant,
+   legible frame. */
+@keyframes lb-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes score-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes bar-breathe {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1380,6 +1463,12 @@ h2 {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Infinite decorations stop entirely — a 0.001ms infinite loop is still
+     a loop. The static base state underneath stays fully legible. */
+  .game-card.is-active::before {
+    animation: none;
   }
 }
 

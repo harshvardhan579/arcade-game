@@ -250,6 +250,17 @@ manipulation`, ≥44px touch floors on coarse layouts, pinned focus ring.
 - **No JS animation loops, no infinite hue/position animation, no transition on
   `.arcade-shell` mode switches** (mode flips must stay instant — tests flip
   modes and assert immediately).
+- **Phase 5 implementation notes:** shipped as specified — `lb-reveal` panel
+  entrance + a `score-pop` on the run readout (both one-shot, from-only
+  keyframes), and the `.is-active` breathe as an opacity-only `::before` bar
+  overlay (explicit `animation: none` under reduced motion; the zeroed-
+  duration block alone would leave a degenerate infinite loop). Additive
+  micro-polish within these rules: the theme toggle rotates 180° with the
+  theme (paint-only, with an `:active` override in the rotated frame), home
+  emblems lift on card hover, touch keys squish (`scale(0.985)`) while
+  pressed, sidebar cards lift on hover, and the `.game-root` scanline layer
+  gained one static diagonal glass-glare gradient. All verified by computed-
+  style probe in both motion modes.
 
 ---
 
