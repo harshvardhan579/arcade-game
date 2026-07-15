@@ -1,7 +1,9 @@
 # NEXT_RUN — UI Revamp Pass (branch `ui-revamp-pass-1`)
 
-Loop: `.claude/ui-revamp-loop.md`. Spec: `UI_REVAMP_SPEC.md` (design contract;
-§4/§6/§7/§10 carry implementation notes). System map: `CURRENT_APP_STATE.md`.
+Loop: `.claude/ui-revamp-loop.md`. Spec: `UI_REVAMP_SPEC.md` (marked
+**IMPLEMENTED**, deviations recorded inline in §4/§6/§7/§10). System map:
+`CURRENT_APP_STATE.md` (header note added for this pass). **Pass complete —
+phases 0–6 done, all green, ready to push + PR.**
 
 ## Phase status
 
@@ -12,93 +14,76 @@ Loop: `.claude/ui-revamp-loop.md`. Spec: `UI_REVAMP_SPEC.md` (design contract;
 | 2     | Home screen revamp                         | done (`d2c844c`)    |
 | 3     | Game mode shell revamp                     | done (`ef37a58`)    |
 | 4     | Game-over + leaderboard score terminal     | done (`77161b9`)    |
-| 5     | Motion and polish                          | **done** (this run) |
-| 6     | Cross-viewport validation + docs           | next                |
+| 5     | Motion and interaction polish              | done (`de9f045`)    |
+| 6     | Final validation + docs + PR prep          | **done** (this run) |
 
-## Phase 5 (this run) — motion and interaction polish
+## Phase 6 (this run) — closeout
 
-**Files changed:** `src/style.css` only, plus this file and a spec §6 note.
-CSS-only; no TS, no selectors, no copy, no canvas, no geometry.
+**What changed:** docs + evidence only — `CURRENT_APP_STATE.md` (revamp
+header note, three stale statements corrected), `UI_REVAMP_SPEC.md`
+(IMPLEMENTED banner), this file. `README.md` deliberately untouched: every
+claim was re-checked against the final build and none became stale (app chunk
+19.28 kB gzip vs the documented ≈19; theme/layout descriptions still exact).
 
-**What changed (all opacity/transform, no delays, from-only keyframes):**
+**Branch hygiene (verified):** `main..HEAD` = 7 commits touching only
+`src/style.css`, `src/ui/{CaseStudyPanel,GameSelector,HomeScreen,LeaderboardPanel}.ts`,
+docs, and the loop file. No `.env`/secret files tracked; zero image/font/
+audio files added anywhere; screenshots live untracked under
+`output/ui-revamp/` (prettier-ignored evidence, never in `src/`/`public/`).
 
-- **Panel reveal**: `.leaderboard-panel.is-open` plays a one-shot `lb-reveal`
-  (fade + 6px rise, `--dur-3`) on every open; the `RUN SCORE` readout plays a
-  `score-pop` (fade + scale 0.92→1) with it — terminal power-on.
-- **Selected-game energy**: the active sidebar card gains an opacity-breathing
-  3px bar (`::before` overlay on the static inset bar, 2.6s alternate).
-  Explicitly `animation: none` under reduced motion (a zeroed-duration
-  infinite loop is still a loop); the static bar underneath keeps the state
-  legible. `.game-card` gained `position: relative` (no z-index — no new
-  stacking context).
-- **Tactile micro-interactions**: the theme toggle now rotates 180° with the
-  theme (paint-only; `:active` press nudge corrected for the rotated frame);
-  home emblems lift/scale slightly with card hover; sidebar cards lift 1px on
-  hover like home cards; touch keys add a `scale(0.985)` squish to the
-  pressed sink.
-- **Cabinet glass**: one static diagonal glare gradient joined the scanline
-  layer on `.game-root::after` (near-subliminal alpha, DOM-side — canvas
-  pixel reads use `getImageData` and are unaffected).
+**Final validation (all green, fresh):**
 
-**Motion verification (computed-style probe, both modes):** normal —
-`lb-reveal 0.24s`, `score-pop 0.24s`, breathe `bar-breathe 2.6s infinite`,
-toggle `rotate(180deg)` in light; reduced — one-shots at `1e-06s` (instant
-resting frame), breathe `none`, rotation instant. Static feedback (bar, tick,
-pressed fill) fully legible without motion.
-
-**Validation results (all green):**
-
-- `npx playwright test home shell leaderboard switching games smoke
---project=desktop --project=mobile` → **98 passed / 30 skipped** (pixel
-  signatures included).
+- `npm run validate` → build (tsc root + api + vite) OK · **Vitest 154**
+  (11 files) · eslint + **import-boundary (16 files)** + prettier OK ·
+  Playwright **103 passed / 33 skipped** (desktop + mobile), pixel signatures
+  included.
 - Flake sweep `npx playwright test home shell leaderboard smoke
---repeat-each=2` (both projects) → **168 passed / 32 skipped**, zero flakes
-  (panel-reveal motion did not destabilize actionability).
-- Full `npm run validate` → build + api tsc + Vitest 154 + lint/boundary/
-  prettier + Playwright **103 passed / 33 skipped** (baseline counts).
+--repeat-each=2` (both projects) → **168 passed / 32 skipped, zero flakes**.
+- `grep -riE 'supabase|service_role|LEADERBOARD_IP_SALT' dist/` → empty.
+- Bundle after the pass: app JS **19.28 kB gzip** (baseline ≈19 — no code
+  growth), CSS **5.73 kB gzip** (grew with the token/motion layers;
+  `src/style.css` 1,339 → 1,851 lines), Phaser vendor 319.10 kB gzip
+  (untouched).
 
-**Manual QA checklist:**
+**After-screenshots:** full 12-shot matrix at `output/ui-revamp/after/`
+(same viewports/themes/states as `before/` — desktop/mobile/landscape ×
+dark/light × home/game/game-over-with-forced-panel; the two panel shots were
+retaken after the 240 ms reveal animation settles). Nothing skipped.
 
-- [ ] Desktop: hover cards/buttons (lift + glow), watch the active-card bar
-      breathe, flip the theme (toggle rotates), die flag-on (panel reveal +
-      score pop).
-- [ ] Mobile: press d-pad/ACTION (squish + glow), panel reveal on game over,
-      no zoom/scroll.
-- [ ] Reduced motion (OS setting): everything appears instantly, breathe bar
-      static, app fully legible.
+## Final manual QA checklist (human, on a real device/browser)
 
-## Next task (Phase 6) — start cold here
+- [ ] Desktop home: hover/focus cards, emblem lift, footer, both themes.
+- [ ] Desktop: start each of the five games; watch the active-card bar
+      breathe; canvas frame/bezel reads well.
+- [ ] Back returns home; Restart restarts; theme toggle flips (and rotates).
+- [ ] Mobile portrait: d-pad/ACTION feel, game-over ACTION restart, no
+      scroll, no double-tap zoom.
+- [ ] Mobile landscape: controls clear of chrome, all five home cards fit.
+- [ ] Game-over score terminal (flag-on): RUN SCORE readout, submit, list.
+- [ ] Global leaderboard against a Vercel **preview**, then production,
+      after merge (CI never touches the real API).
+- [ ] Reduced-motion OS setting: instant states, static selected bar.
 
-**Cross-viewport validation and docs** per the loop file:
+## Push + PR (run when ready — not executed by the loop)
 
-1. Fresh full `npm run validate`; flake sweep
-   `npx playwright test home shell leaderboard smoke --repeat-each=2` (both
-   projects) — both were green in Phase 5; re-run fresh.
-2. Confirm: `grep -ri supabase dist/` empty after build; no asset files added
-   anywhere (`git diff --stat main...` shows only css/ts/md); record bundle
-   sizes before/after (`vite build` output — app chunk was ≈19 kB gzip
-   pre-pass; CSS grew across phases 1–5, quantify it).
-3. Screenshot the after-matrix (desktop/portrait/landscape × dark/light ×
-   home/game/game-over+panel — reuse the phase-0 script pattern from the
-   spec) to `output/ui-revamp/after/`; compare against
-   `output/ui-revamp/before/`.
-4. Docs: `README.md` (visual identity blurb if warranted),
-   `CURRENT_APP_STATE.md` (UI sections §5/§6 rewritten to match the revamped
-   reality; test counts unchanged), `UI_REVAMP_SPEC.md` marked
-   implemented-with-deviations (§4/§6/§7/§10 notes already exist),
-   `CLAUDE.md` only if an invariant genuinely moved (none did — the pixel
-   signatures, geometry contracts, and copy pins all held), this file's final
-   summary.
-5. Stop with push/PR instructions (`git push -u origin ui-revamp-pass-1`,
-   suggested PR title `UI revamp: premium neon cabinet shell (phases 0–6)`,
-   review checklist: before/after screenshots, flag-on manual smoke on a
-   Vercel preview, both themes, reduced-motion pass) — do not push or open
-   the PR yourself.
+```bash
+git push -u origin ui-revamp-pass-1
+gh pr create --base main --head ui-revamp-pass-1 \
+  --title "UI revamp: premium neon arcade cabinet shell (phases 0–6)" \
+  --body-file .github/PR_BODY.md   # or paste the suggested body from the phase summary
+```
 
-## Known constraints carried forward
+Review guide for the PR: read `UI_REVAMP_SPEC.md` first (design contract +
+inline deviations), then diff `src/style.css` phase by phase (commits are
+per-phase), compare `output/ui-revamp/before/` vs `after/`, and run the
+manual QA checklist above on the preview deployment.
 
-- Home 375×667 slack +4px; mobile home height frozen; desktop topbar height
-  frozen since Phase 3; `.game-root` box-neutral rule stands.
-- Chamfer = inset shadows only; unstroked cut diagonals accepted (spec §4).
-- Any future infinite animation needs its own reduced-motion `animation:
-none` override (the global block only zeroes durations).
+## Carried-forward invariants for future passes
+
+- The canvas, `.game-root` client box, pixel-signature thresholds, copy pins,
+  tab orders, and `touch-action` map were never touched — keep it that way.
+- Home 375×667 has +4px slack; mobile home height is effectively frozen.
+- Any future infinite animation needs its own reduced-motion
+  `animation: none` override (the global block only zeroes durations).
+- `.lb-run` is additive DOM inside the leaderboard panel — the frozen `.lb-*`
+  hooks around it must not move.

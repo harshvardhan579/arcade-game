@@ -9,6 +9,14 @@
 > **Verdict: PROCEED.** No blocker found. Zero test-pin updates are planned; the
 > whole revamp is achievable in DOM/CSS without touching canvas rendering,
 > geometry contracts, or any pinned copy.
+>
+> **STATUS: IMPLEMENTED (phases 0–6 complete, 2026-07-14, commits
+> `bd0fbbc`…`de9f045` + the Phase 6 closeout).** The zero-pin-update plan held:
+> no test assertion, threshold, selector, or copy pin moved across the whole
+> pass. Deviations from this spec are recorded inline where they happened —
+> §4 (chamfer diagonal stroke), §6 (Phase 5 motion notes), §7 (Phase 2 home
+> notes incl. the landscape-home fix), §10 (Phase 4 run-readout + tone tweak).
+> After-screenshots: `output/ui-revamp/after/` (same matrix as `before/`).
 
 ---
 
