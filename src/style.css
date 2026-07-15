@@ -221,7 +221,26 @@ select {
 .home-tagline {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  /* Marquee micro-label (spec §3): tracked caps under the wordmark. Slightly
+     smaller than the old 0.9rem body line, so mobile header height only
+     shrinks (the 375x667 home fit has zero slack). */
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* Marquee footer: desktop garnish only — every mobile pixel belongs to the
+   cards (zero portrait slack, and landscape already runs negative). */
+.home-footer {
+  display: none;
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
 }
 
 .home-grid {
@@ -240,9 +259,15 @@ select {
   padding: 14px;
   color: var(--text);
   text-align: left;
-  background: var(--card-bg);
+  background-color: var(--card-bg);
+  /* Cabinet face: a faint top sheen + machined edges. Height-neutral —
+     every mobile px belongs to the fit tests. */
+  background-image: linear-gradient(180deg, var(--edge-hi), transparent 42%);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-2);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
   cursor: pointer;
   transition:
     border-color var(--dur-2) var(--ease-out),
@@ -289,16 +314,22 @@ select {
   text-overflow: ellipsis;
 }
 
-/* The global "World" best joins the local high on the same line; muted so the
-   local score stays primary. */
+/* The global "World" best joins the local high on the same line; muted and
+   lighter-weight so the amber local score stays primary. */
 .hs-world {
   color: var(--muted);
+  font-weight: 400;
 }
 
 .home-card:hover {
   border-color: var(--cyan);
-  background: var(--card-hover-bg);
-  box-shadow: 0 0 16px var(--card-glow);
+  /* background-color only: the shorthand would wipe the sheen layer. */
+  background-color: var(--card-hover-bg);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo),
+    0 0 16px var(--card-glow);
+  transform: translateY(-1px);
 }
 
 .home-card:active {
@@ -318,6 +349,32 @@ select {
   border: 1px solid var(--line);
   border-radius: 10px;
   background-color: #071114;
+  /* Mini cabinet screen: inner vignette like .game-root, so the emblem art
+     sits behind glass. Per-game border accents below make the set read as
+     a collection (theme-invariant identity colors on literally-dark tiles). */
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(216, 255, 249, 0.06);
+}
+
+.home-logo--neon-serpent {
+  border-color: rgba(77, 255, 225, 0.38);
+}
+
+.home-logo--bounce-circuit {
+  border-color: rgba(255, 209, 102, 0.38);
+}
+
+.home-logo--star-courier {
+  border-color: rgba(216, 255, 249, 0.3);
+}
+
+.home-logo--lane-rush {
+  border-color: rgba(255, 117, 87, 0.38);
+}
+
+.home-logo--circuit-stack {
+  border-color: rgba(255, 79, 216, 0.38);
 }
 
 .home-logo::before,
@@ -382,13 +439,14 @@ select {
   clip-path: polygon(50% 0, 0 100%, 100% 100%);
 }
 
-/* Star Courier: starfield dots, cyan ship, projectile over the nose. */
+/* Star Courier: starfield dots (brightened so the field reads), cyan ship,
+   projectile over the nose. */
 .home-logo--star-courier {
   background-image:
-    radial-gradient(circle 2px at 14px 14px, #1d4650 0 1.5px, transparent 2px),
-    radial-gradient(circle 2px at 46px 22px, #1d4650 0 1.5px, transparent 2px),
-    radial-gradient(circle 2px at 30px 8px, #1d4650 0 1.5px, transparent 2px),
-    radial-gradient(circle 2px at 52px 44px, #1d4650 0 1.5px, transparent 2px);
+    radial-gradient(circle 2px at 14px 14px, #2d6a78 0 1.5px, transparent 2px),
+    radial-gradient(circle 2px at 46px 22px, #2d6a78 0 1.5px, transparent 2px),
+    radial-gradient(circle 2px at 30px 8px, #2d6a78 0 1.5px, transparent 2px),
+    radial-gradient(circle 2px at 52px 44px, #2d6a78 0 1.5px, transparent 2px);
 }
 
 .home-logo--star-courier::before {
@@ -1197,6 +1255,44 @@ h2 {
     background: linear-gradient(90deg, var(--cyan), transparent);
   }
 
+  /* Home hub, desktop presence (spec §7): a wider stage, bigger cards, the
+     wordmark rule, a hairline over the score line, and the marquee footer.
+     All of it lives here — the 375x667 portrait fit has zero height slack,
+     so mobile card metrics stay byte-identical. */
+  .arcade-shell[data-mode='home'] .home-screen {
+    max-width: 960px;
+  }
+
+  .home-header h1::after {
+    content: '';
+    display: block;
+    width: 72px;
+    height: 2px;
+    margin-top: 6px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, var(--cyan), transparent);
+  }
+
+  .home-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+  }
+
+  .home-card {
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .home-card-high {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--card-border);
+  }
+
+  .home-footer {
+    display: block;
+  }
+
   .touch-controls {
     display: none;
   }
@@ -1337,6 +1433,22 @@ h2 {
 
   .theme-toggle {
     min-width: 44px;
+  }
+}
+
+/* Short landscape phones on the home hub: drop the flavor hook line. The
+   667x375 home grid ran ~72px past the viewport (the last card was clipped);
+   shedding the hook (~85px across five cards) brings every card fully on
+   screen. Titles, subtitles, and the High/World line stay. */
+@media (max-width: 899px) and (max-height: 500px) {
+  .home-card-hook {
+    display: none;
+  }
+
+  /* Compact, not cramped: with the hook gone this trims the last ~3px of
+     grid overflow at 667x375 so the bottom card row sits fully on screen. */
+  .home-card {
+    padding: 12px 14px;
   }
 }
 

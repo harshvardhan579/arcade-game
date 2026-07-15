@@ -258,6 +258,15 @@ manipulation`, ≥44px touch floors on coarse layouts, pinned focus ring.
 Grid, column sizes, no-scroll behavior, and `.game-root` row-derived sizing are
 **unchanged**. Work within them:
 
+- **Phase 2 implementation notes (deviations, accepted):** emblems stayed
+  64px — their interiors are pixel-positioned art, and presence came instead
+  from per-game accent borders + an inner screen vignette. The home stage
+  widened to 960px with `minmax(250px, 1fr)` cards (desktop only). The
+  375×667 portrait fit measured **zero** height slack, so every additive
+  treatment (footer, wordmark rule, score-line hairline, larger padding) is
+  scoped to ≥900px. Bonus fix: short-landscape home (667×375) overflowed by
+  ~72px on `main` (the fifth card was clipped); dropping the flavor hook line
+  - 2px card padding there brings all five cards fully on screen (+9px slack).
 - **Home**: keep `max-width: 880px` centered, but give the room a floor —
   page-level vignette + a wide, faint radial glow behind the header; marquee-ize
   the header (tagline as tracked caps line with trim rules either side); larger

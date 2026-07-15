@@ -1,97 +1,105 @@
 # NEXT_RUN — UI Revamp Pass (branch `ui-revamp-pass-1`)
 
 Loop: `.claude/ui-revamp-loop.md`. Spec: `UI_REVAMP_SPEC.md` (design contract;
-§4 carries a Phase 1 implementation note). System map: `CURRENT_APP_STATE.md`.
+§4 and §7 carry Phase 1/2 implementation notes). System map:
+`CURRENT_APP_STATE.md`.
 
 ## Phase status
 
 | Phase | Scope                                            | Status              |
 | ----- | ------------------------------------------------ | ------------------- |
 | 0     | UI audit + design spec (no implementation)       | done (`bd0fbbc`)    |
-| 1     | Design tokens + base shell polish                | **done** (this run) |
-| 2     | Home screen revamp                               | next                |
-| 3     | Game mode shell revamp (topbar, controls, bezel) | pending             |
+| 1     | Design tokens + base shell polish                | done (`6665cc3`)    |
+| 2     | Home screen revamp                               | **done** (this run) |
+| 3     | Game mode shell revamp (topbar, controls, bezel) | next                |
 | 4     | Game-over + leaderboard panel revamp             | pending             |
 | 5     | Motion and polish                                | pending             |
 | 6     | Cross-viewport validation + docs                 | pending             |
 
-## Phase 1 (this run) — tokens + base shell polish
+## Phase 2 (this run) — home screen revamp
 
-**Files changed:** `src/style.css` only (plus this file and a spec §4 note).
-No TS, no tests, no canvas, no selectors/copy touched.
+**Files changed:** `src/style.css`, `src/ui/HomeScreen.ts` (one appended
+`<p class="home-footer">`), plus this file and a spec §7 note. No selectors
+renamed, no copy pins touched, no canvas/scene/leaderboard-behavior changes.
 
-**What changed (per spec §2–§5, §7 base):**
+**Measured first:** the 375×667 portrait home fit had **zero** height slack
+(last card bottom = 667 exactly) and 667×375 landscape already overflowed
+~72px on `main` (fifth card clipped; the fit test passes on intersection).
+Every additive treatment is therefore desktop-scoped, and landscape got a
+reclaim instead.
 
-- **Token layer**: full new block in `:root` + light overrides — `--panel-2`,
-  `--bezel`, `--edge-hi/lo`, `--trim`, `--glow-pink/amber`, `--vignette`,
-  `--floor-glow`, `--action-hi/lo` (reserved for Phase 3), spacing scale
-  `--space-1..6`, `--radius-1/2`, `--chamfer`, `--dur-1/2/3`, `--ease-out`,
-  `--font-mono`. All existing token values untouched; `--bg` hexes frozen.
-- **Room background**: static vignette + faint magenta floor glow layered onto
-  the existing gradients (`body`), both themes.
-- **Cabinet panels** (`.panel` = selector + case-study): 10px chamfer cuts
-  (top-right + bottom-left) via clip-path, cyan `--trim` top edge light +
-  `--edge-lo` bottom bevel as inset shadows (scroll-safe). Deviation recorded
-  in spec §4: the 1px border stroke is absent along the two cut diagonals
-  (pseudo-element workaround incompatible with scroll containers; accepted).
-- **Bezel ring**: `.game-root` gains `0 0 0 4px var(--bezel), 0 0 0 5px
-var(--line)` spread-shadow rings — box-shadow only, client box and canvas
-  geometry untouched (pixel signatures verified green).
-- **Buttons/chrome**: bevel edge-light insets on Back, theme toggle, picker,
-  desktop Restart (on-accent white/dark bevel), mobile quiet-Restart overrides
-  (both mobile blocks); hover states gain one `--card-glow`; all shell
-  transitions folded to `--dur-1/2` + `--ease-out` (0.15s → 180ms is the only
-  perceptible-in-principle timing shift).
-- **Scoreboard type**: `.card-high` + `.home-card-high` now `--font-mono`,
-  700, tabular (textContent unchanged — `High`/`World` pins intact).
-- **Desktop-only topbar hierarchy**: hairline under `.topbar` + a 72px neon
-  rule under the h1 (`h1::after`, empty content — accessible name and heading
-  count untouched). Scoped to `min-width: 900px` so mobile/landscape topbar
-  height is byte-identical (landscape disjointness pins are tight).
+**What changed:**
+
+- **Header marquee**: tagline restyled as tracked-caps micro-label (copy
+  unchanged; slightly smaller, so mobile header only shrank); ≥900px adds the
+  72px neon wordmark rule (`h1::after`, empty content — heading pins intact).
+- **Cards (all viewports, height-neutral)**: cabinet-face top sheen
+  (`--edge-hi` gradient layer) + machined edge bevels; hover now lifts 1px
+  with border+single-glow (hover uses `background-color` so the sheen layer
+  survives); pressed keeps `translateY(1px)`; focus ring untouched.
+- **Emblems**: inner screen vignette (like `.game-root`) + per-game accent
+  borders — serpent cyan, bounce amber, courier pale, lane red-orange, stack
+  magenta (theme-invariant identity colors on the literally-dark tiles);
+  Star Courier's starfield brightened `#1d4650` → `#2d6a78`. Boxes stay 64px
+  (interiors are pixel-positioned art — spec §7 note records the deviation).
+- **Score line**: `.hs-world` gets weight 400 vs the bold amber `.hs-local`
+  (textContent contracts untouched); ≥900px adds a hairline above the line.
+- **Desktop presence (≥900px only)**: home stage 880 → 960px, grid
+  `minmax(250px, 1fr)` + 14px gap, card padding 16px, and the new marquee
+  footer `5 games · zero assets · every pixel procedural` (a `<p>`, hidden
+  <900px, nothing focusable — home tab order toggle→cards intact).
+- **Landscape home fix**: `(max-width: 899px) and (max-height: 500px)` drops
+  the hook line + trims card padding 2px → all five cards fully on screen
+  (measured +9px slack, was −72px).
+
+**Fit measurements after:** 375×667 slack +4px · 667×375 slack +9px (was
+−72) · 390×844 slack +97px. Zero page overflow at all three.
 
 **Validation results (all green):**
 
-- `npx playwright test shell home smoke --project=desktop --project=mobile`
-  → 47 passed / 15 skipped.
-- `npx playwright test switching --project=desktop` → 1 passed (pixel
-  signatures intact — bezel ring is box-neutral as designed).
-- `npx playwright test leaderboard --project=desktop --project=mobile`
-  → 37 passed / 1 skipped.
-- Full `npm run validate` → build (tsc root + api + vite) OK, Vitest 154, lint
-  (eslint + import-boundary + prettier) OK, Playwright **103 passed /
-  33 skipped** — identical counts to the pre-pass baseline.
+- `npx playwright test home shell smoke leaderboard --project=desktop
+--project=mobile` → 84 passed / 16 skipped (World fragments, flag-off
+  zero-network, theme suite, no-scroll pins all included).
+- Full `npm run validate` → build + api tsc + Vitest 154 + lint/boundary/
+  prettier + Playwright **103 passed / 33 skipped** (baseline counts).
 
-**Screenshots:** `output/ui-revamp/phase1/*.png` (desktop dark/light home +
-game, mobile dark game). Compare with `output/ui-revamp/before/*.png`.
+**Screenshots:** `output/ui-revamp/phase2/*.png` (desktop dark+light with
+World fragments + highs, mobile portrait, 667×375 landscape). Compare with
+`output/ui-revamp/before/`.
 
-## Next task (Phase 2) — start cold here
+## Next task (Phase 3) — start cold here
 
-Implement the **home screen revamp** per `UI_REVAMP_SPEC.md` §5 (home card),
-§7 (home layout):
+Implement the **game mode shell revamp** per `UI_REVAMP_SPEC.md` §5, §7
+(game-mode parts), §8, §9:
 
-1. `src/style.css` home blocks: card anatomy/hierarchy polish on the Phase 1
-   tokens, hover/focus/pressed states, header marquee treatment (tagline as
-   tracked caps with trim rules), larger emblem presence (72px on ≥900px only
-   if the 375×667 fit still passes).
-2. Optional tiny DOM addition in `src/ui/HomeScreen.ts`: a muted mono footer
-   line (`<p>`, never a heading, nothing focusable, appended inside the
-   existing flex column).
-3. Hard pins: `.home-card-high` single-line; `.hs-local`/`.hs-world` split;
-   home tab order (header toggle is the FIRST tab stop — nothing focusable
-   before it); heading-role "Pocket Arcade" count stays 1; `.home-card` count
-   5 + `.home-logo` count 5; no canvas elements; home no-scroll at 375×667 and
-   667×375 with World fragments present.
-4. Verify: `npx playwright test home shell smoke --project=desktop
---project=mobile` → full `npm run validate` → screenshots to
-   `output/ui-revamp/phase2/` → commit only if green → update this file.
+1. `src/style.css`: sidebar `.game-card` anatomy — mini-emblems (see 2),
+   remove the dead `span { min-height: 2.6em }` reservation, `Now playing`
+   chip restyle; topbar eyebrow as cabinet-marquee tag (desktop only);
+   scanline overlay refinement (≤ current weight); mobile portrait topbar
+   compaction (height-neutral or smaller — landscape disjointness pins are
+   tight); d-pad bevel/pressed polish + ACTION gradient
+   (`--action-hi/lo` + inner rim + `--on-accent` glyph — geometry, grid, and
+   single-shot behavior byte-identical).
+2. `src/ui/GameSelector.ts`: add `aria-hidden` emblem spans reusing
+   `.home-logo home-logo--<id>` at ~40px (scale via `transform: scale()` on a
+   64px box or a scoped size override — interiors are pixel-positioned;
+   accessible names must not change).
+3. `src/ui/CaseStudyPanel.ts`: typographic apostrophes + real test counts
+   (154 Vitest / 8 Playwright suites) — verified unpinned by any spec.
+4. Hard pins: controls-hint copy verbatim; tab order cards→Back→Restart→
+   toggle; `.game-root` client box untouched (re-run `switching` after any
+   change near it); touch-action map; ≥44px targets; `.is-pressed` mechanics;
+   picker option text.
+5. Verify: `npx playwright test shell switching games smoke
+--project=desktop --project=mobile` → full `npm run validate` → screenshots
+   to `output/ui-revamp/phase3/` → commit only if green → update this file.
 
 ## Known constraints carried forward
 
-- Bezel/frame work must stay box-neutral for `.game-root` (re-run `switching`
-  after any change near it); never touch thresholds.
-- Chamfered elements: inset shadows only; expect no border stroke on cut
-  diagonals (spec §4 note).
-- Landscape 667×375 disjointness is tight: mobile topbar must stay
-  height-neutral (Phase 1 kept all mobile topbar metrics identical).
+- Home 375×667 slack is now +4px — Phase 3+ must not add mobile home height.
+- Bezel/frame work near `.game-root` stays box-neutral; never touch
+  `switching.spec` thresholds.
+- Chamfered elements: inset shadows only; no border stroke on cut diagonals
+  (spec §4 note).
 - The optional `LeaderboardPanel.ts` helper-tone micro-tweak stays parked for
   Phase 4 (≤5-line budget).
