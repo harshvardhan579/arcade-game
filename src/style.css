@@ -605,7 +605,7 @@ h2 {
 
 .eyebrow,
 .game-card small,
-.game-card span,
+.game-card .card-sub,
 .case-study p {
   color: var(--muted);
 }
@@ -636,7 +636,10 @@ h2 {
 .game-card {
   width: 100%;
   display: grid;
-  gap: 4px;
+  /* Emblem rail + text stack, mirroring the home cards. */
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
+  align-items: center;
   margin-top: 10px;
   padding: 12px;
   color: var(--text);
@@ -657,10 +660,31 @@ h2 {
   letter-spacing: 0.01em;
 }
 
-.game-card span {
+.game-card .card-body {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* The mini-emblem reuses the home hub's pixel-positioned 64px .home-logo
+   art; scaling the box would break the art, so the box is transformed
+   (64 x 0.625 = 40 exactly — borders, radii, and shadows scale with it). */
+.card-emblem {
+  width: 40px;
+  height: 40px;
+}
+
+.card-emblem .home-logo {
   display: block;
-  min-height: 2.6em;
-  font-size: 0.85rem;
+  transform: scale(0.625);
+  transform-origin: 0 0;
+}
+
+/* The old `min-height: 2.6em` reservation left a visible hole between the
+   subtitle and the High line (audit §0.6) — natural height now. */
+.game-card .card-sub {
+  display: block;
+  font-size: 0.82rem;
   line-height: 1.3;
 }
 
@@ -681,9 +705,16 @@ h2 {
 
 .game-card.is-active::after {
   content: 'Now playing' / '';
-  margin-top: 2px;
+  /* Marquee chip. Explicit column 2: the card is a 2-col grid now, and
+     auto-placement would drop this pseudo under the emblem rail. */
+  grid-column: 2;
+  justify-self: start;
+  padding: 2px 8px;
   color: var(--accent-text);
-  font-size: 0.68rem;
+  background: var(--quiet-fill);
+  border: 1px solid var(--trim);
+  border-radius: var(--radius-1);
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1148,6 +1179,10 @@ h2 {
   border-radius: var(--radius-2);
   font-size: 1.35rem;
   font-weight: 800;
+  /* Machined key caps: same edge-light language as the shell buttons. */
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo);
   transition:
     background-color var(--dur-1) var(--ease-out),
     transform var(--dur-1) var(--ease-out),
@@ -1168,7 +1203,14 @@ h2 {
   grid-column: 5;
   grid-row: 1 / span 3;
   color: var(--on-accent);
-  background: var(--pink);
+  /* Tame the raw magenta slab (audit §0.4): a top-lit gradient + inner rim
+     reads as a real arcade button. Same grid cell, size, and single-shot
+     behavior — chrome only. */
+  background: linear-gradient(180deg, var(--action-hi), var(--action-lo));
+  border-color: rgba(2, 8, 10, 0.3);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    inset 0 0 0 2px rgba(2, 8, 10, 0.18);
   font-size: 1.6rem;
 }
 
@@ -1187,12 +1229,20 @@ h2 {
 .touch-button.is-pressed {
   background: var(--control-pressed);
   transform: translateY(1px);
-  box-shadow: 0 0 14px var(--control-pressed-glow);
+  box-shadow:
+    inset 0 1px 0 var(--edge-hi),
+    inset 0 -1px 0 var(--edge-lo),
+    0 0 14px var(--control-pressed-glow);
 }
 
 .touch-action.is-pressed {
+  /* The shorthand drops the gradient while pressed — a flat, brighter face
+     is the pressed feedback. */
   background: var(--action-pressed);
-  box-shadow: 0 0 18px var(--action-pressed-glow);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    inset 0 0 0 2px rgba(2, 8, 10, 0.18),
+    0 0 18px var(--action-pressed-glow);
 }
 
 .case-study {
@@ -1243,6 +1293,18 @@ h2 {
   .topbar {
     padding-bottom: 10px;
     border-bottom: 1px solid var(--line);
+  }
+
+  /* The eyebrow becomes the cabinet marquee tag over the wordmark. */
+  .eyebrow {
+    display: inline-block;
+    margin-bottom: 6px;
+    padding: 3px 8px;
+    color: var(--accent-text);
+    background: var(--quiet-fill);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-1);
+    font-size: 0.68rem;
   }
 
   .topbar h1::after {
@@ -1375,6 +1437,18 @@ h2 {
      chrome, and Restart demotes to secondary weight so the picker leads. */
   .eyebrow {
     display: none;
+  }
+
+  /* Topbar compaction (audit §0.3): the wordmark wrapped to two lines and
+     the hint to three, spending ~1/6 of the viewport before the canvas.
+     Copy is pinned — only the metrics shrink, so the canvas row grows and
+     the landscape disjointness margins get safer, never tighter. */
+  .topbar h1 {
+    font-size: 1.15rem;
+  }
+
+  .controls-hint {
+    font-size: 0.72rem;
   }
 
   .topbar {

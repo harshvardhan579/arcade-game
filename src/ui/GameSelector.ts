@@ -22,7 +22,18 @@ export function createGameSelector(games: readonly GameDefinition[]): HTMLElemen
     button.type = 'button';
     button.dataset.gameId = game.id;
     const high = storage.getNumber(`pocket-arcade:${game.id}:high`, 0);
-    button.innerHTML = `<strong>${game.title}</strong><span>${game.subtitle}</span><small class="card-high">${formatHigh(high)}</small>`;
+    // The emblem reuses the home hub's procedural .home-logo art, scaled down
+    // in CSS (the interiors are pixel-positioned, so we transform the 64px
+    // box rather than resize it). aria-hidden + empty text: the button's
+    // accessible name (pinned by role-name lookups) is unchanged.
+    button.innerHTML = `
+      <span class="card-emblem" aria-hidden="true"><span class="home-logo home-logo--${game.id}"></span></span>
+      <span class="card-body">
+        <strong>${game.title}</strong>
+        <span class="card-sub">${game.subtitle}</span>
+        <small class="card-high">${formatHigh(high)}</small>
+      </span>
+    `;
     button.addEventListener('click', () => {
       window.dispatchEvent(new CustomEvent('arcade-select-game', { detail: game.id }));
       // Release focus so gameplay keys flow to the game right after selecting.
