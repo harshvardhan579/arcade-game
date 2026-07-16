@@ -127,6 +127,13 @@ export function createHomeScreen(games: readonly GameDefinition[]): HTMLElement 
   scheduleRefresh();
   window.addEventListener('arcade-go-home', scheduleRefresh);
 
-  home.append(header, grid);
+  // Desktop-only marquee footer (CSS hides it <900px — the 375x667 home fit
+  // has zero height slack). A <p>, never a heading, never focusable: the
+  // home tab order (toggle -> cards) and heading-count pins stay untouched.
+  const footer = document.createElement('p');
+  footer.className = 'home-footer';
+  footer.textContent = '5 games · zero assets · every pixel procedural';
+
+  home.append(header, grid, footer);
   return home;
 }

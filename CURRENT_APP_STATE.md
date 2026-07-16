@@ -36,6 +36,25 @@
 > default** (`VITE_LEADERBOARD_ENABLED` unset) → zero `/api`, no leaderboard DOM, local high
 > scores/gameplay/seeds untouched. Vitest 73 → **154** (11 files); Playwright **103 passed /
 > 33 skipped** (8 spec files, desktop + mobile).
+>
+> **What the UI revamp changed (branch `ui-revamp-pass-1`, 2026-07-14, commits
+> `bd0fbbc`…`de9f045`):** a shell-only visual revamp to a **premium neon arcade
+> cabinet** identity — a design-token layer (spacing/radius/chamfer/motion/mono
+> scoreboard type + surface/edge/trim/glow tokens, dark + light), room vignette,
+> chamfered panels with trim edge-light, a box-neutral bezel ring around the cabinet
+> screen, a marquee-treated home hub (per-game emblem accent borders, mono High/World
+> lines, desktop footer; the short-landscape home overflow was fixed — all five cards
+> now fit 667×375), sidebar cards with scaled procedural mini-emblems + a `Now playing`
+> chip, a desktop eyebrow marquee tag, a compacted mobile topbar, machined
+> d-pad keys + a gradient ACTION button, and a game-over **score terminal** (raised
+> chamfered panel, RUN SCORE readout + local best, mono terminal input, status ticks,
+> TOP-N rules/separators, dashed empty-slot states) with a CSS-only motion layer
+> (one-shot panel reveal/score pop, breathing selected-card bar, theme-toggle
+> rotation — all reduced-motion safe). Gameplay, logic, canvas rendering, pixel
+> signatures, seeds, leaderboard behavior, and every test contract are unchanged;
+> validation held at Vitest 154 / Playwright 103 passed / 33 skipped with a
+> zero-flake `--repeat-each=2` sweep. Spec + recorded deviations:
+> `UI_REVAMP_SPEC.md`; before/after screenshots: `output/ui-revamp/{before,after}/`.
 
 ---
 
@@ -346,7 +365,8 @@ All five share: portrait 3/4 canvas, cyan = player, warm (red/amber/pink) = haza
   keys while shell controls are focused. Verified by `tests/shell.spec.ts` keyboard test.
 - **Strengths:** composed, no-scroll, coherent palette that matches the canvases, real
   focus/keyboard support.
-- **Limitations:** the case-study copy uses straight (not typographic) apostrophes (noted in
+- **Limitations:** ~~the case-study copy uses straight (not typographic) apostrophes~~ (fixed
+  in the UI revamp, which also refreshed the stale test counts in that panel) (noted in
   `UI_DESKTOP_AUDIT.md`); the three-column layout is also (wrongly) served to **iPad
   landscape** — see §6.
 
@@ -518,7 +538,8 @@ juice and a real validation pipeline.
 - **Feel is much improved but still short of "juicy" by modern standards** — Lane Rush now
   has a real crash impact and Bounce a double jump, but there is still no hitstop/
   freeze-frames elsewhere, no sustained trails, and particles are short bursts.
-- Minor: iPad landscape unplayable; DPR softness; straight apostrophes in copy.
+- Minor: iPad landscape unplayable; DPR softness (straight-apostrophe copy was fixed in
+  the UI revamp).
 
 **What a recruiter would notice:** the stack breadth (Vite/TS-strict/Phaser/Vitest/
 Playwright/ESLint/Prettier + a custom guard), the test rigor, the responsive/mobile care,
@@ -536,7 +557,8 @@ per-game feel/progression is respectable, and the remaining leverage is the meta
 
 ## Appendix — file map (as read)
 
-- Shell/bootstrap: `src/main.ts`, `index.html`, `src/style.css` (647 lines: base +
+- Shell/bootstrap: `src/main.ts`, `index.html`, `src/style.css` (1,851 lines after the
+  UI revamp: tokens + base +
   reduced-motion + `min-width:900` desktop + `max-width:899` mobile + coarse-landscape).
 - Core: `src/core/{types,InputManager,AudioEngine,ScoreManager,Storage,TestBridge,Viewport,RunSeeds}.ts`
   (+ `RunSeeds.test.ts`).
