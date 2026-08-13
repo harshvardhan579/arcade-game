@@ -1,193 +1,209 @@
-# 🕹️ Pocket Arcade
+# Pocket Arcade
 
-**Five original arcade games in one responsive web app — every pixel drawn in code, every sound synthesized, zero downloaded assets.**
+**Five original arcade games in one responsive browser app. Every visual is drawn in code, and every sound is synthesized at runtime.**
 
-**▶ [Play the live demo](https://arcade-game-five.vercel.app/)** &nbsp;·&nbsp; [Source on GitHub](https://github.com/harshvardhan579/arcade-game)
+Pocket Arcade is a playable portfolio project for exploring testable canvas-game architecture. Framework-independent TypeScript engines own the rules, Phaser scenes render their snapshots, and browser tests inspect the canvas to verify what players actually see.
 
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
-![Phaser](https://img.shields.io/badge/Phaser-3.90-8A4FFF)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![Vitest](https://img.shields.io/badge/tested_with-Vitest-6E9F18?logo=vitest&logoColor=white)
-![Playwright](https://img.shields.io/badge/e2e-Playwright-2EAD33?logo=playwright&logoColor=white)
-![Deployed on Vercel](https://img.shields.io/badge/deploy-Vercel-000000?logo=vercel&logoColor=white)
+[Play Pocket Arcade](https://arcade-game-five.vercel.app/) · [Browse the source](https://github.com/harshvardhan579/arcade-game)
 
-Pocket Arcade is a portfolio project built to show what I care about as an engineer: **clean architecture, a real automated-testing discipline, and thoughtful UX** — not just a game that runs. It's a Vite + strict-TypeScript + Phaser 3 app where game rules live in pure, deterministic, framework-independent engines, and Phaser scenes only render them. That separation is enforced by a custom build-time guard, verified by 11 unit-test files and 8 Playwright end-to-end suites, and shipped to production on Vercel with an optional global leaderboard behind a serverless API.
+![Lane Rush running in Pocket Arcade's desktop shell, with the game selector and engineering case study visible](docs/images/pocket-arcade-gameplay.png)
 
----
+## What makes Pocket Arcade different
 
-## Why this project is worth a look
+The project uses constraints that make each game reproducible and independently testable:
 
-- **Architecture with a hard boundary.** Every game is a pure `*Logic.ts` engine (no Phaser, no DOM, no storage, no `Math.random`) plus a `*Scene.ts` renderer. A custom `scripts/import-boundary.mjs` guard fails the build if that boundary is ever crossed — so game logic stays unit-testable and deterministic by construction.
-- **Testing that actually catches bugs.** Beyond unit tests, a Playwright suite reads rendered **canvas pixels** to prove the selected game is the one on screen — a class of "stacked scene" bug that DOM and state assertions physically cannot catch.
-- **Zero runtime assets.** No images, audio files, fonts, or sprite sheets are ever downloaded. All visuals are procedural (Phaser Graphics, generated textures, particles, glow, scanlines, camera shake); all sound is synthesized with WebAudio.
-- **Production-grade delivery.** Deterministic seeded RNG, a fixed-step game loop, safe `localStorage` high scores, a flag-gated, server-side validated leaderboard API, full mobile/desktop responsive layouts, two themes, and `prefers-reduced-motion` support.
+- **Separated game truth and rendering**: each `*Logic.ts` engine stays free of Phaser, browser APIs, storage, and runtime entropy. A custom import-boundary check enforces this rule
+- **Deterministic runs**: seeded randomness and a fixed-step loop let tests replay exact game states while normal play receives a fresh seed for every run
+- **Runtime-generated presentation**: Phaser graphics primitives create the visuals, Web Audio creates the sound effects, and system fonts provide the typography. The app downloads no image, audio, sprite, or font assets
+- **Tests at the visible boundary**: Vitest covers pure rules and state contracts. Playwright covers gameplay, persistence, responsive layouts, accessibility behaviors, and canvas pixels
+- **Optional full-stack path**: a flag-gated leaderboard adds server-side validation and Supabase persistence without adding network requests to the default local experience
 
----
+## Play five distinct games
 
-## The games
+Choose a game from the home screen, play with a keyboard or touch controls, and restart with a newly generated run seed. Local high scores persist in the browser. Deployments can also enable explicit global-score submission after a run.
 
-Five distinct genres, each with its own logic engine, hand-built feel, and procedural rendering:
+![Pocket Arcade home screen showing the five available games](docs/images/pocket-arcade-home.png)
 
-| Game               | Genre                | What makes it interesting                                                                                                                                                     |
-| ------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Neon Serpent**   | Grid snake           | Portal wrapping, a combo multiplier, seeded food/obstacles, and a 17-level speed ramp (144 ms → 80 ms step floor) surfaced live in the HUD.                                   |
-| **Bounce Circuit** | Auto-runner          | Ramping capped scroll past seeded chunks (spike fences, one-way platforms, orb bounties); coyote time, landing buffer, and a double jump; distance banks into score on death. |
-| **Star Courier**   | Vertical shooter     | Straight drones + sinusoidal weavers, un-shootable debris to dodge, queued column-strafing that settles aim-exact, object pools, and deterministic wave scaling.              |
-| **Lane Rush**      | Pseudo-3D racer      | Depth-eased three-lane road, near-miss scoring with popups, a double-tap boost (cooldown + exhaust), a capped speed ramp, and crash impact at the true collision depth.       |
-| **Circuit Stack**  | Falling-block puzzle | Full seven-piece 7-bag dealing, wall kicks (incl. the I-piece ±2 kicks), ghost preview, multi-row clear scoring, and a gravity curve that quickens with lines cleared.        |
+| Game               | Genre                | Core mechanics                                                                                |
+| ------------------ | -------------------- | --------------------------------------------------------------------------------------------- |
+| **Neon Serpent**   | Grid snake           | Portal wrapping, combo decay, seeded obstacles, and an increasing step rate                   |
+| **Bounce Circuit** | Auto-runner          | Seeded terrain chunks, coyote time, jump buffering, double jump, and collectible orbs         |
+| **Star Courier**   | Vertical shooter     | Column-based movement, pooled entities, telegraphed debris, and escalating waves              |
+| **Lane Rush**      | Three-lane racer     | Pseudo-3D depth, near-miss scoring, speed progression, and a double-tap boost                 |
+| **Circuit Stack**  | Falling-block puzzle | Seven-piece bag randomization, wall kicks, ghost preview, line clears, and increasing gravity |
 
-Every run draws a **fresh seed** (new game, Restart, or restart-after-death), so obstacles, enemies, traffic, and pieces vary — while tests can force exact seeds for fully reproducible outcomes.
+## Run it locally
 
----
+The base arcade needs no account, database, or environment variables.
+
+### Prerequisites
+
+- Node.js 22 or newer
+- npm
+
+### Start the app
+
+```bash
+git clone https://github.com/harshvardhan579/arcade-game.git
+cd arcade-game
+npm ci
+npm run dev
+```
+
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173), choose a game, and use the displayed keyboard controls. The Vite development server binds to the loopback interface, so it is not exposed to the local network by default.
+
+You can also open a game directly:
+
+```text
+http://127.0.0.1:5173/?game=lane-rush
+```
+
+Stop the server with `Ctrl+C`. To reset local scores, the saved player name, and the theme preference, clear site data for `127.0.0.1:5173` in the browser.
 
 ## Architecture
 
-The core idea: **game truth lives in pure logic; scenes only draw it.**
+Game rules remain portable because browser and Phaser concerns stay at the edges.
 
+```mermaid
+flowchart LR
+    controls["Keyboard or touch"] --> input["InputManager<br/>semantic events"]
+    input --> scene["Phaser scene<br/>fixed-step loop"]
+    scene --> logic["Deterministic<br/>logic engine"]
+    logic --> snapshot["Serializable<br/>state snapshot"]
+    snapshot --> scene
+    scene --> canvas["Procedural<br/>canvas renderer"]
+    snapshot --> bridge["TestBridge"]
+    bridge --> tests["Playwright"]
+    snapshot --> scores["ScoreManager"]
+    scores --> storage["Browser localStorage"]
+
+    scores -. "explicit submit when enabled" .-> client["LeaderboardService"]
+    subgraph server["Server trust boundary"]
+        api["Vercel /api/leaderboard"] --> validation["Validation and<br/>plausibility rules"]
+        validation --> db["Supabase Postgres"]
+    end
+    client -->|"same-origin request"| api
 ```
+
+### Runtime decisions
+
+- **Pure logic engines**: scenes translate semantic input, step the engine, and render its returned state. Logic modules do not import Phaser or reach into the Document Object Model (DOM)
+- **Enforced boundaries**: `scripts/import-boundary.mjs` scans logic and test files for restricted dependencies. ESLint separately limits where Phaser can be imported
+- **Fixed-step simulation**: `BaseGameScene` uses an accumulator, keeping rule updates independent from render-frame timing
+- **Seed ownership at the scene edge**: live runs mix clock and counter values into fresh seeds. Unit and browser tests can inject fixed seeds for repeatable outcomes
+- **Inspectable state without framework leakage**: `window.__ARCADE__` exposes detached, JSON-serializable snapshots to browser tests, not Phaser objects
+- **Shared browser services**: one input manager normalizes keyboard and virtual controls. One lazily unlocked Web Audio context synthesizes cues. Safe storage wrappers preserve play when `localStorage` is unavailable
+
+## Repository map
+
+The main directories follow the runtime boundaries:
+
+```text
 src/
-├── games/<game>/
-│   ├── <game>Logic.ts        # pure, deterministic engine — no Phaser/DOM/storage/RNG entropy
-│   ├── <game>Scene.ts        # Phaser renderer: input → logic, draws every entity at its true position
-│   └── <game>Logic.test.ts   # Vitest: happy paths, edge cases, snapshot contracts
-│   BaseGameScene.ts          # shared fixed-step loop, HUD, audio cues, TestBridge publishing
-├── core/                     # InputManager, AudioEngine, ScoreManager/Storage, RunSeeds,
-│                             # LeaderboardService, TestBridge, Viewport
-├── ui/                       # DOM shell: ArcadeShell, HomeScreen, GameSelector,
-│                             # TouchControls, ThemeToggle, LeaderboardPanel, CaseStudyPanel
-├── leaderboard/              # pure shared validation (names, banned words, plausibility, serverCore)
-└── main.ts                   # game registry, Phaser config, scene switching
-api/leaderboard.ts            # Vercel serverless function (thin adapter over serverCore)
+├── core/                  # Input, audio, seeds, storage, scores, and test bridge
+├── games/<game>/          # Pure logic, Phaser scene, and colocated unit tests
+├── leaderboard/           # Shared validation, plausibility rules, and server core
+├── ui/                    # Responsive DOM shell and optional leaderboard panel
+└── main.ts                # Game registry, Phaser setup, and scene switching
+api/leaderboard.ts         # Vercel function adapter
+scripts/import-boundary.mjs
+tests/                     # Playwright browser suites
 ```
 
-**Design decisions worth calling out:**
+## Testing and quality gates
 
-- **The import boundary is enforced, not aspirational.** ESLint plus `scripts/import-boundary.mjs` block any `*Logic.ts` from importing Phaser, the DOM, `window`, `document`, `localStorage`, or the audio engine. If the boundary fails, the fix is the architecture — never weakening the guard.
-- **Deterministic by design.** A seeded `SeededRandom` powers all gameplay randomness; logic files contain no `Math.random` or `Date`. Run seeds are mixed at the scene boundary (`core/RunSeeds.ts`), so tests reproduce exact runs.
-- **Scenes render truth.** Each game's state snapshot exposes real entity positions (projectiles, traffic, piece cells, …) and scenes draw from them — never synthetic layouts derived from counts.
-- **A test bridge, not a leak.** Scenes publish a JSON-serializable snapshot to `window.__ARCADE__` (score, tick, high score, run seed, per-game entity positions) for Playwright — Phaser objects never escape into it.
-- **Shared systems as singletons.** One WebAudio context (lazily unlocked, Phaser's own SoundManager disabled), one input manager mapping keyboard + virtual D-pad to semantic inputs, one score manager persisting per-game maxima to `localStorage` safely.
+The default validation sequence type-checks both application and API code, builds the client, runs unit tests, checks formatting and architecture boundaries, then runs the browser suite.
 
----
-
-## Testing & quality discipline
-
-Quality is the point of this repo, so validation is a first-class pipeline:
+Install Playwright's Chromium build once before the full check:
 
 ```bash
-npm run validate   # build (tsc + vite) → Vitest → ESLint + import-boundary + Prettier → Playwright
-```
-
-_Current validation: 154 Vitest tests and 103 Playwright checks pass across desktop/mobile projects, plus build, API typecheck, ESLint, import-boundary, Prettier, and secret-grep checks._
-
-| Layer                                   | What it guarantees                                                                                                                                                                                                                                                                                 |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`tsc --noEmit`** (app + `api/`)       | Strict TypeScript across the whole codebase, including the serverless function.                                                                                                                                                                                                                    |
-| **Vitest** (11 files)                   | Pure-logic happy paths, edge cases, and snapshot contracts (positions in bounds, determinism, JSON-serializable & detached).                                                                                                                                                                       |
-| **ESLint + import-boundary + Prettier** | Lint, the architectural boundary guard, and consistent formatting.                                                                                                                                                                                                                                 |
-| **Playwright** (8 suites)               | Deep per-game interaction runs (deterministic progression/death), high-score persistence across reloads, audio lifecycle (one AudioContext, no listener growth), mobile-viewport layout, and a **pixel-signature switching regression** that reads the canvas to prove the right game is rendered. |
-
-The pixel-signature test is the highlight: bridge and DOM checks can't detect a scene stacking on top of another, so the suite counts per-game signature-color pixels on the real canvas (e.g. Lane Rush's road trapezoid) to catch it. **Every meaningful gameplay or rendering change ships with a logic test, a state-contract test, a Playwright interaction test, or an explained validation note — no test is ever deleted to make a change pass.**
-
-Narrower commands: `npm run build`, `npm run test`, `npm run lint`, `npm run test:e2e`, or `npx vitest run src/games/<game>` for a single game. Playwright needs its browser once: `npx playwright install chromium`.
-
----
-
-## Global leaderboard (optional, flag-gated)
-
-An optional per-game **global** leaderboard runs alongside the local high scores — a small but complete piece of full-stack, security-minded engineering.
-
-- **Off by default, zero footprint.** It activates only when the build sets `VITE_LEADERBOARD_ENABLED=1`. With the flag off — including every local `npm run dev` and the entire CI suite — the client makes **zero** network calls and renders no leaderboard UI. The static app behaves exactly as it always has.
-- **No secrets in the browser, ever.** The client calls only a same-origin serverless function (`api/leaderboard.ts`) through `src/core/LeaderboardService.ts`. That function is the only place that talks to **Supabase Postgres**, via a server-only `service_role` key. `grep -ri supabase dist/` is empty after a build.
-- **Server-authoritative validation.** Name, profanity/reserved-word, and score-plausibility rules live in `src/leaderboard/` as pure modules shared by both client (instant UX feedback) and server (the authority). The server re-validates every submission and rate-limits by a salted IP hash — client validation is treated as UX only, never trusted.
-- **Additive, never intrusive.** Submission is always explicit (a tap, never automatic). Local high scores remain fully independent and network-free. Honestly scoped: this is an arcade leaderboard, not an anti-cheat system — there are no accounts, and plausible correctly-shaped scores aren't cryptographically prevented.
-
-**Server-only environment variables** (set in the deploy platform, never committed — `.env*` is git-ignored):
-
-| Variable                    | Purpose                                                                 |
-| --------------------------- | ----------------------------------------------------------------------- |
-| `SUPABASE_URL`              | Supabase project URL (server-only)                                      |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (server-only, secret)                         |
-| `LEADERBOARD_IP_SALT`       | Salt for hashing submitter IPs (server-only, secret)                    |
-| `VITE_LEADERBOARD_ENABLED`  | `1` to enable the client UI (the only `VITE_`-prefixed leaderboard var) |
-
----
-
-## Responsive, themed, and accessible
-
-- **Desktop** uses a three-column arcade layout — selector, canvas stage, engineering case-study — sized to the viewport with no page scroll (e2e-asserted 1280×800 → 1512×982).
-- **Mobile portrait** hides the side panels and sizes the canvas from its grid row, so play area and split thumb-zone controls share the screen without overlap (e2e-asserted 375×667 → 430×932, plus a dedicated landscape composition). Uses `100dvh` with safe-area insets and `viewport-fit=cover`.
-- **Two themes, zero assets** — a dark retro-neon default and a light "daylight cabinet," driven entirely by CSS custom properties. First paint honors `prefers-color-scheme` via an inline head script (no flash); a manual choice persists and wins. Light-theme contrast is designed to WCAG targets (body 13.2:1).
-- **`prefers-reduced-motion`** is honored throughout: decorative particles, shakes, and flashes are skipped while gameplay feedback stays intact. Touch targets are ≥44 px with aria-labels and hold-to-repeat.
-
----
-
-## Tech stack
-
-Targets **Node ≥22 LTS** with exact pins for the game/test tooling:
-
-| Tool              | Version            | Notes                                                                                 |
-| ----------------- | ------------------ | ------------------------------------------------------------------------------------- |
-| Phaser            | `3.90.0`           | Latest Phaser 3 line; intentionally **not** migrated to Phaser 4 (scene APIs differ). |
-| TypeScript        | `6.0.3`            | Strict mode; `tsc --noEmit` gates the build.                                          |
-| Vite              | `8.1.3`            | Dev server + build; Phaser split into its own vendor chunk.                           |
-| Vitest            | `4.1.9`            | Pure-logic unit tests.                                                                |
-| Playwright        | `1.61.1`           | Cross-viewport e2e + pixel-signature regression.                                      |
-| ESLint / Prettier | `10.6.0` / `3.9.4` | Plus the custom import-boundary guard.                                                |
-
----
-
-## Run locally
-
-```bash
-npm install
-npm run dev        # start Vite; open the printed URL
-```
-
-Then run the full quality gate any time:
-
-```bash
+npx playwright install chromium
 npm run validate
 ```
 
-The global leaderboard does nothing locally by default (flag off). To exercise the real serverless function, use `vercel dev` with envs pulled via `vercel env pull .env.local`; Playwright never talks to a real backend (flag-on e2e uses route mocks).
+Use narrower commands while developing:
 
----
+| Command                                                          | Checks                                                                       |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `npm run build`                                                  | Strict TypeScript for `src/` and `api/`, followed by a Vite production build |
+| `npm run test`                                                   | Vitest unit and contract tests                                               |
+| `npm run lint`                                                   | ESLint, the custom import boundary, and Prettier                             |
+| `npm run test:e2e`                                               | Playwright on desktop Chromium and an emulated Pixel 5 viewport              |
+| `npx vitest run src/games/neon-serpent/NeonSerpentLogic.test.ts` | One game's logic suite                                                       |
+
+The browser suites test more than DOM state. The scene-switching regression counts game-specific pixel colors on the canvas, which catches a running scene rendered over the selected scene. Leaderboard browser tests mock `/api` routes, so they validate the client contract without contacting Supabase.
+
+## Optional leaderboard and trust model
+
+The base arcade is local-first. The global leaderboard is disabled unless the client build sets `VITE_LEADERBOARD_ENABLED=1`.
+
+When enabled, the browser sends same-origin requests to `api/leaderboard.ts`. Only that serverless function reads the Supabase service-role key. The API validates the request origin, content type, body size, game identifier, player name, score shape, tick count, run seed, and a game-specific plausibility bound before calling the database function. Submitter Internet Protocol (IP) addresses are salted and hashed before transport to the database layer.
+
+Server-only configuration:
+
+| Variable                    | Purpose                                         |
+| --------------------------- | ----------------------------------------------- |
+| `SUPABASE_URL`              | Supabase project endpoint                       |
+| `SUPABASE_SERVICE_ROLE_KEY` | Privileged database credential                  |
+| `LEADERBOARD_IP_SALT`       | Salt used before hashing a submitter IP address |
+
+Client build configuration:
+
+| Variable                     | Purpose                                             |
+| ---------------------------- | --------------------------------------------------- |
+| `VITE_LEADERBOARD_ENABLED=1` | Includes and enables the leaderboard user interface |
+
+Keep the three server variables out of `VITE_` names because Vite exposes prefixed values to browser code. `.env*` and `.vercel` are ignored by Git.
+
+This boundary reduces accidental credential exposure; it is not an anti-cheat system. The leaderboard has no accounts or score ownership. Plausible, correctly shaped submissions cannot be proven to come from an unmodified client. Rate limiting is delegated to the database function.
+
+The repository does not include Supabase migrations or a standalone deployment recipe. You can run the arcade locally from a fresh clone, but reproducing the leaderboard requires an externally provisioned schema and stored procedure.
+
+## Responsive and accessible interaction
+
+The shell has separate desktop, mobile portrait, and phone-landscape compositions. Desktop uses a game selector, canvas stage, and case-study panel. Mobile uses a game picker and split touch controls without requiring page scroll during play.
+
+The interface includes keyboard navigation, visible focus states, labeled controls, touch targets with a 44 px minimum, persisted dark and light themes, safe-area insets, and reduced decorative motion when `prefers-reduced-motion` is active. Automated browser coverage uses Chromium at a desktop viewport and an emulated Pixel 5 viewport; other engines and devices are not part of the current suite.
+
+## Tech stack
+
+Versions come from the pinned direct dependencies in `package.json` and `package-lock.json`.
+
+| Layer            | Technology                             | Purpose                                                               |
+| ---------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| Game runtime     | Phaser `3.90.0`                        | Canvas scenes, graphics primitives, text, camera effects, and scaling |
+| Application      | TypeScript `6.0.3`                     | Strictly typed game, UI, and server code                              |
+| Build            | Vite `8.1.3`                           | Local development and production bundles                              |
+| Unit tests       | Vitest `4.1.9`                         | Deterministic rules and state contracts                               |
+| Browser tests    | Playwright `1.61.1`                    | Gameplay, persistence, responsive layout, and rendered-canvas checks  |
+| Quality          | ESLint `10.6.0` and Prettier `3.9.4`   | Static analysis and formatting                                        |
+| Optional backend | Vercel Functions and Supabase Postgres | Leaderboard API and persistence                                       |
+
+The production build separates Phaser into its own vendor chunk. This keeps application changes out of the larger framework chunk, but Phaser remains the dominant initial download.
 
 ## Deployment
 
-Deployed to **Vercel** as a Vite static build with an attached serverless function:
+The hosted demo serves the Vite build from Vercel and attaches the optional serverless endpoint under `/api/leaderboard`. A static deployment only needs:
 
-- The frontend remains a static Vite app; the leaderboard API is additive, flag-gated, and deployed as a Vercel serverless function.
-- Enable `VITE_LEADERBOARD_ENABLED=1` only on Production and Preview; keep Supabase keys and the IP salt as server-only secrets.
-- Phaser ships as its own vendor chunk (**≈ 316 kB gzip**) split from the app code (**≈ 19 kB gzip**), so the app logic stays tiny and cache-friendly.
+```bash
+npm ci
+npm run build
+```
 
-**Live:** [arcade-game-five.vercel.app](https://arcade-game-five.vercel.app/)
+Publish the generated `dist/` directory on a static host. Deep links use query parameters such as `?game=lane-rush`, so they do not require rewrite rules.
 
----
+## Current limitations
 
-## Design constraints (self-imposed)
+Pocket Arcade is a portfolio project rather than a released game platform. Its current boundaries are explicit:
 
-These constraints are what make the project a useful engineering showcase rather than a demo:
+- Each game is an endless single-player score run with no save-state or pause persistence
+- Browser data is best-effort local storage and disappears when site data is cleared
+- The optional leaderboard depends on externally managed Vercel and Supabase resources
+- Leaderboard submissions use plausibility checks, not accounts or tamper-proof attestation
+- Browser automation currently targets Chromium only
+- The repository has no continuous integration workflow, release tags, contributor guide, security policy, or checked-in database migrations
+- No license file is present, so reuse permissions have not been specified
 
-- **Zero external runtime assets** — no `.png`/`.jpg`/`.svg`/`.mp3`/`.wav`, no fonts, no sprite sheets, no remote images. Visuals are Phaser Graphics primitives and generated textures; audio is WebAudio synthesis after a user gesture; typography is system font stacks only.
-- **Framework-independent, deterministic logic** — enforced by the import-boundary guard, never weakened to pass a change.
-- **No placeholder rendering** — if logic tracks an entity's position, the scene draws it there.
-- **No fake progress** — anything unverifiable is stated plainly, with a concrete follow-up recorded rather than glossed over.
+## Project status
 
----
-
-## Roadmap
-
-Concrete next steps, honestly scoped:
-
-- **Per-scene lazy loading** of Phaser to trim the initial payload further (the ~316 kB gzip vendor chunk is inherent to the pinned engine today).
-- **Richer synthesized audio** — the current cues are intentionally minimal and not asserted in headless e2e (only that audio paths don't throw and exactly one AudioContext exists).
-- **End-to-end row-clear celebration** coverage for Circuit Stack (currently logic-tested; setting up a full row honestly in e2e is slow).
-- **Leaderboard hardening** — accounts/ownership and stronger anti-abuse remain out of scope for an arcade leaderboard, but are the natural direction if it grew.
-
----
-
-## A note on positioning
-
-The app contains **no runtime AI or ML** — the framing is deliberately honest. What it demonstrates is an engineering approach: a clean logic/render boundary that's enforced by tooling, deterministic and reproducible tests, security-conscious full-stack delivery, and cross-viewport, accessible UX — carried consistently across five games. If you're evaluating how I structure and validate a real codebase, the [live demo](https://arcade-game-five.vercel.app/) is the fastest look, and `src/games/neon-serpent/` is a good first read.
+The repository is a working, deployed portfolio project at version `0.1.0`. The core arcade runs without external services. The leaderboard remains optional and operationally dependent on deployment configuration.
